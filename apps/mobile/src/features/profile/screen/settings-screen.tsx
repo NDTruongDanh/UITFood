@@ -5,6 +5,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Switch,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -18,6 +19,27 @@ import {
 } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import Constants from 'expo-constants';
+import { notificationApi } from '@/src/features/notification/api';
+import { NotificationType } from '@/src/features/notification/types';
+import { NotificationPreferenceResponse } from '@/src/features/notification/types';
+
+// All order/payment notification types that map to the "Order Updates" toggle.
+const ORDER_NOTIFICATION_TYPES: NotificationType[] = [
+  'order_placed',
+  'order_confirmed',
+  'order_preparing',
+  'order_ready_for_pickup',
+  'order_picked_up',
+  'order_delivering',
+  'order_delivered',
+  'order_cancelled',
+  'order_refunded',
+  'payment_confirmed',
+  'payment_failed',
+  'refund_initiated',
+  'refund_completed',
+];
+const ORDER_TYPES_SET = new Set<NotificationType>(ORDER_NOTIFICATION_TYPES);
 
 type ToggleItem = {
   kind: 'toggle';
@@ -43,7 +65,7 @@ type SettingsGroup = {
   items: SettingsItem[];
 };
 
-function ToggleRow({ item }: { item: ToggleItem }) {
+function ToggleRow({ item, disabled }: { item: ToggleItem; disabled?: boolean }) {
   return (
     <View className="flex-row items-center justify-between p-5">
       <View className="flex-row items-center gap-4 flex-1 mr-4">
@@ -64,6 +86,7 @@ function ToggleRow({ item }: { item: ToggleItem }) {
       <Switch
         value={item.value}
         onValueChange={item.onToggle}
+        disabled={disabled}
         trackColor={{ false: '#bfcaba', true: '#a3f69c' }}
         thumbColor={item.value ? '#00490e' : '#707a6c'}
       />
