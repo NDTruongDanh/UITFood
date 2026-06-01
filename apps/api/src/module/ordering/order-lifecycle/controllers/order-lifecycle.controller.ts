@@ -32,6 +32,90 @@ import { OrderRepository } from '../repositories/order.repository';
 import { CancelOrderDto, RefundOrderDto } from '../dto/cancel-order.dto';
 import type { TriggeredByRole } from '../../order/order.schema';
 
+// ---------------------------------------------------------------------------
+// Example responses (for Swagger documentation)
+// ---------------------------------------------------------------------------
+
+/**
+ * A full Order row as returned by every transition endpoint and GET /orders/:id.
+ * Individual endpoints override `status`, `version`, and `shipperId` to reflect
+ * the state the order is in after that specific transition.
+ */
+const ORDER_EXAMPLE = {
+  id: 'a1f3c8e2-5b7d-4e9a-8c1f-2d3e4f5a6b7c',
+  customerId: 'c3f5e0a4-7d9f-4a1c-ae3b-4f5a6b7c8d9e',
+  restaurantId: 'b2e4d9f3-6c8e-4f0b-9d2a-3e4f5a6b7c8d',
+  restaurantName: 'Phở Hà Nội',
+  cartId: 'd4a6f1b5-8e0a-4b2d-bf4c-5a6b7c8d9e0f',
+  status: 'confirmed',
+  totalAmount: 125000,
+  shippingFee: 15000,
+  discountAmount: 0,
+  estimatedDeliveryMinutes: 32.5,
+  paymentMethod: 'cod',
+  deliveryAddress: {
+    street: '227 Nguyễn Văn Cừ',
+    district: 'Quận 5',
+    city: 'Hồ Chí Minh',
+    latitude: 10.762622,
+    longitude: 106.682172,
+  },
+  note: 'Ít cay, không hành',
+  paymentUrl: null,
+  expiresAt: '2026-05-28T10:30:30.000Z',
+  version: 1,
+  shipperId: null,
+  createdAt: '2026-05-28T10:15:30.000Z',
+  updatedAt: '2026-05-28T10:18:45.000Z',
+};
+
+const ORDER_ITEMS_EXAMPLE = [
+  {
+    id: 'e5b7a2c6-9f1b-4c3e-a05d-6b7c8d9e0f1a',
+    orderId: 'a1f3c8e2-5b7d-4e9a-8c1f-2d3e4f5a6b7c',
+    menuItemId: 'f6c8b3d7-a02c-4d4f-b16e-7c8d9e0f1a2b',
+    itemName: 'Phở Bò Tái',
+    unitPrice: 45000,
+    modifiersPrice: 10000,
+    quantity: 2,
+    subtotal: 110000,
+    modifiers: [
+      {
+        groupId: '1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d',
+        groupName: 'Topping',
+        optionId: '2b3c4d5e-6f7a-4b8c-9d0e-1f2a3b4c5d6e',
+        optionName: 'Trứng chần',
+        price: 10000,
+      },
+    ],
+  },
+];
+
+const ORDER_TIMELINE_EXAMPLE = [
+  {
+    id: '4d5e6f7a-8b9c-4d0e-bf1a-2b3c4d5e6f7a',
+    orderId: 'a1f3c8e2-5b7d-4e9a-8c1f-2d3e4f5a6b7c',
+    fromStatus: null,
+    toStatus: 'pending',
+    triggeredBy: 'c3f5e0a4-7d9f-4a1c-ae3b-4f5a6b7c8d9e',
+    triggeredByRole: 'customer',
+    note: null,
+    cancellationReason: null,
+    createdAt: '2026-05-28T10:15:30.000Z',
+  },
+  {
+    id: '5e6f7a8b-9c0d-4e1f-8a2b-3c4d5e6f7a8b',
+    orderId: 'a1f3c8e2-5b7d-4e9a-8c1f-2d3e4f5a6b7c',
+    fromStatus: 'pending',
+    toStatus: 'confirmed',
+    triggeredBy: 'a9b8c7d6-e5f4-4a3b-8c2d-1e0f9a8b7c6d',
+    triggeredByRole: 'restaurant',
+    note: null,
+    cancellationReason: null,
+    createdAt: '2026-05-28T10:18:45.000Z',
+  },
+];
+
 /**
  * OrderLifecycleController
  *
@@ -71,7 +155,10 @@ export class OrderLifecycleController {
   @Patch(':id/confirm')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Confirm order (T-01 — COD: restaurant accepts)' })
-  @ApiOkResponse({ description: 'Order confirmed' })
+  @ApiOkResponse({
+    description: 'Order confirmed',
+    schema: { example: { ...ORDER_EXAMPLE, status: 'confirmed', version: 1 } },
+  })
   @ApiForbiddenResponse({ description: 'Role or ownership check failed' })
   @ApiNotFoundResponse({ description: 'Order not found' })
   @ApiUnprocessableEntityResponse({
@@ -96,7 +183,10 @@ export class OrderLifecycleController {
   @Patch(':id/start-preparing')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Start preparing order (T-06)' })
-  @ApiOkResponse({ description: 'Order is now being prepared' })
+  @ApiOkResponse({
+    description: 'Order is now being prepared',
+    schema: { example: { ...ORDER_EXAMPLE, status: 'preparing', version: 2 } },
+  })
   @ApiForbiddenResponse({ description: 'Role or ownership check failed' })
   @ApiNotFoundResponse({ description: 'Order not found' })
   @ApiUnprocessableEntityResponse({ description: 'Invalid transition' })
@@ -119,7 +209,12 @@ export class OrderLifecycleController {
   @Patch(':id/ready')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Mark order ready for pickup (T-08)' })
-  @ApiOkResponse({ description: 'Order is ready for pickup' })
+  @ApiOkResponse({
+    description: 'Order is ready for pickup',
+    schema: {
+      example: { ...ORDER_EXAMPLE, status: 'ready_for_pickup', version: 3 },
+    },
+  })
   @ApiForbiddenResponse({ description: 'Role or ownership check failed' })
   @ApiNotFoundResponse({ description: 'Order not found' })
   @ApiUnprocessableEntityResponse({ description: 'Invalid transition' })
@@ -147,7 +242,17 @@ export class OrderLifecycleController {
   @Patch(':id/pickup')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Shipper picks up order (T-09, self-assign)' })
-  @ApiOkResponse({ description: 'Order picked up by shipper' })
+  @ApiOkResponse({
+    description: 'Order picked up by shipper',
+    schema: {
+      example: {
+        ...ORDER_EXAMPLE,
+        status: 'picked_up',
+        version: 4,
+        shipperId: '3c4d5e6f-7a8b-4c9d-ae0f-2a3b4c5d6e7f',
+      },
+    },
+  })
   @ApiForbiddenResponse({ description: 'Role check failed' })
   @ApiNotFoundResponse({ description: 'Order not found' })
   @ApiConflictResponse({
@@ -173,7 +278,17 @@ export class OrderLifecycleController {
   @Patch(':id/en-route')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Shipper starts en route (T-10)' })
-  @ApiOkResponse({ description: 'Order is being delivered' })
+  @ApiOkResponse({
+    description: 'Order is being delivered',
+    schema: {
+      example: {
+        ...ORDER_EXAMPLE,
+        status: 'delivering',
+        version: 5,
+        shipperId: '3c4d5e6f-7a8b-4c9d-ae0f-2a3b4c5d6e7f',
+      },
+    },
+  })
   @ApiForbiddenResponse({ description: 'Role or ownership check failed' })
   @ApiNotFoundResponse({ description: 'Order not found' })
   @ApiUnprocessableEntityResponse({ description: 'Invalid transition' })
@@ -196,7 +311,17 @@ export class OrderLifecycleController {
   @Patch(':id/deliver')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Confirm order delivered (T-11)' })
-  @ApiOkResponse({ description: 'Order delivered successfully' })
+  @ApiOkResponse({
+    description: 'Order delivered successfully',
+    schema: {
+      example: {
+        ...ORDER_EXAMPLE,
+        status: 'delivered',
+        version: 6,
+        shipperId: '3c4d5e6f-7a8b-4c9d-ae0f-2a3b4c5d6e7f',
+      },
+    },
+  })
   @ApiForbiddenResponse({ description: 'Role or ownership check failed' })
   @ApiNotFoundResponse({ description: 'Order not found' })
   @ApiUnprocessableEntityResponse({ description: 'Invalid transition' })
@@ -224,7 +349,17 @@ export class OrderLifecycleController {
       'Cancels the order from its current state. Requires a reason. ' +
       'VNPay paid orders trigger a refund event automatically.',
   })
-  @ApiOkResponse({ description: 'Order cancelled' })
+  @ApiOkResponse({
+    description: 'Order cancelled',
+    schema: {
+      example: {
+        ...ORDER_EXAMPLE,
+        status: 'cancelled',
+        version: 2,
+        updatedAt: '2026-05-28T10:25:10.000Z',
+      },
+    },
+  })
   @ApiBadRequestResponse({ description: 'Missing reason note' })
   @ApiForbiddenResponse({ description: 'Role or ownership check failed' })
   @ApiNotFoundResponse({ description: 'Order not found' })
@@ -261,7 +396,18 @@ export class OrderLifecycleController {
     summary: 'Process refund for delivered order (T-12, admin only)',
     description: 'Admin-only dispute resolution. Requires a reason note.',
   })
-  @ApiOkResponse({ description: 'Order refunded' })
+  @ApiOkResponse({
+    description: 'Order refunded',
+    schema: {
+      example: {
+        ...ORDER_EXAMPLE,
+        status: 'refunded',
+        version: 7,
+        shipperId: '3c4d5e6f-7a8b-4c9d-ae0f-2a3b4c5d6e7f',
+        updatedAt: '2026-05-28T12:30:00.000Z',
+      },
+    },
+  })
   @ApiBadRequestResponse({ description: 'Missing reason note' })
   @ApiForbiddenResponse({ description: 'Admin role required' })
   @ApiNotFoundResponse({ description: 'Order not found' })
@@ -296,7 +442,10 @@ export class OrderLifecycleController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Get order details (state + items)' })
-  @ApiOkResponse({ description: 'Order details' })
+  @ApiOkResponse({
+    description: 'Order details',
+    schema: { example: { order: ORDER_EXAMPLE, items: ORDER_ITEMS_EXAMPLE } },
+  })
   @ApiNotFoundResponse({ description: 'Order not found' })
   @ApiUnauthorizedResponse({ description: 'Not authenticated' })
   @ApiParam({ name: 'id', format: 'uuid' })
@@ -317,7 +466,10 @@ export class OrderLifecycleController {
 
   @Get(':id/timeline')
   @ApiOperation({ summary: 'Get order status timeline (audit log)' })
-  @ApiOkResponse({ description: 'Ordered list of status log entries' })
+  @ApiOkResponse({
+    description: 'Ordered list of status log entries',
+    schema: { example: ORDER_TIMELINE_EXAMPLE },
+  })
   @ApiNotFoundResponse({ description: 'Order not found' })
   @ApiUnauthorizedResponse({ description: 'Not authenticated' })
   @ApiParam({ name: 'id', format: 'uuid' })

@@ -44,6 +44,130 @@ import {
  */
 
 // ---------------------------------------------------------------------------
+// Example responses (for Swagger documentation)
+// ---------------------------------------------------------------------------
+
+const ORDER_LIST_RESPONSE_EXAMPLE = {
+  data: [
+    {
+      orderId: 'a1f3c8e2-5b7d-4e9a-8c1f-2d3e4f5a6b7c',
+      status: 'delivered',
+      restaurantId: 'b2e4d9f3-6c8e-4f0b-9d2a-3e4f5a6b7c8d',
+      restaurantName: 'Phở Hà Nội',
+      paymentMethod: 'cod',
+      totalAmount: 125000,
+      shippingFee: 15000,
+      itemCount: 2,
+      firstItemName: 'Phở Bò Tái',
+      createdAt: '2026-05-28T10:15:30.000Z',
+      updatedAt: '2026-05-28T11:05:12.000Z',
+      estimatedDeliveryMinutes: 32.5,
+    },
+    {
+      orderId: '7d2e9b1a-3c4f-4d5e-9a6b-7c8d9e0f1a2b',
+      status: 'preparing',
+      restaurantId: 'b2e4d9f3-6c8e-4f0b-9d2a-3e4f5a6b7c8d',
+      restaurantName: 'Phở Hà Nội',
+      paymentMethod: 'vnpay',
+      totalAmount: 89000,
+      shippingFee: 12000,
+      itemCount: 1,
+      firstItemName: 'Bún Chả',
+      createdAt: '2026-05-29T18:42:05.000Z',
+      updatedAt: '2026-05-29T18:50:18.000Z',
+      estimatedDeliveryMinutes: 28,
+    },
+  ],
+  total: 2,
+  limit: 20,
+  offset: 0,
+};
+
+const ORDER_DETAIL_EXAMPLE = {
+  orderId: 'a1f3c8e2-5b7d-4e9a-8c1f-2d3e4f5a6b7c',
+  status: 'delivered',
+  restaurantId: 'b2e4d9f3-6c8e-4f0b-9d2a-3e4f5a6b7c8d',
+  restaurantName: 'Phở Hà Nội',
+  paymentMethod: 'cod',
+  totalAmount: 125000,
+  shippingFee: 15000,
+  estimatedDeliveryMinutes: 32.5,
+  note: 'Ít cay, không hành',
+  paymentUrl: null,
+  deliveryAddress: {
+    street: '227 Nguyễn Văn Cừ',
+    district: 'Quận 5',
+    city: 'Hồ Chí Minh',
+    latitude: 10.762622,
+    longitude: 106.682172,
+  },
+  shipperId: '3c4d5e6f-7a8b-4c9d-ae0f-2a3b4c5d6e7f',
+  createdAt: '2026-05-28T10:15:30.000Z',
+  updatedAt: '2026-05-28T11:05:12.000Z',
+  items: [
+    {
+      orderItemId: 'e5b7a2c6-9f1b-4c3e-a05d-6b7c8d9e0f1a',
+      menuItemId: 'f6c8b3d7-a02c-4d4f-b16e-7c8d9e0f1a2b',
+      itemName: 'Phở Bò Tái',
+      unitPrice: 45000,
+      modifiersPrice: 10000,
+      quantity: 2,
+      subtotal: 110000,
+      modifiers: [
+        {
+          groupId: '1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d',
+          groupName: 'Topping',
+          optionId: '2b3c4d5e-6f7a-4b8c-9d0e-1f2a3b4c5d6e',
+          optionName: 'Trứng chần',
+          price: 10000,
+        },
+      ],
+    },
+  ],
+  timeline: [
+    {
+      fromStatus: null,
+      toStatus: 'pending',
+      triggeredBy: 'c3f5e0a4-7d9f-4a1c-ae3b-4f5a6b7c8d9e',
+      triggeredByRole: 'customer',
+      note: null,
+      createdAt: '2026-05-28T10:15:30.000Z',
+    },
+    {
+      fromStatus: 'pending',
+      toStatus: 'confirmed',
+      triggeredBy: 'a9b8c7d6-e5f4-4a3b-8c2d-1e0f9a8b7c6d',
+      triggeredByRole: 'restaurant',
+      note: null,
+      createdAt: '2026-05-28T10:18:45.000Z',
+    },
+    {
+      fromStatus: 'delivering',
+      toStatus: 'delivered',
+      triggeredBy: '3c4d5e6f-7a8b-4c9d-ae0f-2a3b4c5d6e7f',
+      triggeredByRole: 'shipper',
+      note: null,
+      createdAt: '2026-05-28T11:05:12.000Z',
+    },
+  ],
+  hasReview: false,
+};
+
+const REORDER_ITEMS_EXAMPLE = [
+  {
+    menuItemId: 'f6c8b3d7-a02c-4d4f-b16e-7c8d9e0f1a2b',
+    itemName: 'Phở Bò Tái',
+    quantity: 2,
+    selectedModifiers: [
+      {
+        groupId: '1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d',
+        optionId: '2b3c4d5e-6f7a-4b8c-9d0e-1f2a3b4c5d6e',
+      },
+    ],
+  },
+];
+
+// ---------------------------------------------------------------------------
 // Customer routes — /orders/my/**
 // ---------------------------------------------------------------------------
 
@@ -58,7 +182,10 @@ export class OrderHistoryCustomerController {
    */
   @Get('my')
   @ApiOperation({ summary: "Get current customer's order list (paginated)" })
-  @ApiOkResponse({ description: 'Paginated order list' })
+  @ApiOkResponse({
+    description: 'Paginated order list',
+    schema: { example: ORDER_LIST_RESPONSE_EXAMPLE },
+  })
   @ApiUnauthorizedResponse({ description: 'Not authenticated' })
   async getMyOrders(
     @Session() session: UserSession,
@@ -76,7 +203,10 @@ export class OrderHistoryCustomerController {
   @ApiOperation({
     summary: "Get a specific order from the customer's own history",
   })
-  @ApiOkResponse({ description: 'Full order detail' })
+  @ApiOkResponse({
+    description: 'Full order detail',
+    schema: { example: ORDER_DETAIL_EXAMPLE },
+  })
   @ApiNotFoundResponse({
     description: 'Order not found or does not belong to caller',
   })
@@ -99,6 +229,7 @@ export class OrderHistoryCustomerController {
   })
   @ApiOkResponse({
     description: 'List of items + modifier IDs for cart pre-fill',
+    schema: { example: REORDER_ITEMS_EXAMPLE },
   })
   @ApiNotFoundResponse({
     description: 'Order not found or does not belong to caller',
