@@ -113,10 +113,7 @@ export function OrderHistoryScreen() {
                 key={order.orderId}
                 order={order}
                 onPress={() => {
-                  router.push({
-                    pathname: '/(customer)/orders/[id]',
-                    params: { id: order.orderId },
-                  });
+                  router.push(`/(customer)/orders/${order.orderId}/track`);
                 }}
               />
             ))}

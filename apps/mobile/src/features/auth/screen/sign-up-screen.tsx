@@ -214,7 +214,7 @@ export function SignUpScreen({
                 label="Phone Number"
                 icon={<Phone size={20} color="#707a6c" />}
                 isFocused={focusedField === 'phone'}
-                placeholder="+1 (555) 000-0000"
+                placeholder="0912 345 678"
                 value={value}
                 onChangeText={onChange}
                 onFocus={() => setFocusedField('phone')}

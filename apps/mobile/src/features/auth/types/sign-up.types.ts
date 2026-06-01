@@ -6,7 +6,13 @@ export const signUpSchema = z.object({
   fullName: z.string().min(1, "Full name is required").min(2, "Full name is too short"),
   email: z.string().min(1, "Email is required").email("Invalid email address"),
   password: z.string().min(1, "Password is required").min(8, "Password must be at least 8 characters"),
-  phone: z.string().min(1, "Phone number is required").regex(/^[0-9+]+$/, "Invalid phone number"),
+  phone: z
+    .string()
+    .min(1, "Phone number is required")
+    .regex(
+      /^(\+84[35789][0-9]{8}|0[35789][0-9]{8})$/,
+      "Please enter a valid Vietnamese phone number (e.g. 0912 345 678)",
+    ),
   termsAccepted: z.boolean().refine((val) => val === true, "You must accept the terms and conditions"),
 });
 

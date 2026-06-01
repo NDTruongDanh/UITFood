@@ -92,7 +92,7 @@ export interface OrderDetail {
   estimatedDeliveryMinutes: number | null;
   note: string | null;
   paymentUrl: string | null;
-  subtotal?: number;
+  subtotal: number;
   deliveryAddress: DeliveryAddressResponse;
   shipperId: string | null;
   createdAt: string;

@@ -1,0 +1,234 @@
+import React from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  Switch,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  ArrowLeft,
+  Bell,
+  Globe,
+  Shield,
+  FileText,
+  Info,
+  ChevronRight,
+} from 'lucide-react-native';
+import { useRouter } from 'expo-router';
+import Constants from 'expo-constants';
+
+type ToggleItem = {
+  kind: 'toggle';
+  icon: React.ComponentType<{ size: number; color: string }>;
+  label: string;
+  subtitle?: string;
+  value: boolean;
+  onToggle: (value: boolean) => void;
+};
+
+type LinkItem = {
+  kind: 'link';
+  icon: React.ComponentType<{ size: number; color: string }>;
+  label: string;
+  value?: string;
+  onPress: () => void;
+};
+
+type SettingsItem = ToggleItem | LinkItem;
+
+type SettingsGroup = {
+  title: string;
+  items: SettingsItem[];
+};
+
+function ToggleRow({ item }: { item: ToggleItem }) {
+  return (
+    <View className="flex-row items-center justify-between p-5">
+      <View className="flex-row items-center gap-4 flex-1 mr-4">
+        <View className="h-10 w-10 items-center justify-center rounded-xl bg-surface-container">
+          <item.icon size={20} color="#00490e" />
+        </View>
+        <View className="flex-1">
+          <Text className="font-inter text-base font-semibold text-on-surface">
+            {item.label}
+          </Text>
+          {item.subtitle ? (
+            <Text className="mt-0.5 font-inter text-xs text-on-surface-variant">
+              {item.subtitle}
+            </Text>
+          ) : null}
+        </View>
+      </View>
+      <Switch
+        value={item.value}
+        onValueChange={item.onToggle}
+        trackColor={{ false: '#bfcaba', true: '#a3f69c' }}
+        thumbColor={item.value ? '#00490e' : '#707a6c'}
+      />
+    </View>
+  );
+}
+
+function LinkRow({ item }: { item: LinkItem }) {
+  return (
+    <TouchableOpacity
+      onPress={item.onPress}
+      className="flex-row items-center justify-between p-5 active:bg-surface-container-low"
+      activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityLabel={item.label}
+    >
+      <View className="flex-row items-center gap-4">
+        <View className="h-10 w-10 items-center justify-center rounded-xl bg-surface-container">
+          <item.icon size={20} color="#00490e" />
+        </View>
+        <Text className="font-inter text-base font-semibold text-on-surface">
+          {item.label}
+        </Text>
+      </View>
+      <View className="flex-row items-center gap-2">
+        {item.value ? (
+          <Text className="font-inter text-sm text-on-surface-variant">
+            {item.value}
+          </Text>
+        ) : null}
+        <ChevronRight size={20} color="#707a6c" />
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+export function SettingsScreen() {
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const [pushEnabled, setPushEnabled] = React.useState(true);
+  const [orderUpdates, setOrderUpdates] = React.useState(true);
+  const [promotions, setPromotions] = React.useState(false);
+
+  const appVersion = Constants.expoConfig?.version ?? '1.0.0';
+
+  const groups: SettingsGroup[] = [
+    {
+      title: 'Notifications',
+      items: [
+        {
+          kind: 'toggle',
+          icon: Bell,
+          label: 'Push Notifications',
+          value: pushEnabled,
+          onToggle: setPushEnabled,
+        },
+        {
+          kind: 'toggle',
+          icon: Bell,
+          label: 'Order Updates',
+          subtitle: 'Get notified about your orders',
+          value: orderUpdates,
+          onToggle: setOrderUpdates,
+        },
+        {
+          kind: 'toggle',
+          icon: Bell,
+          label: 'Promotions',
+          subtitle: 'Deals and special offers',
+          value: promotions,
+          onToggle: setPromotions,
+        },
+      ],
+    },
+    {
+      title: 'General',
+      items: [
+        {
+          kind: 'link',
+          icon: Globe,
+          label: 'Language',
+          value: 'English',
+          onPress: () => {},
+        },
+        {
+          kind: 'link',
+          icon: Shield,
+          label: 'Privacy Policy',
+          onPress: () => {},
+        },
+        {
+          kind: 'link',
+          icon: FileText,
+          label: 'Terms of Service',
+          onPress: () => {},
+        },
+        {
+          kind: 'link',
+          icon: Info,
+          label: 'About UITFood',
+          value: `v${appVersion}`,
+          onPress: () => {},
+        },
+      ],
+    },
+  ];
+
+  return (
+    <View className="flex-1 bg-surface" style={{ paddingTop: insets.top }}>
+      {/* Header */}
+      <View className="h-16 flex-row items-center bg-surface px-4 border-b border-outline-variant/40">
+        <TouchableOpacity
+          onPress={() => router.back()}
+          className="h-10 w-10 items-center justify-center rounded-full active:bg-surface-container-low"
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+        >
+          <ArrowLeft size={24} color="#0d631b" />
+        </TouchableOpacity>
+        <Text className="flex-1 text-center font-jakarta-sans text-lg font-bold text-primary-container">
+          Settings
+        </Text>
+        <View className="w-10" />
+      </View>
+
+      <ScrollView
+        contentContainerStyle={{
+          paddingBottom: insets.bottom + 32,
+          paddingTop: 24,
+          paddingHorizontal: 16,
+          gap: 12,
+        }}
+        showsVerticalScrollIndicator={false}
+      >
+        {groups.map((group) => (
+          <View key={group.title}>
+            <Text className="mb-2 px-1 font-jakarta-sans text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
+              {group.title}
+            </Text>
+            <View
+              className="overflow-hidden rounded-3xl bg-surface-container-lowest"
+              style={{
+                shadowColor: '#1a1c1c',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.06,
+                shadowRadius: 8,
+                elevation: 2,
+              }}
+            >
+              {group.items.map((item, index) => (
+                <React.Fragment key={item.label}>
+                  {index > 0 && (
+                    <View className="mx-5 h-px bg-surface-container" />
+                  )}
+                  {item.kind === 'toggle' ? (
+                    <ToggleRow item={item} />
+                  ) : (
+                    <LinkRow item={item} />
+                  )}
+                </React.Fragment>
+              ))}
+            </View>
+          </View>
+        ))}
+      </ScrollView>
+    </View>
+  );
+}
