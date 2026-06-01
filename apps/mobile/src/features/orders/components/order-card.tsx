@@ -16,7 +16,7 @@ const STATUS_CONFIG: Record<
   paid: { label: 'Paid', isProcessing: true },
   confirmed: { label: 'Confirmed', isProcessing: true },
   preparing: { label: 'Preparing', isProcessing: true },
-  ready_for_pickup: { label: 'Ready for Pickup', isProcessing: true },
+  ready_for_pickup: { label: 'Done', isProcessing: false },
   picked_up: { label: 'Picked Up', isProcessing: true },
   delivering: { label: 'Delivering', isProcessing: true },
   delivered: { label: 'Delivered', isProcessing: false },

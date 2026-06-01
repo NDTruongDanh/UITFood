@@ -62,10 +62,18 @@ export class OrderEligibilityAdapter implements IOrderEligibilityPort {
       throw new NotFoundException('Order not found.');
     }
 
-    // BR-22.6 / BR-22.7 — only delivered orders are reviewable
-    if (order.status !== 'delivered') {
+    // BR-22.6 / BR-22.7 — order must be completed (ready for pickup or delivered)
+    // NOTE: shipper transitions (pickup, en-route, deliver) are not yet available,
+    // so all post-confirmation statuses are considered reviewable for now.
+    const REVIEWABLE_STATUSES = [
+      'ready_for_pickup',
+      'picked_up',
+      'delivering',
+      'delivered',
+    ];
+    if (!REVIEWABLE_STATUSES.includes(order.status)) {
       throw new UnprocessableEntityException({
-        message: 'You can only review an order that has been delivered.',
+        message: 'You can only review an order that has been completed.',
         code: 'MSG-RATE-02',
       });
     }

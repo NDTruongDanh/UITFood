@@ -3,3 +3,4 @@ export * from './hooks/use-order-history';
 export * from './types';
 export { OrderHistoryScreen } from './screen/order-history-screen';
 export { OrderDetailScreen } from './screen/order-detail-screen';
+export { OrderTrackingScreen } from './screen/order-tracking-screen';

@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import {
   View,
   Text,
@@ -18,22 +17,7 @@ export function OrderDetailScreen() {
   const router = useRouter();
 
   const { data: order, isLoading, isError } = useMyOrderDetail(id || '');
-  const orderId = order?.orderId;
-  const isSubtotalMissing = Boolean(order) && order?.subtotal === undefined;
-  const computedSubtotal = isSubtotalMissing
-    ? (order?.items?.reduce((sum, item) => sum + item.subtotal, 0) ?? 0)
-    : 0;
-  const subtotal =
-    order?.subtotal !== undefined ? order.subtotal : computedSubtotal;
-
-  useEffect(() => {
-    if (!isSubtotalMissing || !orderId) return;
-
-    console.warn('[OrderDetail] Missing order subtotal; using item total.', {
-      orderId,
-      computedSubtotal,
-    });
-  }, [computedSubtotal, isSubtotalMissing, orderId]);
+  const subtotal = order?.subtotal ?? 0;
 
   return (
     <View className="flex-1 bg-background" style={{ paddingTop: insets.top }}>
@@ -180,7 +164,7 @@ export function OrderDetailScreen() {
             </Text>
           </View>
 
-          {order.status === 'delivered' && (
+          {(order.status === 'delivered' || order.status === 'ready_for_pickup') && (
             <TouchableOpacity
               onPress={() =>
                 router.push(`/(customer)/orders/${order.orderId}/rate`)
