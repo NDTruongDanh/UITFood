@@ -723,6 +723,7 @@ describe('UC-22 Submit Rating & Review E2E', () => {
           and(
             eq(notifications.type, 'new_review'),
             eq(notifications.recipientId, testAuth.ownerUserId),
+            eq(notifications.orderId, orderId),
           ),
         );
 
