@@ -155,4 +155,3 @@ export class PublicReviewListResponseDto {
   @ApiProperty()
   limit!: number;
 }
-
