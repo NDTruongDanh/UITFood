@@ -326,7 +326,7 @@ export function AdminDashboardPage() {
           {isLoading ? (
             <Skeleton className="h-64 w-full rounded-xl" />
           ) : (
-            <PlatformLoadChart data={data?.hourlyLoad ?? []} />
+            <PlatformLoadChart data={data?.hourlyLoad ?? []} range={range} />
           )}
         </div>
 
