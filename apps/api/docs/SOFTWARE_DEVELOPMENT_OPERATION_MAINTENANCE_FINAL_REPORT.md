@@ -747,8 +747,8 @@ hide methods
 left to right direction
 
 package "PostgreSQL\nsingle physical database\nlogical schemas grouped by BC ownership" as PG #DCFCE7 {
-  package AUTH as DAuth #DBEAFE {
-    entity user as users {
+  package "AUTH" as DAuth #DBEAFE {
+    entity "user" as users {
       *id : uuid
       --
       email : text
@@ -758,7 +758,7 @@ package "PostgreSQL\nsingle physical database\nlogical schemas grouped by BC own
       createdAt : timestamp
     }
 
-    entity session as sessions {
+    entity "session" as sessions {
       *id : uuid
       --
       userId : uuid
@@ -767,7 +767,7 @@ package "PostgreSQL\nsingle physical database\nlogical schemas grouped by BC own
       ipAddress : text
     }
 
-    entity account as accounts {
+    entity "account" as accounts {
       *id : uuid
       --
       userId : uuid
@@ -776,7 +776,7 @@ package "PostgreSQL\nsingle physical database\nlogical schemas grouped by BC own
       password : text
     }
 
-    entity verification as verifications {
+    entity "verification" as verifications {
       *id : uuid
       --
       identifier : text
@@ -785,8 +785,8 @@ package "PostgreSQL\nsingle physical database\nlogical schemas grouped by BC own
     }
   }
 
-  package RESTAURANT_CATALOG as DCatalog #BBF7D0 {
-    entity restaurants as restaurants {
+  package "RESTAURANT_CATALOG" as DCatalog #BBF7D0 {
+    entity "restaurants" as restaurants {
       *id : uuid
       --
       ownerId : uuid
@@ -797,7 +797,7 @@ package "PostgreSQL\nsingle physical database\nlogical schemas grouped by BC own
       longitude : double
     }
 
-    entity delivery_zones as delivery_zones {
+    entity "delivery_zones" as delivery_zones {
       *id : uuid
       --
       restaurantId : uuid
@@ -807,7 +807,7 @@ package "PostgreSQL\nsingle physical database\nlogical schemas grouped by BC own
       isActive : boolean
     }
 
-    entity menu_categories as menu_categories {
+    entity "menu_categories" as menu_categories {
       *id : uuid
       --
       restaurantId : uuid
@@ -815,7 +815,7 @@ package "PostgreSQL\nsingle physical database\nlogical schemas grouped by BC own
       displayOrder : integer
     }
 
-    entity menu_items as menu_items {
+    entity "menu_items" as menu_items {
       *id : uuid
       --
       restaurantId : uuid
@@ -826,7 +826,7 @@ package "PostgreSQL\nsingle physical database\nlogical schemas grouped by BC own
       imageUrl : text
     }
 
-    entity modifier_groups as modifier_groups {
+    entity "modifier_groups" as modifier_groups {
       *id : uuid
       --
       menuItemId : uuid
@@ -835,7 +835,7 @@ package "PostgreSQL\nsingle physical database\nlogical schemas grouped by BC own
       maxSelections : integer
     }
 
-    entity modifier_options as modifier_options {
+    entity "modifier_options" as modifier_options {
       *id : uuid
       --
       groupId : uuid
@@ -845,8 +845,8 @@ package "PostgreSQL\nsingle physical database\nlogical schemas grouped by BC own
     }
   }
 
-  package IMAGE as DImage #CCFBF1 {
-    entity images as images {
+  package "IMAGE" as DImage #CCFBF1 {
+    entity "images" as images {
       *id : uuid
       --
       publicId : text
@@ -857,8 +857,8 @@ package "PostgreSQL\nsingle physical database\nlogical schemas grouped by BC own
     }
   }
 
-  package ORDERING as DOrdering #FEF3C7 {
-    entity orders as orders {
+  package "ORDERING" as DOrdering #FEF3C7 {
+    entity "orders" as orders {
       *id : uuid
       --
       customerId : uuid
@@ -871,7 +871,7 @@ package "PostgreSQL\nsingle physical database\nlogical schemas grouped by BC own
       version : integer
     }
 
-    entity order_items as order_items {
+    entity "order_items" as order_items {
       *id : uuid
       --
       orderId : uuid
@@ -882,7 +882,7 @@ package "PostgreSQL\nsingle physical database\nlogical schemas grouped by BC own
       subtotal : integer
     }
 
-    entity order_status_logs as order_status_logs {
+    entity "order_status_logs" as order_status_logs {
       *id : uuid
       --
       orderId : uuid
@@ -892,7 +892,7 @@ package "PostgreSQL\nsingle physical database\nlogical schemas grouped by BC own
       createdAt : timestamp
     }
 
-    entity app_settings as app_settings {
+    entity "app_settings" as app_settings {
       *key : text
       --
       value : text
@@ -900,7 +900,7 @@ package "PostgreSQL\nsingle physical database\nlogical schemas grouped by BC own
       updatedAt : timestamp
     }
 
-    entity ordering_restaurant_snapshots as ordering_restaurant_snapshots {
+    entity "ordering_restaurant_snapshots" as ordering_restaurant_snapshots {
       *restaurantId : uuid
       --
       ownerId : uuid
@@ -910,7 +910,7 @@ package "PostgreSQL\nsingle physical database\nlogical schemas grouped by BC own
       lastSyncedAt : timestamp
     }
 
-    entity ordering_menu_item_snapshots as ordering_menu_item_snapshots {
+    entity "ordering_menu_item_snapshots" as ordering_menu_item_snapshots {
       *menuItemId : uuid
       --
       restaurantId : uuid
@@ -920,7 +920,7 @@ package "PostgreSQL\nsingle physical database\nlogical schemas grouped by BC own
       lastSyncedAt : timestamp
     }
 
-    entity ordering_delivery_zone_snapshots as ordering_delivery_zone_snapshots {
+    entity "ordering_delivery_zone_snapshots" as ordering_delivery_zone_snapshots {
       *zoneId : uuid
       --
       restaurantId : uuid
@@ -931,8 +931,8 @@ package "PostgreSQL\nsingle physical database\nlogical schemas grouped by BC own
     }
   }
 
-  package PAYMENT as DPayment #DDD6FE {
-    entity payment_transactions as payment_transactions {
+  package "PAYMENT" as DPayment #DDD6FE {
+    entity "payment_transactions" as payment_transactions {
       *id : uuid
       --
       orderId : uuid
@@ -945,8 +945,8 @@ package "PostgreSQL\nsingle physical database\nlogical schemas grouped by BC own
     }
   }
 
-  package PROMOTION as DPromotion #E9D5FF {
-    entity promotions as promotions {
+  package "PROMOTION" as DPromotion #E9D5FF {
+    entity "promotions" as promotions {
       *id : uuid
       --
       restaurantId : uuid
@@ -958,7 +958,7 @@ package "PostgreSQL\nsingle physical database\nlogical schemas grouped by BC own
       version : integer
     }
 
-    entity coupon_codes as coupon_codes {
+    entity "coupon_codes" as coupon_codes {
       *id : uuid
       --
       promotionId : uuid
@@ -968,7 +968,7 @@ package "PostgreSQL\nsingle physical database\nlogical schemas grouped by BC own
       currentUses : integer
     }
 
-    entity promotion_usages as promotion_usages {
+    entity "promotion_usages" as promotion_usages {
       *id : uuid
       --
       promotionId : uuid
@@ -980,8 +980,8 @@ package "PostgreSQL\nsingle physical database\nlogical schemas grouped by BC own
     }
   }
 
-  package NOTIFICATION as DNotification #99F6E4 {
-    entity notifications as notifications {
+  package "NOTIFICATION" as DNotification #99F6E4 {
+    entity "notifications" as notifications {
       *id : uuid
       --
       recipientId : uuid
@@ -992,7 +992,7 @@ package "PostgreSQL\nsingle physical database\nlogical schemas grouped by BC own
       idempotencyKey : text
     }
 
-    entity notification_preferences as notification_preferences {
+    entity "notification_preferences" as notification_preferences {
       *id : uuid
       --
       userId : uuid
@@ -1002,7 +1002,7 @@ package "PostgreSQL\nsingle physical database\nlogical schemas grouped by BC own
       mutedTypes : jsonb
     }
 
-    entity device_tokens as device_tokens {
+    entity "device_tokens" as device_tokens {
       *id : uuid
       --
       userId : uuid
@@ -1012,7 +1012,7 @@ package "PostgreSQL\nsingle physical database\nlogical schemas grouped by BC own
       lastSeenAt : timestamp
     }
 
-    entity notification_delivery_logs as notification_delivery_logs {
+    entity "notification_delivery_logs" as notification_delivery_logs {
       *id : uuid
       --
       notificationId : uuid
@@ -1022,7 +1022,7 @@ package "PostgreSQL\nsingle physical database\nlogical schemas grouped by BC own
       errorCode : text
     }
 
-    entity notification_restaurant_snapshots as notification_restaurant_snapshots {
+    entity "notification_restaurant_snapshots" as notification_restaurant_snapshots {
       *restaurantId : uuid
       --
       ownerId : uuid
@@ -1117,7 +1117,7 @@ package "SHARED_STATE\nRedis / Valkey" as DShared #FDE68A {
   }
 }
 
-package EXTERNAL_DATA_OWNERS as DExternal #F5F3FF {
+package "EXTERNAL_DATA_OWNERS" as DExternal #F5F3FF {
   entity "VNPay gateway" as vnpay_gateway <<external>> {
     *providerTxnId : text
     --
