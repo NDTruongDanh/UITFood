@@ -1,12 +1,15 @@
 /**
  * OrderPlacedEvent
  *
- * Published by: Ordering BC (PlaceOrderHandler)
- * Triggers after: successful order creation at checkout
- * Consumed by:
- *  - Payment Context  — initiate VNPay session for paymentMethod='vnpay'
- *  - Delivery Context — pre-warm shipper dispatch data
- *  - Notification Context — send order-confirmation push
+ * Published by: Ordering BC.
+ *
+ * Timing:
+ *  - COD: emitted after successful checkout.
+ *  - VNPay: emitted at checkout as not-ready, then emitted as ready only after
+ *    verified IPN confirms payment and Ordering advances the order to paid.
+ *
+ * Downstream contexts must only treat the order as successfully placed when
+ * readyForFulfillment is true.
  */
 export class OrderPlacedEvent {
   constructor(
@@ -14,9 +17,9 @@ export class OrderPlacedEvent {
     public readonly customerId: string,
     public readonly restaurantId: string,
     public readonly restaurantName: string,
-    /** totalAmount = itemsTotal + shippingFee */
+    /** totalAmount = itemsTotal + shippingFee - discountAmount. */
     public readonly totalAmount: number,
-    /** Shipping fee computed from the innermost eligible delivery zone. 0 when zone data unavailable. */
+    /** Shipping fee computed from the innermost eligible delivery zone. */
     public readonly shippingFee: number,
     public readonly paymentMethod: 'cod' | 'vnpay',
     public readonly items: Array<{
@@ -34,15 +37,19 @@ export class OrderPlacedEvent {
     },
     /**
      * Haversine distance in km from restaurant to delivery address.
-     * Undefined when either party's coordinates were absent (soft guard).
-     * Useful for Delivery BC to pre-compute shipper dispatch radius.
+     * Undefined when either party's coordinates were absent.
      */
     public readonly distanceKm: number | undefined,
     /**
      * Estimated delivery time in minutes.
-     * Formula: prepTimeMinutes + (distanceKm / avgSpeedKmh × 60) + bufferMinutes.
      * Undefined when coordinates or zone data were unavailable.
      */
     public readonly estimatedDeliveryMinutes: number | undefined,
+    /**
+     * True only when downstream contexts may treat the order as successfully
+     * placed. COD is ready immediately; VNPay is ready only after verified IPN
+     * confirms payment and Ordering advances the order to paid.
+     */
+    public readonly readyForFulfillment: boolean = paymentMethod === 'cod',
   ) {}
 }

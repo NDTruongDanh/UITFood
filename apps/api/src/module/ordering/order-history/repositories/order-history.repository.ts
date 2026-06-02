@@ -9,6 +9,8 @@ import {
   gte,
   inArray,
   lte,
+  ne,
+  or,
   sql,
 } from 'drizzle-orm';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
@@ -121,6 +123,8 @@ export class OrderHistoryRepository {
   /**
    * Kitchen operational view: all active orders for this restaurant,
    * sorted oldest-first (highest preparation priority).
+   * Pending VNPay orders are excluded until IPN confirms payment and the order
+   * moves to paid; pending COD orders remain actionable immediately.
    * No pagination — expected to be a short live list (< 100 orders).
    */
   async findActiveByRestaurantId(
@@ -136,6 +140,7 @@ export class OrderHistoryRepository {
     const where = and(
       eq(orders.restaurantId, restaurantId),
       inArray(orders.status, activeStatuses),
+      or(ne(orders.status, 'pending'), eq(orders.paymentMethod, 'cod')),
     );
     return this.listQueryWithAggregates(
       where,

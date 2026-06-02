@@ -140,6 +140,7 @@ async function placeOrder(
   http: ReturnType<typeof request>,
   token: string,
   menuItemId: string,
+  paymentMethod: 'cod' | 'vnpay' = 'cod',
 ): Promise<string> {
   await clearCart(http, token);
   await addItemToCart(http, token, menuItemId);
@@ -147,7 +148,7 @@ async function placeOrder(
   const res = await http
     .post('/api/carts/my/checkout')
     .set(authHeader(token))
-    .send({ deliveryAddress: DELIVERY_ADDRESS, paymentMethod: 'cod' });
+    .send({ deliveryAddress: DELIVERY_ADDRESS, paymentMethod });
 
   expect(res.status).toBe(201);
   return res.body.orderId as string;
@@ -679,15 +680,27 @@ describe('Order History E2E (Phase 7)', () => {
       expect(Array.isArray(res.body)).toBe(true);
     });
 
-    it('OH-41 active orders only have confirmed / preparing / ready_for_pickup status', async () => {
+    it('OH-41 active orders only include actionable statuses', async () => {
       const res = await http
         .get('/api/restaurant/orders/active')
         .set(ownerHeaders());
 
       expect(res.status).toBe(200);
-      const activeStatuses = ['confirmed', 'preparing', 'ready_for_pickup'];
-      for (const order of res.body as Array<{ status: string }>) {
+      const activeStatuses = [
+        'pending',
+        'paid',
+        'confirmed',
+        'preparing',
+        'ready_for_pickup',
+      ];
+      for (const order of res.body as Array<{
+        status: string;
+        paymentMethod: string;
+      }>) {
         expect(activeStatuses).toContain(order.status);
+        if (order.status === 'pending') {
+          expect(order.paymentMethod).toBe('cod');
+        }
       }
     });
 
@@ -725,6 +738,25 @@ describe('Order History E2E (Phase 7)', () => {
         (o) => o.orderId,
       );
       expect(ids).not.toContain(orderDeliveredId);
+    });
+
+    it('OH-44b does NOT contain pending VNPay orders before payment is paid', async () => {
+      const pendingVnPayOrderId = await placeOrder(
+        http,
+        customerToken,
+        menuItemId,
+        'vnpay',
+      );
+
+      const res = await http
+        .get('/api/restaurant/orders/active')
+        .set(ownerHeaders());
+
+      expect(res.status).toBe(200);
+      const ids = (res.body as Array<{ orderId: string }>).map(
+        (o) => o.orderId,
+      );
+      expect(ids).not.toContain(pendingVnPayOrderId);
     });
 
     it('OH-45 returns 401 without authentication', async () => {

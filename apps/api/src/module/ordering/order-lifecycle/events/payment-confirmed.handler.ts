@@ -1,8 +1,15 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { EventsHandler, IEventHandler, CommandBus } from '@nestjs/cqrs';
+import {
+  EventsHandler,
+  IEventHandler,
+  CommandBus,
+  EventBus,
+} from '@nestjs/cqrs';
 import { PaymentConfirmedEvent } from '@/shared/events/payment-confirmed.event';
+import { OrderPlacedEvent } from '@/shared/events/order-placed.event';
 import { TransitionOrderCommand } from '../commands/transition-order.command';
 import { OrderRepository } from '../repositories/order.repository';
+import { recordOrderPlaced } from '@/observability/domain-metrics';
 
 /**
  * PaymentConfirmedEventHandler
@@ -28,6 +35,7 @@ export class PaymentConfirmedEventHandler implements IEventHandler<PaymentConfir
 
   constructor(
     private readonly commandBus: CommandBus,
+    private readonly eventBus: EventBus,
     private readonly orderRepo: OrderRepository,
   ) {}
 
@@ -74,6 +82,8 @@ export class PaymentConfirmedEventHandler implements IEventHandler<PaymentConfir
           'PaymentConfirmed',
         ),
       );
+      await this.publishFulfillmentReadyOrderPlacedEvent(orderId);
+      recordOrderPlaced({ paymentMethod: 'vnpay' });
     } catch (err) {
       // If the order was already cancelled (e.g., by the timeout cron before this
       // event arrived), the transition will be rejected as invalid. Log and discard —
@@ -84,5 +94,43 @@ export class PaymentConfirmedEventHandler implements IEventHandler<PaymentConfir
         (err as Error).stack,
       );
     }
+  }
+
+  private async publishFulfillmentReadyOrderPlacedEvent(
+    orderId: string,
+  ): Promise<void> {
+    const detail = await this.orderRepo.findWithItems(orderId);
+    if (!detail) {
+      this.logger.warn(
+        `PaymentConfirmedEvent could not load order detail for ${orderId} after payment confirmation.`,
+      );
+      return;
+    }
+
+    const { order, items } = detail;
+    this.eventBus.publish(
+      new OrderPlacedEvent(
+        order.id,
+        order.customerId,
+        order.restaurantId,
+        order.restaurantName,
+        order.totalAmount,
+        order.shippingFee,
+        order.paymentMethod,
+        items.map((item) => ({
+          menuItemId: item.menuItemId,
+          name: item.itemName,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+        })),
+        order.deliveryAddress,
+        undefined,
+        order.estimatedDeliveryMinutes ?? undefined,
+        true,
+      ),
+    );
+    this.logger.log(
+      `Fulfillment-ready OrderPlacedEvent published after payment confirmation: orderId=${order.id}`,
+    );
   }
 }

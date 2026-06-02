@@ -531,7 +531,9 @@ export class PlaceOrderHandler implements ICommandHandler<PlaceOrderCommand> {
     });
     this.logger.log(`Cart cleared for customerId=${customerId}`);
 
-    recordOrderPlaced({ paymentMethod });
+    if (paymentMethod === 'cod') {
+      recordOrderPlaced({ paymentMethod });
+    }
 
     this.logger.log(
       `Order placed: orderId=${finalOrder.id}, customerId=${customerId}, ` +
