@@ -81,7 +81,7 @@ export function CheckoutPaymentSection({
         </Text>
         <TouchableOpacity
           activeOpacity={0.7}
-          onPress={() => router.push('/(customer)/checkout/payment')}
+          onPress={() => router.push('/(customer)/payment-methods')}
         >
           <Text
             className="text-primary text-sm"
@@ -108,7 +108,7 @@ export function CheckoutPaymentSection({
               className="text-xs text-on-surface-variant mt-0.5"
               style={{ fontFamily: 'Inter_400Regular' }}
             >
-              **** {last4}
+              {last4}
             </Text>
           )}
         </View>

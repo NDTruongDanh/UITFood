@@ -97,7 +97,7 @@ export function ProfileScreen() {
         {
           icon: CreditCard,
           label: 'Payment Methods',
-          onPress: () => {},
+          onPress: () => router.push('/(customer)/payment-methods' as any),
         },
       ],
     },
