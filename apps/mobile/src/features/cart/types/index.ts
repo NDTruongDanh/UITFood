@@ -43,7 +43,7 @@ export interface PaymentMethod {
   last4: string;
   expiry?: string;
   color?: string;
-  type: 'card' | 'apple-pay' | 'google-pay' | 'cash';
+  type: 'card' | 'apple-pay' | 'google-pay' | 'cash' | 'vnpay';
 }
 
 export interface PaymentScreenProps {

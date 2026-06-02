@@ -15,6 +15,7 @@ export default function CustomerLayout() {
       <Stack.Screen name="notifications" />
       <Stack.Screen name="settings" />
       <Stack.Screen name="edit-profile" />
+      <Stack.Screen name="payment-methods" />
     </Stack>
   );
 }
