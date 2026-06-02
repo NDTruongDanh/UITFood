@@ -32,6 +32,7 @@ import {
 import { TestAuthManager } from '../helpers/test-auth';
 import { setAuthManager, ownerHeaders } from '../helpers/auth';
 import { paymentTransactions } from '../../src/module/payment/domain/payment-transaction.schema';
+import { orders } from '../../src/module/ordering/order/order.schema';
 
 // ─── Timing helper ────────────────────────────────────────────────────────────
 const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
@@ -154,6 +155,16 @@ async function getPaymentTransaction(id: string) {
     .select()
     .from(paymentTransactions)
     .where(eq(paymentTransactions.id, id))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+async function getOrder(id: string) {
+  const db = getTestDb();
+  const rows = await db
+    .select()
+    .from(orders)
+    .where(eq(orders.id, id))
     .limit(1);
   return rows[0] ?? null;
 }
@@ -541,6 +552,53 @@ describe('Payment Phase 8 E2E', () => {
       expect(res.status).toBe(200);
       expect(res.body.status).toBe('completed');
       expect(res.body.orderId).toBe(orderId);
+    });
+  });
+
+  describe('§5b VNPay IPN — responseCode 00 still requires transactionStatus 00', () => {
+    let txnRef: string;
+    let orderId: string;
+
+    beforeAll(async () => {
+      await http.delete('/api/carts/my').set(ownerHeaders());
+      await addItemToCart();
+
+      const res = await http
+        .post('/api/carts/my/checkout')
+        .set(ownerHeaders())
+        .send({ deliveryAddress: DELIVERY_ADDRESS, paymentMethod: 'vnpay' });
+
+      expect(res.status).toBe(201);
+      orderId = res.body.orderId as string;
+      txnRef = extractTxnRef(res.body.paymentUrl as string);
+    });
+
+    afterAll(async () => {
+      await http.delete('/api/carts/my').set(ownerHeaders());
+    });
+
+    it('P-12b does not mark order paid when transactionStatus is not 00', async () => {
+      const ipnPayload = buildIpnPayload(txnRef, 15000, hashSecret, {
+        vnp_TransactionNo: `VNP_STATUS_${Date.now()}`,
+        vnp_TransactionStatus: '01',
+      });
+
+      const res = await http.get('/api/payments/vnpay/ipn').query(ipnPayload);
+
+      expect(res.status).toBe(200);
+      expect(res.body.RspCode).toBe('00');
+
+      await delay(300);
+
+      const txn = await getPaymentTransaction(txnRef);
+      expect(txn).not.toBeNull();
+      expect(txn!.status).toBe('failed');
+      expect(txn!.paidAt).toBeNull();
+      expect(txn!.vnpResponseCode).toBe('00');
+
+      const order = await getOrder(orderId);
+      expect(order).not.toBeNull();
+      expect(order!.status).toBe('cancelled');
     });
   });
 

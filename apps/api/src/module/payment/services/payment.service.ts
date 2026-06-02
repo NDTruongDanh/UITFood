@@ -1,11 +1,12 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+﻿import { Injectable, Inject, Logger } from '@nestjs/common';
+import type { ConfigType } from '@nestjs/config';
 import { randomUUID } from 'crypto';
 import { IPaymentInitiationPort } from '@/shared/ports/payment-initiation.port';
 import { VNPayService } from './vnpay.service';
 import { PaymentTransactionRepository } from '../repositories/payment-transaction.repository';
 import type { PaymentTransaction } from '../domain/payment-transaction.schema';
 import { runObserved } from '@/observability/trace';
+import { vnpayConfig } from '@/config/vnpay.config';
 
 /**
  * PaymentService
@@ -26,7 +27,7 @@ import { runObserved } from '@/observability/trace';
  *   - If step 2/3 fails: PaymentTransaction stays at 'pending'. The caller
  *     (PlaceOrderHandler) logs the error and returns the order without a URL.
  *     PaymentTimeoutTask (Phase 8.5) will expire the 'pending' transaction and
- *     publish PaymentFailedEvent → Ordering BC cancels the order (T-03).
+ *     publish PaymentFailedEvent â†’ Ordering BC cancels the order (T-03).
  *     This means the order will self-heal without manual intervention.
  *
  * This class does NOT:
@@ -41,15 +42,12 @@ export class PaymentService implements IPaymentInitiationPort {
   constructor(
     private readonly vnpayService: VNPayService,
     private readonly txnRepo: PaymentTransactionRepository,
-    private readonly config: ConfigService,
+    @Inject(vnpayConfig.KEY)
+    private readonly config: ConfigType<typeof vnpayConfig>,
   ) {
-    const timeoutSec = parseInt(
-      this.config.get<string>('PAYMENT_SESSION_TIMEOUT_SECONDS', '1800'),
-      10,
-    );
-    this.sessionTimeoutMs = Number.isFinite(timeoutSec)
-      ? timeoutSec * 1_000
-      : 1_800_000;
+    // sessionTimeoutSeconds is already validated and parsed by the Zod schema in
+    // env.schema.ts - no manual parseInt / fallback needed here.
+    this.sessionTimeoutMs = config.sessionTimeoutSeconds * 1_000;
   }
 
   /**
@@ -107,7 +105,7 @@ export class PaymentService implements IPaymentInitiationPort {
     // -------------------------------------------------------------------------
     // Step 2: Generate VNPay redirect URL.
     //
-    // VNPayService.buildPaymentUrl() is a pure function — it throws only if
+    // VNPayService.buildPaymentUrl() is a pure function â€” it throws only if
     // config is misconfigured (caught at startup in onModuleInit) or the
     // input params are invalid.
     // -------------------------------------------------------------------------
@@ -136,11 +134,11 @@ export class PaymentService implements IPaymentInitiationPort {
       // The 'pending' record will be expired by PaymentTimeoutTask.
       this.logger.warn(
         `PaymentTransaction ${txnId}: status update to awaiting_ipn failed ` +
-          `(optimistic lock mismatch — should not happen at creation time)`,
+          `(optimistic lock mismatch â€” should not happen at creation time)`,
       );
     } else {
       this.logger.log(
-        `PaymentTransaction ${txnId} → awaiting_ipn for order=${orderId}`,
+        `PaymentTransaction ${txnId} â†’ awaiting_ipn for order=${orderId}`,
       );
     }
 
@@ -152,7 +150,7 @@ export class PaymentService implements IPaymentInitiationPort {
    * Used by GET /payments/my (Phase 8.7).
    *
    * Fields with sensitive details (rawIpnPayload, paymentUrl) are stripped
-   * from the returned objects — callers receive only the subset needed for
+   * from the returned objects â€” callers receive only the subset needed for
    * display. The raw objects are typed as PaymentTransaction; the controller
    * applies the response DTO mapping.
    */

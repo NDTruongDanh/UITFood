@@ -261,7 +261,8 @@ export class OrderHistoryService {
   }
 
   /**
-   * Kitchen operational view — returns pending/paid/confirmed/preparing/ready orders, oldest first.
+   * Kitchen operational view — returns actionable active orders oldest first.
+   * COD orders appear while pending; VNPay orders appear only after payment is paid.
    * No pagination; this is a live operational screen, not a historical query.
    */
   async getRestaurantActiveOrders(

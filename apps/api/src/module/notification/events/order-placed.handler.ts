@@ -45,6 +45,13 @@ export class OrderPlacedNotificationHandler implements IEventHandler<OrderPlaced
   }
 
   private async processNotifications(event: OrderPlacedEvent): Promise<void> {
+    if (!event.readyForFulfillment) {
+      this.logger.log(
+        `OrderPlacedEvent skipped for orderId=${event.orderId}: paymentMethod=${event.paymentMethod} is not ready for fulfillment.`,
+      );
+      return;
+    }
+
     const templateData: Record<string, string> = {
       orderId: event.orderId,
       restaurantName: event.restaurantName,
