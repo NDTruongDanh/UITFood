@@ -48,7 +48,8 @@
 
 import 'dotenv/config';
 import { drizzle } from 'drizzle-orm/node-postgres';
-import { eq, sql } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
+import { Pool } from 'pg';
 
 import { hashPassword } from 'better-auth/crypto';
 import { user, account } from '../../module/auth/auth.schema';
@@ -77,7 +78,38 @@ import { orderingDeliveryZoneSnapshots } from '../../module/ordering/acl/schemas
 import { reviews } from '../../module/review/domain/review.schema';
 import { paymentTransactions } from '../../module/payment/domain/payment-transaction.schema';
 
-const db = drizzle(process.env.DATABASE_URL!);
+const databaseUrl = process.env.DATABASE_URL;
+if (!databaseUrl) {
+  throw new Error('DATABASE_URL is not defined');
+}
+
+const localDatabaseHosts = new Set([
+  'localhost',
+  '127.0.0.1',
+  '::1',
+  'host.docker.internal',
+  'postgres',
+]);
+
+function getSslConfig(url: string): false | { rejectUnauthorized: boolean } {
+  try {
+    if (localDatabaseHosts.has(new URL(url).hostname)) return false;
+  } catch {
+    // If the URL is malformed, let pg surface the connection error.
+  }
+
+  return { rejectUnauthorized: false };
+}
+
+const pool = new Pool({
+  connectionString: databaseUrl,
+  ssl: getSslConfig(databaseUrl),
+  max: 1,
+  connectionTimeoutMillis: 15_000,
+  idleTimeoutMillis: 5_000,
+});
+
+const db = drizzle(pool);
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -2320,6 +2352,30 @@ async function seedPaymentTransactions(
   console.log(`✅ payment_transactions (${count})`);
 }
 
+async function cleanGeneratedOrderData() {
+  const existingOrders = await db
+    .select({ id: orders.id })
+    .from(orders)
+    .where(eq(orders.restaurantId, RESTAURANT_ID));
+
+  await db.delete(reviews).where(eq(reviews.restaurantId, RESTAURANT_ID));
+
+  if (existingOrders.length > 0) {
+    const orderIds = existingOrders.map((order) => order.id);
+
+    await db
+      .delete(paymentTransactions)
+      .where(inArray(paymentTransactions.orderId, orderIds));
+    await db
+      .delete(orderStatusLogs)
+      .where(inArray(orderStatusLogs.orderId, orderIds));
+    await db.delete(orderItems).where(inArray(orderItems.orderId, orderIds));
+    await db.delete(orders).where(inArray(orders.id, orderIds));
+  }
+
+  console.log(`✅ cleaned generated order data (${existingOrders.length} orders)`);
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -2385,6 +2441,7 @@ async function main() {
   await seedModifierGroups();
   await seedModifierOptions();
   await seedSnapshots(restaurantRow);
+  await cleanGeneratedOrderData();
 
   console.log('\n📦 Lifecycle orders:');
   const lifecycleOrders = await seedLifecycleOrders(shipperId);
@@ -2429,10 +2486,18 @@ async function main() {
    • ${allDeliveredIds.length}  reviews
    • ${vnpayOrders.length}  payment transactions
 `);
-  process.exit(0);
 }
 
-main().catch((err) => {
-  console.error('❌', err);
-  process.exit(1);
-});
+void main()
+  .catch((err) => {
+    console.error('❌', err);
+    process.exitCode = 1;
+  })
+  .finally(async () => {
+    try {
+      await pool.end();
+    } catch (err) {
+      console.error('❌ Failed to close database pool', err);
+      process.exitCode = 1;
+    }
+  });
