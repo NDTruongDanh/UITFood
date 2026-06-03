@@ -21,12 +21,14 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { formatCurrency } from '@/src/lib/format-utils';
+import { useAddressStore } from '@/src/features/location';
 import {
   useRestaurantReviews,
   type PublicReviewItem,
 } from '@/src/features/review';
 import { type Restaurant, RestaurantMenuScreenProps } from '../types';
 import {
+  useDeliveryEstimate,
   useRestaurant,
   useRestaurantCategories,
   useRestaurantMenu,
@@ -249,6 +251,7 @@ export function RestaurantMenuScreen({
   const [activeCategoryId, setActiveCategoryId] = useState<string>('all');
   const [isFavorited, setIsFavorited] = useState(false);
   const [isTogglingFavorite, setIsTogglingFavorite] = useState(false);
+  const { latitude, longitude } = useAddressStore();
 
   const {
     data: restaurant,
@@ -270,6 +273,12 @@ export function RestaurantMenuScreen({
     error: catsError,
     isError: isErrorCats,
   } = useRestaurantCategories(restaurantId);
+
+  const {
+    data: deliveryEstimate,
+    isLoading: isDeliveryEstimateLoading,
+    isFetching: isDeliveryEstimateFetching,
+  } = useDeliveryEstimate(restaurantId, latitude, longitude);
 
   const { data: cart } = useMyCart();
 
@@ -344,6 +353,26 @@ export function RestaurantMenuScreen({
       ? restaurant.averageRating
       : restaurant.rating;
   const restaurantReviewCount = restaurant.reviewCount ?? 0;
+  const isDeliveryEstimatePending =
+    isDeliveryEstimateLoading || isDeliveryEstimateFetching;
+  const rawDeliveryTime = restaurant.deliveryTime?.trim();
+  const deliveryTimeLabel =
+    deliveryEstimate?.estimatedMinutes != null
+      ? `${deliveryEstimate.estimatedMinutes} min`
+      : rawDeliveryTime
+        ? rawDeliveryTime
+        : isDeliveryEstimatePending
+          ? '...'
+          : '-';
+  const deliveryFee = deliveryEstimate?.deliveryFee ?? restaurant.deliveryFee;
+  const deliveryFeeLabel =
+    deliveryFee != null
+      ? deliveryFee === 0
+        ? 'Free'
+        : formatCurrency(deliveryFee)
+      : isDeliveryEstimatePending
+        ? '...'
+        : '-';
 
   return (
     <View className="flex-1 bg-surface">
@@ -417,17 +446,13 @@ export function RestaurantMenuScreen({
               <View className="flex-row items-center gap-1">
                 <Clock size={14} color="#ffffff" />
                 <Text className="text-white text-sm font-medium">
-                  {restaurant.deliveryTime || '—'}
+                  {deliveryTimeLabel}
                 </Text>
               </View>
               <View className="flex-row items-center gap-1">
                 <Truck size={14} color="#ffffff" />
                 <Text className="text-white text-sm font-medium">
-                  {restaurant.deliveryFee === 0
-                    ? 'Free'
-                    : restaurant.deliveryFee
-                      ? `+${restaurant.deliveryFee}`
-                      : '—'}
+                  {deliveryFeeLabel}
                 </Text>
               </View>
             </View>
