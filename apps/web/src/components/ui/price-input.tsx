@@ -12,17 +12,18 @@ export function PriceInput({ value, onChange, className, ...props }: PriceInputP
     value !== undefined && value !== null ? value.toLocaleString('en-US') : ''
   );
 
-  React.useEffect(() => {
-    if (value !== undefined && value !== null) {
-      const currentNumericValue = parseFloat(textValue.replace(/,/g, ''));
-      if (currentNumericValue !== value) {
-        setTextValue(value.toLocaleString('en-US'));
-      }
-    } else if (value === undefined || value === null) {
+  // Sync the formatted text when the external `value` prop changes. Done during
+  // render (not in an effect) per React's "adjusting state on prop change"
+  // guidance: https://react.dev/learn/you-might-not-need-an-effect
+  const [prevValue, setPrevValue] = React.useState(value);
+  if (value !== prevValue) {
+    setPrevValue(value);
+    if (value === undefined || value === null) {
       setTextValue('');
+    } else if (parseFloat(textValue.replace(/,/g, '')) !== value) {
+      setTextValue(value.toLocaleString('en-US'));
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value]);
+  }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let inputValue = e.target.value;
