@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  RefreshControl,
 } from 'react-native';
 import { Image } from 'expo-image';
 import {
@@ -105,6 +106,8 @@ export function HomeScreen() {
     data: restaurantsData,
     isLoading,
     error,
+    refetch: refetchNearby,
+    isRefetching: isRefetchingNearby,
   } = useNearbyRestaurants({
     latitude,
     longitude,
@@ -114,6 +117,8 @@ export function HomeScreen() {
     data: searchData,
     isLoading: isSearchLoading,
     error: searchError,
+    refetch: refetchSearch,
+    isRefetching: isRefetchingSearch,
   } = useUnifiedSearch({
     q: debouncedQuery,
     latitude,
@@ -138,6 +143,13 @@ export function HomeScreen() {
   const searchItems = searchData?.items ?? [];
   const hasSearchResults = searchRestaurants.length > 0 || searchItems.length > 0;
 
+  const onRefresh = React.useCallback(() => {
+    refetchNearby();
+    refetchSearch();
+  }, [refetchNearby, refetchSearch]);
+  
+  const refreshing = isRefetchingNearby || isRefetchingSearch;
+
   return (
     <View className="flex-1 bg-background font-inter text-on-surface">
       <HomeTopBar insetsTop={insets.top} />
@@ -149,6 +161,14 @@ export function HomeScreen() {
           paddingBottom: insets.bottom + 80,
         }}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#00490e']}
+            tintColor="#00490e"
+          />
+        }
       >
         {/* Search Section */}
         <View className="px-4 mb-6">
@@ -313,8 +333,8 @@ export function HomeScreen() {
                           key={item.id}
                           onPress={() =>
                             router.navigate({
-                              pathname: '/restaurant/[id]',
-                              params: { id: item.restaurant.id },
+                              pathname: '/product/[id]',
+                              params: { id: item.id },
                             })
                           }
                           className="bg-surface-container-lowest rounded-2xl overflow-hidden shadow-sm active:scale-[0.98] border border-surface-variant/20 flex-row"
