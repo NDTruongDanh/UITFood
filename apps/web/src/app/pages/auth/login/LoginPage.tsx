@@ -43,7 +43,7 @@ export function LoginPage() {
           <LoginAlternativeMethods />
 
           <div className="pt-4 border-t text-center text-sm text-on-surface-variant">
-            New to SoLi?{' '}
+            New to UITFood?{' '}
             <Link
               to="/auth/register"
               className="font-semibold text-primary underline-offset-4 hover:underline"

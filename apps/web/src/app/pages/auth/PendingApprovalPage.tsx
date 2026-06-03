@@ -19,7 +19,7 @@ export function PendingApprovalPage() {
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-200">
             <UtensilsCrossed className="h-4 w-4 text-primary" />
           </div>
-          <span className="font-bold text-primary text-sm">SoLi Food</span>
+          <span className="font-bold text-primary text-sm">UITFood</span>
         </div>
         <Button
           variant="ghost"
