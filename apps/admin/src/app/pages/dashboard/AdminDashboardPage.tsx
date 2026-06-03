@@ -12,8 +12,6 @@ import {
   HandCoins,
   Award,
   ExternalLink,
-  Banknote,
-  CalendarClock,
   FileWarning,
 } from 'lucide-react';
 import { PlatformLoadChart } from '@/features/dashboard/components/PlatformLoadChart';
