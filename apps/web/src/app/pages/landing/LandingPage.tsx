@@ -79,7 +79,7 @@ function LandingNav() {
             <UtensilsCrossed className="size-5 text-primary" />
           </span>
           <span className="font-headline text-lg font-extrabold tracking-tight text-foreground">
-            SoLi
+            UITFood
           </span>
         </Link>
 
@@ -450,7 +450,7 @@ function AnalyticsShowcase() {
             Know your numbers without a spreadsheet.
           </h2>
           <p className="mt-4 text-lg text-on-surface-variant">
-            SoLi turns every order into a chart you can act on, so the next
+            UITFood turns every order into a chart you can act on, so the next
             decision is an easy one.
           </p>
           <ul className="mt-8 space-y-4">
@@ -508,7 +508,7 @@ function Testimonials() {
       <div className="mx-auto max-w-7xl px-6 py-24">
         <Reveal className="max-w-2xl">
           <h2 className="font-headline text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
-            Kitchens that switched to SoLi.
+            Kitchens that switched to UITFood.
           </h2>
         </Reveal>
 
@@ -561,7 +561,7 @@ function FinalCta() {
             Ready to put your kitchen online?
           </h2>
           <p className="relative mx-auto mt-4 max-w-xl text-lg text-primary-foreground/80">
-            Join the kitchens already selling on SoLi. Set up today.
+            Join the kitchens already selling on UITFood. Set up today.
           </p>
           <Link
             to="/auth/register"
@@ -608,7 +608,7 @@ function LandingFooter() {
               <UtensilsCrossed className="size-5 text-primary" />
             </span>
             <span className="font-headline text-lg font-extrabold tracking-tight text-foreground">
-              SoLi
+              UITFood
             </span>
           </div>
           <p className="mt-4 max-w-xs text-sm text-on-surface-variant">
@@ -650,7 +650,7 @@ function LandingFooter() {
       <div className="border-t border-border">
         <div className="mx-auto max-w-7xl px-6 py-6">
           <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} SoLi Food. All rights reserved.
+            © {new Date().getFullYear()} UITFood. All rights reserved.
           </p>
         </div>
       </div>
