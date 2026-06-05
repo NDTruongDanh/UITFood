@@ -286,7 +286,8 @@ export class OrderHistoryRestaurantController {
 
   /**
    * GET /restaurant/orders/active — kitchen operational view.
-   * Returns all pending/paid/confirmed/preparing/ready_for_pickup orders, oldest-first.
+   * Returns actionable active orders oldest-first. Pending COD is included;
+   * pending VNPay is excluded until payment confirmation moves it to paid.
    * No pagination — this is a live operational screen.
    */
   @Get('orders/active')

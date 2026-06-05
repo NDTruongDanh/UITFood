@@ -31,6 +31,12 @@ export default tseslint.config(
         { allowConstantExport: true },
       ],
       '@typescript-eslint/no-explicit-any': 'off',
+      // Allow omitting properties via a destructuring rest (e.g. stripping
+      // `ref` out of a React Hook Form field with `{ ref, ...field }`).
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { ignoreRestSiblings: true, argsIgnorePattern: '^_' },
+      ],
     },
   },
 )

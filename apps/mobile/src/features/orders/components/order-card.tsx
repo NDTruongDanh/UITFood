@@ -1,6 +1,8 @@
 import { View, Text, TouchableOpacity } from 'react-native';
+import { Image } from 'expo-image';
 import { formatCurrency } from '@/src/lib/format-utils';
 import { OrderListItem, OrderStatus } from '../types';
+import { useRestaurantImage } from '@/src/features/restaurants/api';
 
 export interface OrderProps {
   order: OrderListItem;
@@ -16,7 +18,7 @@ const STATUS_CONFIG: Record<
   paid: { label: 'Paid', isProcessing: true },
   confirmed: { label: 'Confirmed', isProcessing: true },
   preparing: { label: 'Preparing', isProcessing: true },
-  ready_for_pickup: { label: 'Ready for Pickup', isProcessing: true },
+  ready_for_pickup: { label: 'Done', isProcessing: false },
   picked_up: { label: 'Picked Up', isProcessing: true },
   delivering: { label: 'Delivering', isProcessing: true },
   delivered: { label: 'Delivered', isProcessing: false },
@@ -25,6 +27,7 @@ const STATUS_CONFIG: Record<
 };
 
 export function OrderCard({ order, onPress, onActionPress }: OrderProps) {
+  const { data: restaurantImageUrl } = useRestaurantImage(order.restaurantId);
   const statusInfo = STATUS_CONFIG[order.status] || {
     label: order.status,
     isProcessing: false,
@@ -83,16 +86,26 @@ export function OrderCard({ order, onPress, onActionPress }: OrderProps) {
 
         {/* Content Preview */}
         <View className="flex-row items-center gap-3">
-          <View className="w-16 h-16 rounded-2xl bg-surface-container flex items-center justify-center overflow-hidden">
-            {/* Placeholder icon or image since list doesn't have thumbnails */}
-            <View className="bg-primary/5 w-full h-full items-center justify-center">
-              <Text
-                className="text-primary text-xl"
-                style={{ fontFamily: 'PlusJakartaSans_800ExtraBold' }}
-              >
-                {order.firstItemName ? order.firstItemName.charAt(0) : '?'}
-              </Text>
-            </View>
+          {/* Restaurant image */}
+          <View className="w-16 h-16 rounded-2xl bg-surface-container overflow-hidden">
+            {restaurantImageUrl ? (
+              <Image
+                source={{ uri: restaurantImageUrl }}
+                className="w-full h-full"
+                contentFit="cover"
+                cachePolicy="memory-disk"
+                transition={200}
+              />
+            ) : (
+              <View className="bg-primary/5 w-full h-full items-center justify-center">
+                <Text
+                  className="text-primary text-xl"
+                  style={{ fontFamily: 'PlusJakartaSans_800ExtraBold' }}
+                >
+                  {order.restaurantName ? order.restaurantName.charAt(0) : '?'}
+                </Text>
+              </View>
+            )}
           </View>
           <View className="flex-1">
             <Text

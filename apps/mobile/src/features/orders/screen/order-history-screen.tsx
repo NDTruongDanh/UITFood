@@ -4,6 +4,7 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowLeft, Filter, RefreshCcw } from 'lucide-react-native';
@@ -50,6 +51,14 @@ export function OrderHistoryScreen() {
           paddingTop: 24,
         }}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefetching}
+            onRefresh={refetch}
+            colors={['#0d631b']}
+            tintColor="#0d631b"
+          />
+        }
       >
         <View className="px-4 mb-4 flex-row justify-between items-center">
           <Text
@@ -113,10 +122,7 @@ export function OrderHistoryScreen() {
                 key={order.orderId}
                 order={order}
                 onPress={() => {
-                  router.push({
-                    pathname: '/(customer)/orders/[id]',
-                    params: { id: order.orderId },
-                  });
+                  router.navigate(`/(customer)/orders/${order.orderId}/track`);
                 }}
               />
             ))}

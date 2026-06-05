@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
+﻿import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
 import * as crypto from 'crypto';
 import { vnpayConfig } from '@/config/vnpay.config';
@@ -13,10 +13,10 @@ const VNPAY_VERSION = '2.1.0';
 /** VNPay command for creating a payment URL. */
 const VNPAY_COMMAND_PAY = 'pay';
 
-/** VNPay currency code — Vietnamese Dong. */
+/** VNPay currency code â€” Vietnamese Dong. */
 const VNPAY_CURRENCY_VND = 'VND';
 
-/** VNPay locale — Vietnamese. Can be changed per-request if needed. */
+/** VNPay locale â€” Vietnamese. Can be changed per-request if needed. */
 const VNPAY_LOCALE_VN = 'vn';
 
 /**
@@ -45,7 +45,7 @@ export interface IpnVerificationResult {
    */
   responsePaid: boolean;
   /**
-   * Amount decoded from vnp_Amount (divided by 100 to convert VND × 100 back).
+   * Amount decoded from vnp_Amount (divided by 100 to convert VND Ã— 100 back).
    * 0 when the IPN signature is invalid.
    */
   amount: number;
@@ -65,7 +65,7 @@ export interface IpnVerificationResult {
 
 /** Parameters required to build a VNPay payment URL. */
 export interface VNPayUrlParams {
-  /** PaymentTransaction.id — used as vnp_TxnRef (echoed back in IPN). */
+  /** PaymentTransaction.id â€” used as vnp_TxnRef (echoed back in IPN). */
   txnRef: string;
   /** Order total in integer VND. Multiplied by 100 before sending to VNPay. */
   amount: number;
@@ -78,7 +78,7 @@ export interface VNPayUrlParams {
 // ---------------------------------------------------------------------------
 
 /**
- * VNPayService — Pure VNPay adapter. No business logic, no DB access.
+ * VNPayService â€” Pure VNPay adapter. No business logic, no DB access.
  *
  * Responsibilities:
  *   - Build signed payment URLs for browser redirect
@@ -86,11 +86,11 @@ export interface VNPayUrlParams {
  *
  * All signing uses:
  *   1. URL-encode keys (for sorting) and values (for signing)
- *   2. Sort by URL-encoded key (VNPay requirement — see sortAndBuildSignData)
+ *   2. Sort by URL-encoded key (VNPay requirement â€” see sortAndBuildSignData)
  *   3. HMAC SHA512 with VNPAY_HASH_SECRET
  *   4. Constant-time comparison via crypto.timingSafeEqual (OWASP timing attack prevention)
  *
- * Configuration (required env vars — validated at startup by Zod schema in env.schema.ts):
+ * Configuration (required env vars â€” validated at startup by Zod schema in env.schema.ts):
  *   VNPAY_TMN_CODE              Merchant terminal code
  *   VNPAY_HASH_SECRET           HMAC signing key (never log this)
  *   VNPAY_URL                   VNPay payment endpoint URL
@@ -116,7 +116,7 @@ export class VNPayService implements OnModuleInit {
    * Assign config values at startup.
    *
    * Environment variables are already validated by the Zod schema in
-   * env.schema.ts before this hook runs — no manual checks needed here.
+   * env.schema.ts before this hook runs â€” no manual checks needed here.
    * All values are guaranteed non-null and correctly typed.
    */
   onModuleInit(): void {
@@ -128,7 +128,7 @@ export class VNPayService implements OnModuleInit {
 
     // Note: hashSecret intentionally omitted from the log line.
     this.logger.log(
-      `VNPayService initialized — tmnCode=${this.tmnCode} url=${this.vnpUrl} ` +
+      `VNPayService initialized â€” tmnCode=${this.tmnCode} url=${this.vnpUrl} ` +
         `sessionTimeout=${this.config.sessionTimeoutSeconds}s`,
     );
 
@@ -152,16 +152,22 @@ export class VNPayService implements OnModuleInit {
    * @returns Full VNPay redirect URL including vnp_SecureHash
    */
   buildPaymentUrl(params: VNPayUrlParams): string {
+    if (!Number.isInteger(params.amount) || params.amount <= 0) {
+      throw new Error(
+        'VNPay payment amount must be a positive integer VND value.',
+      );
+    }
+
     const now = new Date();
     const expiresAt = new Date(now.getTime() + this.sessionTimeoutMs);
 
     // Build the params object in the order they will appear before sorting.
-    // All values must be strings — VNPay rejects numeric types.
+    // All values must be strings â€” VNPay rejects numeric types.
     const vnpParams: Record<string, string> = {
       vnp_Version: VNPAY_VERSION,
       vnp_Command: VNPAY_COMMAND_PAY,
       vnp_TmnCode: this.tmnCode,
-      // Amount in VND × 100. amount is already an integer VND value
+      // Amount in VND Ã— 100. amount is already an integer VND value
       // (enforced by the schema and validation layer), so amount * 100
       // is always an exact integer with no floating-point rounding error.
       vnp_Amount: String(params.amount * 100),
@@ -182,17 +188,17 @@ export class VNPayService implements OnModuleInit {
     // string than the single-line format VNPay expects.
     const sanitized = this.sanitizeParams(vnpParams);
 
-    // Step 2: Build hashData with RAW sanitized values — no URL encoding.
+    // Step 2: Build hashData with RAW sanitized values â€” no URL encoding.
     const hashData = this.buildHashData(sanitized);
     const signature = this.hmacSha512(hashData);
 
     // Log raw strings (not JSON.stringify) to see the actual HMAC input.
-    this.logger.debug(`buildPaymentUrl — ipAddr=${sanitized['vnp_IpAddr']}`);
+    this.logger.debug(`buildPaymentUrl â€” ipAddr=${sanitized['vnp_IpAddr']}`);
     this.logger.debug(`hashData=${hashData}`);
     this.logger.debug(`secureHash=${signature}`);
 
     // Step 3: Build URL-encoded query string from the same sanitized params.
-    // vnp_SecureHash is appended AFTER signing — must NOT be part of hashData.
+    // vnp_SecureHash is appended AFTER signing â€” must NOT be part of hashData.
     const queryString = this.buildQueryString(sanitized);
     return `${this.vnpUrl}?${queryString}&vnp_SecureHash=${signature}`;
   }
@@ -204,14 +210,14 @@ export class VNPayService implements OnModuleInit {
    *   - Strip BOTH vnp_SecureHash AND vnp_SecureHashType before re-signing.
    *     Including vnp_SecureHashType in the signed data causes every IPN to fail.
    *   - Use crypto.timingSafeEqual to prevent timing oracle attacks.
-   *   - Never write to DB if valid=false — the IPN may be a spoofed request.
+   *   - Never write to DB if valid=false â€” the IPN may be a spoofed request.
    *
    * @param query Raw query params from the IPN GET request (Record<string,string>)
    * @returns IpnVerificationResult
    */
   verifyIpn(query: Record<string, string>): IpnVerificationResult {
     this.logger.debug(
-      `IPN received — txnRef=${query['vnp_TxnRef'] ?? '(none)'} ` +
+      `IPN received â€” txnRef=${query['vnp_TxnRef'] ?? '(none)'} ` +
         `responseCode=${query['vnp_ResponseCode'] ?? '(none)'} ` +
         `transactionStatus=${query['vnp_TransactionStatus'] ?? '(none)'}`,
     );
@@ -223,7 +229,7 @@ export class VNPayService implements OnModuleInit {
     } = query;
 
     if (!receivedHash) {
-      this.logger.warn('IPN missing vnp_SecureHash — rejected');
+      this.logger.warn('IPN missing vnp_SecureHash â€” rejected');
       return {
         valid: false,
         responsePaid: false,
@@ -239,7 +245,7 @@ export class VNPayService implements OnModuleInit {
     const valid = this.timingSafeCompare(receivedHash, expectedHash);
 
     if (!valid) {
-      this.logger.warn('IPN signature mismatch — potential spoofed request');
+      this.logger.warn('IPN signature mismatch â€” potential spoofed request');
       return {
         valid: false,
         responsePaid: false,
@@ -256,7 +262,7 @@ export class VNPayService implements OnModuleInit {
       query.vnp_ResponseCode === '00' && query.vnp_TransactionStatus === '00';
 
     const rawAmount = parseInt(query.vnp_Amount ?? '0', 10);
-    // VNPay sends vnp_Amount = integer_VND × 100.
+    // VNPay sends vnp_Amount = integer_VND Ã— 100.
     // Dividing by 100 always yields an exact integer since our amounts are whole VND.
     const amount = rawAmount / 100;
 
@@ -280,7 +286,7 @@ export class VNPayService implements OnModuleInit {
    * They are for UI display only.
    *
    * @param query Raw query params from the return GET request
-   * @returns { valid: boolean; code: string } — code is vnp_ResponseCode
+   * @returns { valid: boolean; code: string } â€” code is vnp_ResponseCode
    */
   verifyReturn(query: Record<string, string>): {
     valid: boolean;
@@ -346,21 +352,30 @@ export class VNPayService implements OnModuleInit {
    *   VNPay's server receives the URL, PHP's $_GET URL-decodes all params
    *   (giving raw values like "http://localhost:3000/..."), then re-applies
    *   urlencode() on each value before computing HMAC. Our hash input must
-   *   therefore also use encoded values — otherwise:
+   *   therefore also use encoded values â€” otherwise:
    *     Our input:  vnp_ReturnUrl=http://localhost:3000/...
    *     VNPay's:    vnp_ReturnUrl=http%3A%2F%2Flocalhost%3A3000%2F...
-   *     → MISMATCH → "Sai chữ ký"
+   *     â†’ MISMATCH â†’ "Sai chá»¯ kÃ½"
    *
-   * NOTE: This encoding is NOT applied to buildQueryString — that method uses
+   * NOTE: This encoding is NOT applied to buildQueryString â€” that method uses
    * standard encodeURIComponent (no '+' substitution) for the browser URL.
    */
   private buildHashData(params: Record<string, string>): string {
+    // Sort by the URL-encoded key, not the raw key.
+    // PHP's ksort() operates on the urlencode()'d key strings, so we must encode
+    // first and sort second. For all current vnp_* parameters encodeURIComponent
+    // is a no-op, so the result is identical today — but this is correct for any
+    // future key that contains special characters.
     return Object.keys(params)
-      .sort()
       .map(
         (key) =>
-          `${encodeURIComponent(key)}=${encodeURIComponent(params[key]).replace(/%20/g, '+')}`,
+          [
+            encodeURIComponent(key),
+            encodeURIComponent(params[key]).replace(/%20/g, '+'),
+          ] as const,
       )
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+      .map(([k, v]) => `${k}=${v}`)
       .join('&');
   }
 
@@ -403,7 +418,7 @@ export class VNPayService implements OnModuleInit {
    * time differences.
    *
    * Length check: SHA512 hex is always 128 chars. A different length means
-   * the received hash is definitely invalid — the fast-fail here does NOT leak
+   * the received hash is definitely invalid â€” the fast-fail here does NOT leak
    * information about the secret because the length is public knowledge.
    */
   private timingSafeCompare(received: string, expected: string): boolean {
@@ -421,14 +436,14 @@ export class VNPayService implements OnModuleInit {
         Buffer.from(normalizedExpected),
       );
     } catch {
-      // timingSafeEqual can throw if buffers have different lengths — guard defensively.
+      // timingSafeEqual can throw if buffers have different lengths â€” guard defensively.
       return false;
     }
   }
 
   /**
    * Formats a Date to the VNPay date string format: YYYYMMDDHHmmss in UTC+7.
-   * Does NOT use moment — derives UTC+7 time via manual offset arithmetic.
+   * Does NOT use moment â€” derives UTC+7 time via manual offset arithmetic.
    */
   private formatVNPayDate(date: Date): string {
     // Shift the UTC timestamp by +7 hours, then read UTC fields.
@@ -461,7 +476,7 @@ export class VNPayService implements OnModuleInit {
   private sanitizeIpAddr(ipAddr: string): string {
     const cleaned = (ipAddr ?? '').replace(/^::ffff:/i, '').trim();
 
-    // Empty, IPv6 loopback, or IPv4 loopback → use dummy public IP.
+    // Empty, IPv6 loopback, or IPv4 loopback â†’ use dummy public IP.
     if (!cleaned || cleaned === '::1' || cleaned.startsWith('127.')) {
       return '1.1.1.1';
     }

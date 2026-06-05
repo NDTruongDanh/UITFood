@@ -518,6 +518,21 @@ describe('Order Lifecycle E2E (Phase 5)', () => {
       expect(res.status).toBe(422);
     });
 
+    it('L-14b VNPay order: admin cannot skip paid state (pending->confirmed forbidden)', async () => {
+      const r = await placeOrder(
+        http,
+        testAuth.ownerToken,
+        snapshotItemId,
+        'vnpay',
+      );
+
+      const res = await confirmOrder(http, r.orderId, adminToken);
+
+      expect(res.status).toBe(422);
+      const order = await getOrder(r.orderId);
+      expect(order!.status).toBe('pending');
+    });
+
     it('L-15 PaymentConfirmedEvent with wrong paidAmount is silently discarded', async () => {
       const r = await placeOrder(
         http,

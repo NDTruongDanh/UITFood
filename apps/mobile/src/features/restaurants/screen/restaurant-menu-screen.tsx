@@ -13,6 +13,7 @@ import {
   ArrowLeft,
   Heart,
   Star,
+  StarHalf,
   Clock,
   Truck,
   Plus,
@@ -20,14 +21,222 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { formatCurrency } from '@/src/lib/format-utils';
-import { RestaurantMenuScreenProps } from '../types';
+import { useAddressStore } from '@/src/features/location';
 import {
+  useRestaurantReviews,
+  type PublicReviewItem,
+} from '@/src/features/review';
+import { type Restaurant, RestaurantMenuScreenProps } from '../types';
+import {
+  useDeliveryEstimate,
   useRestaurant,
   useRestaurantCategories,
   useRestaurantMenu,
 } from '../api';
 import { useMyCart } from '@/src/features/cart';
 import { useRouter } from 'expo-router';
+
+const REVIEW_PAGE_SIZE = 3;
+const STAR_VALUES = [1, 2, 3, 4, 5] as const;
+
+function formatReviewCount(count: number) {
+  if (count <= 0) return 'No reviews yet';
+  if (count === 1) return 'Based on 1 review';
+  return `Based on ${count.toLocaleString('en-US')} reviews`;
+}
+
+function getDisplayRating(
+  restaurant: Restaurant,
+  reviews: PublicReviewItem[],
+) {
+  const projectedRating =
+    typeof restaurant.averageRating === 'number' && restaurant.averageRating > 0
+      ? restaurant.averageRating
+      : restaurant.rating;
+
+  if (typeof projectedRating === 'number' && projectedRating > 0) {
+    return projectedRating;
+  }
+
+  if (reviews.length === 0) {
+    return null;
+  }
+
+  return (
+    reviews.reduce((total, review) => total + review.stars, 0) / reviews.length
+  );
+}
+
+function RatingStars({ rating, size = 16 }: { rating: number; size?: number }) {
+  const cappedRating = Math.max(0, Math.min(5, rating));
+  const fullStars = Math.floor(cappedRating);
+  const remainder = cappedRating - fullStars;
+  const roundedFullStars = fullStars + (remainder >= 0.75 ? 1 : 0);
+  const hasHalfStar = remainder >= 0.25 && remainder < 0.75;
+
+  return (
+    <View className="flex-row items-center gap-0.5">
+      {STAR_VALUES.map((value) => {
+        if (value <= roundedFullStars) {
+          return (
+            <Star key={value} size={size} color="#ffb05f" fill="#ffb05f" />
+          );
+        }
+
+        if (hasHalfStar && value === fullStars + 1) {
+          return (
+            <StarHalf
+              key={value}
+              size={size}
+              color="#ffb05f"
+              fill="#ffb05f"
+            />
+          );
+        }
+
+        return (
+          <Star
+            key={value}
+            size={size}
+            color="#bfcaba"
+            fill="transparent"
+          />
+        );
+      })}
+    </View>
+  );
+}
+
+function CustomerReviewCard({ review }: { review: PublicReviewItem }) {
+  const comment = review.comment?.trim();
+
+  return (
+    <View className="bg-surface-container-lowest rounded-3xl p-5 gap-3">
+      <RatingStars rating={review.stars} size={15} />
+
+      {comment ? (
+        <Text className="font-inter text-sm leading-5 text-on-surface-variant">
+          {comment}
+        </Text>
+      ) : (
+        <Text className="font-inter text-sm leading-5 text-on-surface-variant">
+          No comment provided.
+        </Text>
+      )}
+    </View>
+  );
+}
+
+function CustomerReviewsSection({ restaurant }: { restaurant: Restaurant }) {
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isError,
+    isFetchingNextPage,
+    isLoading,
+    refetch,
+  } = useRestaurantReviews(restaurant.id, REVIEW_PAGE_SIZE);
+
+  const reviews = useMemo(
+    () => data?.pages.flatMap((page) => page.data) ?? [],
+    [data?.pages],
+  );
+  const totalReviews = data?.pages[0]?.total ?? restaurant.reviewCount ?? 0;
+  const displayRating = getDisplayRating(restaurant, reviews);
+
+  return (
+    <View className="px-6 pb-4 gap-6">
+      <Text className="font-jakarta-sans text-2xl font-bold text-on-surface">
+        Customer Reviews
+      </Text>
+
+      <View className="bg-surface-container-low rounded-3xl p-6 flex-row items-center justify-between gap-4">
+        <View className="flex-1">
+          <View className="flex-row items-baseline gap-2">
+            <Text className="font-jakarta-sans text-4xl font-extrabold text-on-surface">
+              {displayRating ? displayRating.toFixed(1) : 'New'}
+            </Text>
+            {displayRating ? (
+              <Text className="font-inter text-on-surface-variant font-medium">
+                / 5.0
+              </Text>
+            ) : null}
+          </View>
+          {displayRating ? (
+            <View className="mt-1">
+              <RatingStars rating={displayRating} size={20} />
+            </View>
+          ) : null}
+          <Text className="font-inter text-sm text-on-surface-variant mt-2">
+            {formatReviewCount(totalReviews)}
+          </Text>
+        </View>
+        <View className="bg-primary-fixed rounded-2xl px-4 py-3 items-center min-w-20">
+          <Text className="font-jakarta-sans text-xl font-extrabold text-primary">
+            {totalReviews.toLocaleString('en-US')}
+          </Text>
+          <Text className="font-inter text-xs font-semibold text-primary">
+            reviews
+          </Text>
+        </View>
+      </View>
+
+      {isLoading ? (
+        <View className="bg-surface-container-lowest rounded-3xl p-6 items-center">
+          <ActivityIndicator size="small" color="#0d631b" />
+        </View>
+      ) : isError ? (
+        <View className="bg-error-container rounded-3xl p-6 gap-4">
+          <Text className="font-inter text-sm font-semibold text-on-error-container">
+            Reviews are unavailable right now.
+          </Text>
+          <TouchableOpacity
+            onPress={() => void refetch()}
+            className="self-start bg-primary rounded-full px-5 py-2.5"
+          >
+            <Text className="font-jakarta-sans font-bold text-on-primary">
+              Retry
+            </Text>
+          </TouchableOpacity>
+        </View>
+      ) : reviews.length > 0 ? (
+        <View className="gap-4">
+          {reviews.map((review) => (
+            <CustomerReviewCard
+              key={review.id}
+              review={review}
+            />
+          ))}
+        </View>
+      ) : (
+        <View className="bg-surface-container-lowest rounded-3xl p-6">
+          <Text className="font-inter text-sm text-on-surface-variant">
+            No customer reviews yet.
+          </Text>
+        </View>
+      )}
+
+      {hasNextPage ? (
+        <TouchableOpacity
+          onPress={() => void fetchNextPage()}
+          disabled={isFetchingNextPage}
+          className="w-full py-3 rounded-3xl border-2 border-primary/20 items-center active:scale-95"
+        >
+          {isFetchingNextPage ? (
+            <ActivityIndicator size="small" color="#0d631b" />
+          ) : (
+            <Text className="font-jakarta-sans font-bold text-primary">
+              {reviews.length <= REVIEW_PAGE_SIZE
+                ? 'View All Reviews'
+                : 'Load More Reviews'}
+            </Text>
+          )}
+        </TouchableOpacity>
+      ) : null}
+    </View>
+  );
+}
 
 export function RestaurantMenuScreen({
   restaurantId,
@@ -42,6 +251,7 @@ export function RestaurantMenuScreen({
   const [activeCategoryId, setActiveCategoryId] = useState<string>('all');
   const [isFavorited, setIsFavorited] = useState(false);
   const [isTogglingFavorite, setIsTogglingFavorite] = useState(false);
+  const { latitude, longitude } = useAddressStore();
 
   const {
     data: restaurant,
@@ -63,6 +273,12 @@ export function RestaurantMenuScreen({
     error: catsError,
     isError: isErrorCats,
   } = useRestaurantCategories(restaurantId);
+
+  const {
+    data: deliveryEstimate,
+    isLoading: isDeliveryEstimateLoading,
+    isFetching: isDeliveryEstimateFetching,
+  } = useDeliveryEstimate(restaurantId, latitude, longitude);
 
   const { data: cart } = useMyCart();
 
@@ -132,6 +348,31 @@ export function RestaurantMenuScreen({
   const itemCount =
     cart?.items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
   const restaurantImageUrl = restaurant.coverImageUrl || restaurant.logoUrl;
+  const restaurantRating =
+    typeof restaurant.averageRating === 'number' && restaurant.averageRating > 0
+      ? restaurant.averageRating
+      : restaurant.rating;
+  const restaurantReviewCount = restaurant.reviewCount ?? 0;
+  const isDeliveryEstimatePending =
+    isDeliveryEstimateLoading || isDeliveryEstimateFetching;
+  const rawDeliveryTime = restaurant.deliveryTime?.trim();
+  const deliveryTimeLabel =
+    deliveryEstimate?.estimatedMinutes != null
+      ? `${deliveryEstimate.estimatedMinutes} min`
+      : rawDeliveryTime
+        ? rawDeliveryTime
+        : isDeliveryEstimatePending
+          ? '...'
+          : '-';
+  const deliveryFee = deliveryEstimate?.deliveryFee ?? restaurant.deliveryFee;
+  const deliveryFeeLabel =
+    deliveryFee != null
+      ? deliveryFee === 0
+        ? 'Free'
+        : formatCurrency(deliveryFee)
+      : isDeliveryEstimatePending
+        ? '...'
+        : '-';
 
   return (
     <View className="flex-1 bg-surface">
@@ -198,24 +439,20 @@ export function RestaurantMenuScreen({
               <View className="flex-row items-center gap-1">
                 <Star size={14} color="#ffb05f" fill="#ffb05f" />
                 <Text className="text-white text-sm font-medium">
-                  {restaurant.rating ? restaurant.rating.toFixed(1) : 'New'} (
-                  {restaurant.reviewCount || '0'}+)
+                  {restaurantRating ? restaurantRating.toFixed(1) : 'New'} (
+                  {restaurantReviewCount}+)
                 </Text>
               </View>
               <View className="flex-row items-center gap-1">
                 <Clock size={14} color="#ffffff" />
                 <Text className="text-white text-sm font-medium">
-                  {restaurant.deliveryTime || '—'}
+                  {deliveryTimeLabel}
                 </Text>
               </View>
               <View className="flex-row items-center gap-1">
                 <Truck size={14} color="#ffffff" />
                 <Text className="text-white text-sm font-medium">
-                  {restaurant.deliveryFee === 0
-                    ? 'Free'
-                    : restaurant.deliveryFee
-                      ? `+${restaurant.deliveryFee}`
-                      : '—'}
+                  {deliveryFeeLabel}
                 </Text>
               </View>
             </View>
@@ -345,6 +582,8 @@ export function RestaurantMenuScreen({
           </View>
         </View>
 
+        <CustomerReviewsSection restaurant={restaurant} />
+
         {/* Spacer for bottom nav */}
         <View style={{ height: insets.bottom + 100 }} />
       </ScrollView>
@@ -356,7 +595,7 @@ export function RestaurantMenuScreen({
           style={{ paddingBottom: Math.max(insets.bottom, 24) }}
         >
           <TouchableOpacity
-            onPress={() => router.push('/(customer)/cart')}
+            onPress={() => router.navigate('/(customer)/cart')}
             activeOpacity={0.9}
           >
             <LinearGradient

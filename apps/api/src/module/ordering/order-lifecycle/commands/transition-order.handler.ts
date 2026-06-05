@@ -126,17 +126,14 @@ export class TransitionOrderHandler implements ICommandHandler<TransitionOrderCo
     }
 
     // -------------------------------------------------------------------------
-    // 6. T-01 precondition: COD-only for restaurant role
-    //    (admin may confirm VNPay orders via T-01 if needed — admin bypasses)
+    // 6. T-01 precondition: COD-only direct confirmation.
+    //    VNPay orders must first be advanced to `paid` by PaymentConfirmedEvent,
+    //    which is only published after VNPay IPN confirms successful payment.
     // -------------------------------------------------------------------------
-    if (
-      order.status === 'pending' &&
-      toStatus === 'confirmed' &&
-      actorRole === 'restaurant'
-    ) {
+    if (order.status === 'pending' && toStatus === 'confirmed') {
       if (order.paymentMethod !== 'cod') {
         throw new UnprocessableEntityException(
-          'VNPay orders cannot be confirmed directly by the restaurant. ' +
+          'VNPay orders cannot be confirmed before payment is confirmed. ' +
             'Wait for PaymentConfirmedEvent to advance the order to `paid` first.',
         );
       }

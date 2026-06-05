@@ -3,9 +3,13 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Inject,
   Logger,
   Query,
+  Res,
 } from '@nestjs/common';
+import type { ConfigType } from '@nestjs/config';
+import type { Response } from 'express';
 import {
   ApiBearerAuth,
   ApiExcludeEndpoint,
@@ -26,6 +30,7 @@ import { PaymentTransactionRepository } from '../repositories/payment-transactio
 import { PaymentService } from '../services/payment.service';
 import type { IpnResponse } from '../commands/process-ipn.handler';
 import type { PaymentStatus } from '../domain/payment-transaction.schema';
+import { vnpayConfig } from '@/config/vnpay.config';
 
 /**
  * PaymentController
@@ -33,8 +38,8 @@ import type { PaymentStatus } from '../domain/payment-transaction.schema';
  * HTTP surface for the Payment BC.
  * Handles two VNPay callbacks:
  *
- *   GET /payments/vnpay/ipn    — Server-to-server (authoritative, updates DB)
- *   GET /payments/vnpay/return — Browser redirect (UI display only, NO DB update)
+ *   GET /payments/vnpay/ipn    â€” Server-to-server (authoritative, updates DB)
+ *   GET /payments/vnpay/return â€” Browser redirect (UI display only, NO DB update)
  *
  * Security note:
  *   Both endpoints are PUBLIC (no auth guard). VNPay's IPN is called server-to-server
@@ -56,22 +61,24 @@ export class PaymentController {
     private readonly vnpayService: VNPayService,
     private readonly txnRepo: PaymentTransactionRepository,
     private readonly paymentService: PaymentService,
+    @Inject(vnpayConfig.KEY)
+    private readonly config: ConfigType<typeof vnpayConfig>,
   ) {}
 
   // ---------------------------------------------------------------------------
-  // Phase 8.3 — IPN (Instant Payment Notification)
+  // Phase 8.3 â€” IPN (Instant Payment Notification)
   // ---------------------------------------------------------------------------
 
   /**
-   * VNPay IPN endpoint — the SOLE authoritative source for payment status.
+   * VNPay IPN endpoint â€” the SOLE authoritative source for payment status.
    *
    * Called by VNPay's servers (not the browser) after a payment completes
    * or fails. Must respond within 5 seconds or VNPay will retry.
    *
    * Response shape: { RspCode: '00'|'97'|'01'|'04'|'99', Message: string }
-   * This exact shape is required by VNPay — do NOT wrap in a result envelope.
+   * This exact shape is required by VNPay â€” do NOT wrap in a result envelope.
    *
-   * Endpoint must be PUBLIC — no authentication guard applied.
+   * Endpoint must be PUBLIC â€” no authentication guard applied.
    * Security is provided by HMAC SHA512 signature verification inside the handler.
    *
    */
@@ -83,7 +90,7 @@ export class PaymentController {
     @Query() query: Record<string, string>,
   ): Promise<IpnResponse> {
     this.logger.log(
-      `IPN received from VNPay — params: [${Object.keys(query).join(', ')}]`,
+      `IPN received from VNPay â€” params: [${Object.keys(query).join(', ')}]`,
     );
 
     // Delegate entirely to the command handler.
@@ -94,31 +101,31 @@ export class PaymentController {
   }
 
   // ---------------------------------------------------------------------------
-  // Phase 8.4 — Return URL (browser redirect — UI only)
+  // Phase 8.4 â€” Return URL (browser redirect â€” UI only)
   // ---------------------------------------------------------------------------
 
   /**
-   * VNPay return URL endpoint — browser redirect after the payment page.
+   * VNPay return URL endpoint â€” browser redirect after the payment page.
    *
-   * ⚠️ CRITICAL: This endpoint MUST NOT update the database.
+   * WARNING: This endpoint MUST NOT update the database.
    *
    * This URL is loaded in the customer's browser, meaning the query params
    * could theoretically be tampered with by the customer or a man-in-the-middle.
    * The IPN (above) is the authoritative source of truth.
    *
    * Flow:
-   *   1. Optionally verify the signature (recommended — rejects obvious forgeries).
+   *   1. Optionally verify the signature (recommended â€” rejects obvious forgeries).
    *   2. Read the current transaction status from DB (reflect what IPN has set).
    *   3. Return orderId + status for the frontend to display the result screen.
    *
    * The frontend should poll for order status separately if the IPN hasn't
-   * arrived yet — this endpoint may reflect 'awaiting_ipn' momentarily.
+   * arrived yet â€” this endpoint may reflect 'awaiting_ipn' momentarily.
    */
   @Get('vnpay/return')
   @HttpCode(HttpStatus.OK)
   @AllowAnonymous()
   @ApiOperation({
-    summary: 'VNPay return URL — UI display only',
+    summary: 'VNPay return URL â€” UI display only',
     description:
       'Called when the customer browser is redirected back from VNPay. ' +
       'Returns the current payment status for display purposes only. ' +
@@ -151,10 +158,56 @@ export class PaymentController {
   async handleReturn(
     @Query() query: Record<string, string>,
   ): Promise<ReturnUrlResponse> {
+    return this.resolveReturnUrlResponse(query);
+  }
+
+  /**
+   * Mobile return endpoint: browser-facing redirect back into the Expo app.
+   *
+   * VNPay can only redirect to an HTTPS merchant URL. For mobile, the merchant
+   * URL lands here first, then this endpoint performs the same read-only return
+   * verification/status lookup as /vnpay/return and redirects to the app scheme.
+   */
+  @Get('vnpay/mobile-return')
+  @AllowAnonymous()
+  @ApiOperation({
+    summary: 'VNPay mobile return URL redirects to the mobile app',
+    description:
+      'Called by the customer browser after VNPay. Reads current payment status ' +
+      'without mutating state, then redirects to the configured mobile deep link.',
+  })
+  async handleMobileReturn(
+    @Query() query: Record<string, string>,
+    @Res() res: Response,
+  ): Promise<void> {
+    try {
+      const response = await this.resolveReturnUrlResponse(query);
+      res.redirect(
+        HttpStatus.FOUND,
+        this.buildMobileReturnRedirectUrl(response),
+      );
+    } catch (err) {
+      // Defensive fallback: if resolveReturnUrlResponse or buildMobileReturnRedirectUrl
+      // throw unexpectedly, redirect to the configured mobile return URL with an error
+      // status so the app can display a meaningful screen instead of a blank/broken page.
+      this.logger.error(
+        `handleMobileReturn: unexpected error — redirecting to error fallback. ${(err as Error).message}`,
+        (err as Error).stack,
+      );
+      const fallback = new URL(this.config.mobileReturnUrl);
+      fallback.searchParams.set('status', 'unknown');
+      fallback.searchParams.set('signatureValid', 'false');
+      res.redirect(HttpStatus.FOUND, fallback.toString());
+    }
+  }
+
+  private async resolveReturnUrlResponse(
+    query: Record<string, string>,
+  ): Promise<ReturnUrlResponse> {
     const txnRef = query['vnp_TxnRef'];
 
     // -------------------------------------------------------------------------
-    // Step 1: Verify signature (defensive — rejects forged return URLs).
+    // Step 1: Verify signature (defensive â€” rejects forged return URLs).
     //
     // We log the result but do NOT reject the request even if the signature
     // is invalid. The customer may have bookmarked a stale URL or the link
@@ -167,20 +220,20 @@ export class PaymentController {
 
     if (!signatureValid) {
       this.logger.warn(
-        `Return URL arrived with invalid signature — txnRef=${txnRef ?? 'missing'}. ` +
+        `Return URL arrived with invalid signature â€” txnRef=${txnRef ?? 'missing'}. ` +
           `Displaying DB status without state change.`,
       );
     }
 
     // -------------------------------------------------------------------------
-    // Step 2: No txnRef → cannot look up the transaction.
+    // Step 2: No txnRef â†’ cannot look up the transaction.
     //
-    // Return a safe "unknown" response rather than throwing — the customer
+    // Return a safe "unknown" response rather than throwing â€” the customer
     // browser will display an error screen that guides them to contact support.
     // -------------------------------------------------------------------------
     if (!txnRef) {
       this.logger.warn('Return URL missing vnp_TxnRef parameter.');
-      // Use 'unknown' — a missing txnRef means we cannot determine payment
+      // Use 'unknown' â€” a missing txnRef means we cannot determine payment
       // outcome. 'failed' would be misleading if the payment actually succeeded
       // and the IPN just hasn't been processed yet.
       return {
@@ -197,14 +250,14 @@ export class PaymentController {
     //
     // This is a READ-ONLY operation. We reflect whatever status the IPN
     // handler has already written. If IPN hasn't arrived yet, the status
-    // will be 'awaiting_ipn' — the frontend should handle this gracefully
+    // will be 'awaiting_ipn' â€” the frontend should handle this gracefully
     // (e.g. "Your payment is being processed, please wait...").
     // -------------------------------------------------------------------------
     const txn = await this.txnRepo.findById(txnRef);
 
     if (!txn) {
       this.logger.warn(`Return URL references unknown txnRef=${txnRef}.`);
-      // 'unknown' is more accurate than 'failed' — the transaction record may
+      // 'unknown' is more accurate than 'failed' â€” the transaction record may
       // not exist due to a race (extremely rare) or a tampered URL that
       // passed signature verification. IPN is authoritative; advise the
       // customer to check their order status page.
@@ -231,17 +284,32 @@ export class PaymentController {
     };
   }
 
+  private buildMobileReturnRedirectUrl(response: ReturnUrlResponse): string {
+    const url = new URL(this.config.mobileReturnUrl);
+
+    url.searchParams.set('txnRef', response.txnRef);
+    url.searchParams.set('orderId', response.orderId);
+    url.searchParams.set('status', response.status);
+    url.searchParams.set('signatureValid', String(response.signatureValid));
+
+    if (response.vnpResponseCode) {
+      url.searchParams.set('vnpResponseCode', response.vnpResponseCode);
+    }
+
+    return url.toString();
+  }
+
   // ---------------------------------------------------------------------------
-  // Phase 8.7 — Customer payment history
+  // Phase 8.7 â€” Customer payment history
   // ---------------------------------------------------------------------------
 
   /**
-   * GET /payments/my — the authenticated customer's payment transactions.
+   * GET /payments/my â€” the authenticated customer's payment transactions.
    *
    * Returns transactions ordered newest-first.
    * Sensitive fields (rawIpnPayload, paymentUrl) are excluded from the response.
    *
-   * Auth: required (global BetterAuth guard applies — no @AllowAnonymous here).
+   * Auth: required (global BetterAuth guard applies â€” no @AllowAnonymous here).
    */
   @Get('my')
   @HttpCode(HttpStatus.OK)
@@ -305,7 +373,7 @@ export class PaymentController {
 }
 
 // ---------------------------------------------------------------------------
-// Response type — return URL endpoint
+// Response type â€” return URL endpoint
 // ---------------------------------------------------------------------------
 
 /** Read-only snapshot returned to the browser after VNPay redirects back. */
@@ -314,11 +382,11 @@ export interface ReturnUrlResponse {
   txnRef: string;
   /** The orderId linked to this payment transaction. */
   orderId: string;
-  /** Current status as stored in the DB — reflects whatever IPN has set. */
+  /** Current status as stored in the DB â€” reflects whatever IPN has set. */
   status: string;
   /**
    * Whether the return URL signature was valid.
-   * false does NOT mean the payment failed — IPN is authoritative for that.
+   * false does NOT mean the payment failed â€” IPN is authoritative for that.
    * The frontend may display an advisory message when false.
    */
   signatureValid: boolean;
@@ -331,7 +399,7 @@ export interface ReturnUrlResponse {
 }
 
 // ---------------------------------------------------------------------------
-// Response types — GET /payments/my
+// Response types â€” GET /payments/my
 // ---------------------------------------------------------------------------
 
 /**

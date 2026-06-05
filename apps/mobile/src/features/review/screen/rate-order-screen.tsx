@@ -14,6 +14,8 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   ALLOWED_REVIEW_TAGS,
   ReviewTag,
+  TAG_LABELS,
+  REVIEWABLE_ORDER_STATUSES,
 } from '@/src/features/review/api/review.api';
 import {
   useMyReview,
@@ -21,30 +23,18 @@ import {
 } from '@/src/features/review/hooks/use-review';
 import { useMyOrderDetail } from '@/src/features/orders/hooks/use-order-history';
 
-const TAG_LABELS: Record<ReviewTag, string> = {
-  fast_delivery: 'Fast delivery',
-  good_packaging: 'Good packaging',
-  fresh_food: 'Fresh food',
-  accurate_order: 'Accurate order',
-  friendly_service: 'Friendly service',
-  poor_packaging: 'Poor packaging',
-  late_delivery: 'Late delivery',
-  wrong_order: 'Wrong order',
-  cold_food: 'Cold food',
-  missing_items: 'Missing items',
-};
-
 export function RateOrderScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const orderId = id || '';
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
-  const { data: order } = useMyOrderDetail(orderId);
-  const { data: existing, isLoading: loadingExisting } = useMyReview(
-    orderId,
-    !!orderId,
-  );
+  const { data: order, isLoading: loadingOrder } = useMyOrderDetail(orderId);
+  const {
+    data: existing,
+    isLoading: loadingExisting,
+    isError: reviewLoadError,
+  } = useMyReview(orderId, !!orderId);
 
   const [stars, setStars] = useState<number>(0);
   const [comment, setComment] = useState<string>('');
@@ -52,10 +42,18 @@ export function RateOrderScreen() {
 
   const submit = useSubmitReview();
 
-  const alreadyReviewed = !!existing && !submit.isError;
-  const isDelivered = order?.status === 'delivered';
+  // existing === null  → loaded, no review yet
+  // existing === ReviewResponse → loaded, review exists
+  // existing === undefined + isError → failed to load review (block submission)
+  const alreadyReviewed = existing != null;
+  const isRateable = order != null && (REVIEWABLE_ORDER_STATUSES as readonly string[]).includes(order.status);
   const canSubmit =
-    stars >= 1 && stars <= 5 && !submit.isPending && !alreadyReviewed && isDelivered;
+    stars >= 1 &&
+    stars <= 5 &&
+    !submit.isPending &&
+    !alreadyReviewed &&
+    isRateable &&
+    !reviewLoadError;
 
   const charCount = comment.length;
   const tagLimitReached = tags.length >= 5;
@@ -90,7 +88,9 @@ export function RateOrderScreen() {
         },
         onError: (err: unknown) => {
           const msg =
-            err instanceof Error ? err.message : 'Failed to submit review.';
+            err instanceof Error
+              ? err.message.split('\n')[0]
+              : 'Failed to submit review.';
           Alert.alert('Submission failed', msg);
         },
       },
@@ -122,19 +122,31 @@ export function RateOrderScreen() {
         </Text>
       </View>
 
-      {loadingExisting ? (
+      {loadingExisting || loadingOrder ? (
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator size="large" color="#0d631b" />
         </View>
       ) : (
         <ScrollView className="flex-1 px-4 py-6">
-          {!isDelivered && !alreadyReviewed && (
+          {reviewLoadError && (
             <View className="bg-error/10 p-4 rounded-2xl mb-4">
               <Text
                 className="text-error"
                 style={{ fontFamily: 'Inter_600SemiBold' }}
               >
-                You can only review delivered orders.
+                Could not load your existing review. Please go back and try
+                again.
+              </Text>
+            </View>
+          )}
+
+          {!reviewLoadError && !isRateable && !alreadyReviewed && (
+            <View className="bg-error/10 p-4 rounded-2xl mb-4">
+              <Text
+                className="text-error"
+                style={{ fontFamily: 'Inter_600SemiBold' }}
+              >
+                You can only review completed orders.
               </Text>
             </View>
           )}
