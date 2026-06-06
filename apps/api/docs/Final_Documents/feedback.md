@@ -1,92 +1,419 @@
-# DA1_report.md - Review Summary & Required Changes
+# ROLE
 
-## Tổng quan
+Bạn là một Principal Software Architect, Principal Business Analyst, Technical Writer và Software Engineering Reviewer.
 
-Sau khi review phiên bản hiện tại của `DA1_report.md`, thống nhất rằng báo cáo hướng tới quy mô khoảng **100–120 trang** và là tài liệu chính để giảng viên đọc (không giả định giảng viên đã đọc BRD, SRS, ASR, ADD, ADR hay SAD).
+Bạn có kinh nghiệm xây dựng:
 
-Do đó báo cáo cần:
+- BRD
+- SRS
+- ASR
+- ADD
+- ADR
+- SAD
+- Enterprise Architecture Documentation
+- Graduation Thesis Report
+- Capstone Project Report
 
-- Giữ tính nhất quán với toàn bộ tài liệu nguồn.
-- Không copy-paste nguyên văn SRS/SAD.
-- Không lược bỏ quá nhiều chi tiết kỹ thuật quan trọng.
-- Tự đứng độc lập như một báo cáo hoàn chỉnh.
+Ngoài vai trò viết báo cáo, bạn còn đóng vai trò reviewer kỹ thuật có nhiệm vụ kiểm tra tính nhất quán, tính đầy đủ và chất lượng học thuật của tài liệu.
 
 ---
 
-# 1. Chương 1 - Điều chỉnh mức độ chi tiết
+# GOAL
 
-## Hiện trạng
+Refactor trực tiếp file:
 
-Một số phần đang viết quá giống SRS hoặc Technical Specification.
+```text
+@DA1_report.md
+```
+
+KHÔNG tạo file mới.
+
+Mục tiêu:
+
+- Nâng chất lượng báo cáo lên mức đồ án/capstone chuyên nghiệp.
+- Đạt quy mô khoảng 100–120 trang.
+- Đảm bảo báo cáo có thể được đọc độc lập.
+- Giữ nhất quán với toàn bộ hệ thống tài liệu và source code.
+- Thể hiện đầy đủ chiều sâu phân tích nghiệp vụ, kiến trúc và kỹ thuật.
+
+---
+
+# MANDATORY READING PHASE
+
+Trước khi sửa báo cáo, phải đọc và phân tích lại toàn bộ các nguồn sau.
+
+## 1. Báo cáo hiện tại
+
+Đọc toàn bộ:
+
+```text
+@DA1_report.md
+```
+
+Mục tiêu:
+
+- Hiểu cấu trúc hiện tại.
+- Xác định các phần cần refactor.
+- Xác định nội dung nào đã tốt và nên giữ lại.
+- Xác định nội dung nào cần mở rộng.
+
+---
+
+## 2. Template báo cáo
+
+Đọc:
+
+```text
+@NoiDung Bao Cao Đồ án 1,2.md
+```
+
+Mục tiêu:
+
+- Đảm bảo không lệch yêu cầu của môn học.
+
+---
+
+## 3. Tài liệu nghiệp vụ
+
+Đọc toàn bộ:
+
+```text
+@Food_Delivery_Vision_and_Scope.md
+
+@BRD.md
+
+@Business_Rules.md
+```
+
+---
+
+## 4. Tài liệu yêu cầu
+
+Đọc toàn bộ:
+
+```text
+@SRS_FoodDelivery.md
+
+@USE_CASE_SPECIFICATION.md
+
+@User_Stories_and_Acceptance_Criteria.md
+```
+
+---
+
+## 5. Tài liệu mô hình hóa
+
+Đọc:
+
+```text
+@SRS_SequenceDiagrams.md
+```
+
+---
+
+## 6. Tài liệu chất lượng
+
+Đọc:
+
+```text
+@Utility_Tree.md
+
+@14 Quality Attribute.md
+
+```
+
+---
+
+## 7. Tài liệu kiến trúc
+
+Đọc toàn bộ:
+
+```text
+@ASR_FoodDelivery.md
+
+@ADD_FoodDelivery.md
+
+@ADR_FoodDelivery.md
+
+@SAD_FoodDelivery.md
+
+@CD_GUIDE.md
+```
+
+---
+
+## 8. Tài liệu AI
+
+Đọc:
+
+```text
+@Proposal_Multimodel.md
+```
+
+---
+
+## 9. SOURCE CODE ANALYSIS (BẮT BUỘC)
+
+Không được bỏ qua bước này.
+
+Phải duyệt toàn bộ codebase.
+
+Phân tích:
+
+### Kiến trúc
+
+- modules
+- bounded contexts
+- layers
+- dependencies
+
+### Database
+
+- schema
+- migrations
+- relationships
+- entities
+
+### API
+
+- endpoints
+- controllers
+- services
+
+### Authentication
+
+### Payment
+
+### Notifications
+
+### Reviews
+
+### Promotion
+
+### AI Integration (nếu có)
+
+### Folder Structure
+
+### Test Structure
+
+### DevOps
+
+### Observability
+
+### Validation
+
+### Documentation
+
+---
+
+# SOURCE OF TRUTH PRIORITY
+
+## Ưu tiên tài liệu
+
+Các nội dung sau phải lấy từ tài liệu:
+
+```text
+Business Objectives
+
+Success Metrics
+
+Business Rules
+
+ASR
+
+ADR
+
+Use Cases
+
+Quality Attributes
+```
+
+---
+
+## Ưu tiên source code
+
+Các nội dung sau phải lấy từ @codebase:
+
+```text
+Tech Stack
+
+Database Schema
+
+Folder Structure
+
+Implemented Features
+
+Test Suites
+
+API Design
+
+UI hiện có
+```
+
+---
+
+# REFACTOR REQUIREMENTS
+
+Thực hiện toàn bộ các thay đổi dưới đây.
+
+---
+
+# 1. CHƯƠNG 1
+
+## Giảm cảm giác Technical Specification
+
+Không đi quá sâu vào:
+
+- internal states
+- idempotency
+- implementation details
+
+Các nội dung kỹ thuật sâu nên chuyển xuống Chương 3.
+
+---
+
+## Mở rộng mục 1.4.4
+
+Không chỉ:
+
+```text
+Performance
+
+Availability
+
+Reliability
+
+Security
+
+Scalability
+```
+
+Mà phải trình bày đầy đủ các Quality Attributes đã phân tích trong ADD_FoodDelivery.md.
+
+Bao gồm:
+
+- Performance
+- Availability
+- Reliability
+- Security
+- Scalability
+- Modifiability
+- Observability
+- Maintainability
+
+và các quality goals liên quan.
+
+---
+
+# 2. CHƯƠNG 2
+
+## Rà soát lại toàn bộ Tech Stack
+
+Phân tích codebase.
+
+Kiểm tra xem còn thiếu:
+
+### Observability
 
 Ví dụ:
 
-- payment states
-- awaiting_ipn
-- refund_pending
-- idempotency key
-- notification internal states
+- OpenTelemetry
+- Prometheus
+- Grafana
+- Winston
+- Pino
 
-## Điều chỉnh
+### Testing
 
-Không xóa các nội dung kỹ thuật.
+- Jest
+- Supertest
+
+### DevOps
+
+- Docker
+- GitHub Actions
+- GHCR
+
+### API Documentation
+
+- Swagger/OpenAPI
+
+### Validation
+
+- Zod
+- class-validator
+
+hoặc bất kỳ công nghệ nào khác xuất hiện trong source code.
+
+Nếu có phải bổ sung vào Chương 2.
+
+---
+
+## Phần công nghệ
+
+Giữ format:
+
+```text
+Giới thiệu
+
+Ưu điểm
+
+Nhược điểm
+
+Lý do lựa chọn
+```
+
+---
+
+### Lưu ý cực kỳ quan trọng
+
+KHÔNG viết:
+
+```text
+Source code xác nhận...
+
+ASR yêu cầu...
+
+ADR quyết định...
+```
+
+---
 
 Thay vào đó:
 
-- Mô tả ở mức nghiệp vụ trước.
-- Sau đó mới giới thiệu các khái niệm kỹ thuật liên quan.
+Giải thích:
 
-Ví dụ:
+- tại sao công nghệ phù hợp với bài toán
+- lợi ích công nghệ mang lại
+- giá trị công nghệ tạo ra cho hệ thống
 
-### Không nên
+---
 
-```text
-Payment gồm các trạng thái:
-pending
-awaiting_ipn
-completed
-refund_pending
-```
+## Phần AI
 
-### Nên
+Không được đi thẳng vào:
 
 ```text
-Payment chịu trách nhiệm quản lý vòng đời giao dịch thanh toán của khách hàng.
+ConvNeXt
 
-Để đảm bảo tính toàn vẹn giao dịch, hệ thống quản lý nhiều trạng thái thanh toán khác nhau như pending, awaiting_ipn, completed và refund.
+XLM-RoBERTa
+
+Fusion Layer
 ```
 
 ---
 
-# 2. Chương 2 - AI Section
+Bổ sung trước:
 
-## Hiện trạng
+### Bài toán
 
-Đang có cảm giác:
+### Động lực áp dụng AI
 
-```text
-Proposal_Multimodel.md
-↓
-copy
-↓
-report
-```
+### Hạn chế của ảnh đơn lẻ
 
-## Điều chỉnh
+### Hạn chế của văn bản đơn lẻ
 
-Bổ sung phần dẫn nhập trước khi trình bày các mô hình.
-
-Thêm mục:
-
-### 2.2 Giới thiệu bài toán AI trong hệ thống
-
-Nội dung:
-
-- Pain Point hiện tại.
-- Vì sao đánh giá chất lượng món ăn là bài toán khó.
-- Vì sao chỉ dùng text là chưa đủ.
-- Vì sao chỉ dùng ảnh là chưa đủ.
-- Vì sao cần Multimodal AI.
+### Lý do cần Multimodal AI
 
 Flow:
 
@@ -103,45 +430,22 @@ XLM-RoBERTa
 ↓
 Fusion Layer
 ↓
-XAI
+Explainable AI
 ↓
 AI Agent
 ```
 
-Mục tiêu:
-
-Để người đọc hiểu:
-
-```text
-Tại sao cần AI
-```
-
-trước khi hiểu:
-
-```text
-AI dùng công nghệ gì
-```
-
 ---
 
-# 3. Chương 3.1 - Kiến trúc hệ thống
+# 3. CHƯƠNG 3.1
 
-## Hiện trạng
+## Chèn hình kiến trúc
 
-Mô tả khá đầy đủ.
-
-Tuy nhiên thiếu yếu tố quan trọng nhất:
-
-```text
-HÌNH KIẾN TRÚC
-```
-
-## Điều chỉnh
-
-Phải chèn nguyên các hình từ:
+Bắt buộc sử dụng hình từ:
 
 ```text
 ADD_FoodDelivery.md
+
 SAD_FoodDelivery.md
 ```
 
@@ -149,307 +453,380 @@ Không tự vẽ lại.
 
 ---
 
+Phải có:
+
 ### 3.1.1 Logical View
-
-Chèn:
-
-- Hình Logical View
-
-Sau đó giải thích:
-
-- Bounded Contexts
-- Quan hệ giữa các BC
-
----
 
 ### 3.1.2 Runtime View
 
-Chèn:
-
-- Hình Runtime View
-
-Sau đó giải thích:
-
-- Event Flow
-- EventBus
-- Runtime Interaction
-
----
-
 ### 3.1.3 Implementation View
-
-Chèn:
-
-- Hình Implementation View
-
-Sau đó giải thích:
-
-- Mapping giữa kiến trúc và source code
-
----
 
 ### 3.1.4 Data View
 
-Chèn:
-
-- Hình Data View
-
-Sau đó giải thích:
-
-- PostgreSQL
-- Redis
-- Cloudinary
-
----
-
 ### 3.1.5 Deployment View
 
-Chèn:
+Mỗi mục:
 
-- Hình Deployment View
-
-Sau đó giải thích:
-
-- React
-- NestJS
-- PostgreSQL
-- Redis
-- Render
-- GHCR
+- chèn hình
+- giải thích
 
 ---
 
-# 4. Chương 3.3 - Thiết kế CSDL
+# 4. CHƯƠNG 3.1.6
 
-## Hiện trạng
-
-Đang thiên về trình bày một số bảng tiêu biểu.
-
-## Điều chỉnh
-
-Chuyển sang mô hình trình bày theo Bounded Context.
-
-Lý do:
-
-- Nhất quán với Modular Monolith.
-- Nhất quán với ADD.
-- Nhất quán với SAD.
-- Thể hiện tư duy Domain-Driven Design.
-
----
-
-## Cấu trúc mới
-
-### 3.3.1 ERD tổng thể
-
-- Chèn ERD tổng thể.
-- Mô tả các nhóm thực thể chính.
-
----
-
-### 3.3.2 Auth BC Data Model
-
-Trình bày toàn bộ bảng thuộc Auth BC.
-
-Ví dụ:
-
-- users
-- sessions
-- accounts
-- verifications
-- ...
-
-Mỗi bảng gồm:
-
-- Mục đích
-- Các thuộc tính chính
-- Quan hệ
-
----
-
-### 3.3.3 Restaurant Catalog BC Data Model
-
-Toàn bộ bảng liên quan:
-
-- restaurants
-- cuisines
-- menu_categories
-- menu_items
-- modifier_groups
-- modifier_options
-- delivery_zones
-- ...
-
----
-
-### 3.3.4 Ordering BC Data Model
-
-Toàn bộ bảng liên quan:
-
-- carts
-- cart_items
-- orders
-- order_items
-- order_status_history
-- ...
-
----
-
-### 3.3.5 Payment BC Data Model
-
-Toàn bộ bảng liên quan:
-
-- payment_transactions
-- refunds
-- ...
-
----
-
-### 3.3.6 Promotion BC Data Model
-
-Toàn bộ bảng liên quan:
-
-- promotions
-- coupons
-- coupon_redemptions
-- ...
-
----
-
-### 3.3.7 Notification BC Data Model
-
-Toàn bộ bảng liên quan:
-
-- notifications
-- notification_preferences
-- device_tokens
-- ...
-
----
-
-### 3.3.8 Review BC Data Model
-
-Toàn bộ bảng liên quan:
-
-- reviews
-- review_images
-- ...
-
----
-
-## Cách trình bày mỗi BC
-
-### Mô tả BC
-
-Giải thích trách nhiệm nghiệp vụ.
-
-### Danh sách bảng
-
-Liệt kê toàn bộ bảng.
-
-### Data Dictionary
-
-Trình bày các cột quan trọng.
-
-### Quan hệ
-
-Mô tả relationship.
-
-### Ý nghĩa nghiệp vụ
-
-Giải thích vai trò của từng bảng trong hệ thống.
-
----
-
-# 5. Những phần giữ nguyên
-
-Các nội dung sau được đánh giá ổn và không cần thay đổi lớn:
-
-## Chương 1
-
-- Structure hiện tại.
-- Mapping tài liệu nguồn.
-
-## Chương 2.1
-
-- TypeScript
-- NestJS
-- React
-- React Native
-- PostgreSQL
-- Redis
-- Drizzle ORM
-- Better Auth
-- Cloudinary
-- FCM
-- VNPay
-
-Format:
+Bổ sung:
 
 ```text
-Giới thiệu
-
-Ưu điểm
-
-Nhược điểm
-
-Lý do lựa chọn
+3.1.6 Architectural Decisions
 ```
 
-giữ nguyên.
+Bao gồm:
+
+```text
+ADR-001 — Adopt Modular Monolith Architecture
+
+ADR-003 — Use Database per BC Ownership
+
+ADR-004 — Use In-process EventBus Communication
+
+ADR-005 — Adopt ACL Snapshot Pattern
+
+ADR-006 — Use Redis Runtime Layer
+
+ADR-007 — Use Ports and Adapters Integration Pattern
+
+ADR-008 — Adopt Drizzle Type-safe Persistence Layer
+```
 
 ---
 
-## Chương 3.2
+## Format ADR
 
-Tiếp tục sử dụng:
+Giữ nguyên tinh thần của ADR_FoodDelivery.md.
+
+KHÔNG được bỏ các phần:
+
+### Bối cảnh
+
+### Các phương án được xem xét
+
+### So sánh và đánh đổi
+
+### Quyết định
+
+### Lý do lựa chọn
+
+### Tác động
+
+---
+
+Viết ngắn gọn hơn ADR gốc.
+
+Không copy nguyên ADR.
+
+---
+
+# 5. CHƯƠNG 3.2
+
+Nguồn duy nhất:
 
 ```text
 USE_CASE_SPECIFICATION.md
 ```
 
-làm nguồn duy nhất.
+---
 
-Giữ nguyên cấu trúc:
+KHÔNG:
+
+- Rewrite
+- Tóm tắt
+- Rút gọn
+- Diễn giải
+
+---
+
+Mỗi UC Domain phải giữ nguyên bảng đặc tả.
+
+Bao gồm:
 
 ```text
-UC-DOM-01
-...
-UC-DOM-12
+Use Case ID
+
+Use Case Name
+
+Actors
+
+Description
+
+Preconditions
+
+Postconditions
+
+Priority
+
+Frequency of Use
+
+Normal Course of Events
+
+Alternative Courses
+
+Exceptions
+
+Includes
+
+Extends
+
+Special Requirements
+
+Assumptions
+
+Notes & Issues
 ```
 
-Không chuyển thành 35 Use Cases nhỏ.
+---
+
+Giữ nguyên cấu trúc bảng như USE_CASE_SPECIFICATION.md.
 
 ---
 
-## Chương 4
+# 6. CHƯƠNG 3.3
 
-Giữ nguyên cấu trúc hiện tại.
-
-Chỉ cần bổ sung nếu review phát hiện thiếu nội dung hoặc thiếu hình ảnh minh họa.
+Refactor hoàn toàn.
 
 ---
 
-# Kết quả mong muốn sau khi chỉnh sửa
+## 3.3.1 ERD tổng thể
 
-Phiên bản mới của `DA1_report.md` cần đạt:
+- Chèn ERD
+- Giải thích
 
-- 100–120 trang.
-- Có đầy đủ hình kiến trúc.
-- Có ERD tổng thể.
-- Có Database Design theo từng Bounded Context.
-- Có phần dẫn nhập AI rõ ràng.
-- Giữ nhất quán tuyệt đối với:
-  - Vision
-  - BRD
-  - Business Rules
-  - SRS
-  - Utility Tree
-  - ASR
-  - ADD
-  - ADR
-  - SAD
-  - Proposal_Multimodel
+---
 
-- Không trở thành bản copy của SRS/SAD.
-- Có thể được đọc độc lập mà không cần mở các tài liệu khác.
+## 3.3.2 Auth BC Data Model
+
+## 3.3.3 Restaurant Catalog BC Data Model
+
+## 3.3.4 Ordering BC Data Model
+
+## 3.3.5 Payment BC Data Model
+
+## 3.3.6 Promotion BC Data Model
+
+## 3.3.7 Notification BC Data Model
+
+## 3.3.8 Review BC Data Model
+
+---
+
+Mỗi BC phải gồm:
+
+### Mô tả BC
+
+### Danh sách bảng
+
+### Data Dictionary
+
+### Quan hệ
+
+### Ý nghĩa nghiệp vụ
+
+---
+
+Không chỉ trình bày vài bảng tiêu biểu.
+
+Phải trình bày toàn bộ bảng thuộc BC đó.
+
+---
+
+# 7. CHƯƠNG 4
+
+Mở rộng phần kiểm thử.
+
+---
+
+### 4.3.1 Testing Strategy
+
+- Testing Pyramid
+- Testing Scope
+
+---
+
+### 4.3.2 Unit Testing
+
+- Framework
+- Structure
+- Example Tests
+- Coverage (nếu có)
+
+---
+
+### 4.3.3 Integration Testing
+
+- API Integration
+- Database Integration
+
+---
+
+### 4.3.4 End-to-End Testing
+
+Ví dụ:
+
+```text
+Login
+↓
+Add Cart
+↓
+Checkout
+↓
+Payment
+↓
+Tracking
+```
+
+---
+
+### 4.3.5 Non-functional Testing
+
+- Performance
+- Reliability
+- Security
+- Availability
+
+---
+
+Nếu codebase có:
+
+```text
+Jest
+
+Supertest
+
+e2e
+
+test suites
+```
+
+thì phải đưa vào báo cáo.
+
+---
+
+# WRITING RULES
+
+## Không được viết
+
+```text
+Theo ASR...
+
+Theo ADR...
+
+Theo ADD...
+
+Theo BR-4...
+
+Theo Utility Tree...
+
+Source code xác nhận...
+```
+
+---
+
+## Không được viết như tài liệu traceability
+
+---
+
+## Phải viết như một báo cáo học thuật độc lập
+
+---
+
+## Văn phong
+
+- Chuyên nghiệp
+- Học thuật
+- Chỉnh chu
+- Dễ đọc
+- Phù hợp báo cáo tốt nghiệp
+
+---
+
+# MANDATORY REVIEW PHASE
+
+Sau khi hoàn thành việc refactor DA1_report.md.
+
+KHÔNG được xuất kết quả ngay.
+
+Phải review tối thiểu 3 vòng.
+
+---
+
+## Review Pass 1 — Consistency Review
+
+Kiểm tra:
+
+- Có còn trace tài liệu không.
+- Có còn văn phong kiểu ASR/SAD không.
+- Có phần nào mâu thuẫn với docs không.
+
+Nếu có:
+
+Sửa ngay.
+
+---
+
+## Review Pass 2 — Completeness Review
+
+Kiểm tra:
+
+- Có thiếu chương nào không.
+- Có thiếu ADR nào không.
+- Có thiếu hình nào không.
+- Có thiếu bảng Use Case nào không.
+- Có thiếu BC Data Model nào không.
+- Có thiếu công nghệ nào từ codebase không.
+- Có thiếu phần testing không.
+
+Nếu có:
+
+Bổ sung ngay.
+
+---
+
+## Review Pass 3 — Quality Review
+
+Kiểm tra:
+
+- Văn phong học thuật.
+- Chính tả.
+- Thuật ngữ.
+- Định dạng Markdown.
+- Tính mạch lạc.
+- Chất lượng trình bày.
+
+Nếu phát hiện điểm chưa hợp lý:
+
+Sửa ngay.
+
+---
+
+# OUTPUT
+
+Chỉnh sửa trực tiếp:
+
+```text
+DA1_report.md
+```
+
+Không tạo file mới.
+
+Không xuất reasoning.
+
+Không xuất checklist.
+
+Không xuất review notes.
+
+Chỉ giữ lại phiên bản cuối cùng của:
+
+```text
+DA1_report.md
+```
+
+sau khi đã hoàn thành toàn bộ quá trình review và chỉnh sửa.
