@@ -18,7 +18,7 @@
 
 # LỜI CẢM ƠN
 
-Nhóm thực hiện trân trọng cảm ơn giảng viên hướng dẫn đã định hướng, góp ý và theo dõi xuyên suốt quá trình thực hiện đề tài. Những góp ý về yêu cầu nghiệp vụ, kiến trúc hệ thống, cách tổ chức tài liệu và tiêu chuẩn trình bày đã giúp nhóm hoàn thiện sản phẩm theo hướng nhất quán giữa nhu cầu nghiệp vụ, hiện trạng triển khai và yêu cầu học thuật.
+Nhóm thực hiện trân trọng cảm ơn giảng viên hướng dẫn Cô Nguyễn Thị Xuân Hương đã tận tâm định hướng, góp ý và theo dõi xuyên suốt quá trình thực hiện đề tài. Những góp ý về yêu cầu nghiệp vụ, kiến trúc hệ thống, cách tổ chức tài liệu và tiêu chuẩn trình bày đã giúp nhóm hoàn thiện sản phẩm theo hướng nhất quán giữa nhu cầu nghiệp vụ, hiện trạng triển khai và yêu cầu học thuật.
 
 Nhóm cũng cảm ơn các thành viên đã phối hợp trong quá trình phân tích yêu cầu, xây dựng kiến trúc, phát triển ứng dụng backend, web, mobile, kiểm thử và hoàn thiện báo cáo cuối kỳ. Nội dung báo cáo được trình bày theo hướng độc lập, giúp người đọc nắm được mục tiêu, phạm vi, kiến trúc, thiết kế dữ liệu, giao diện, triển khai và kiểm thử của dự án SoLi Food Delivery Platform.
 
@@ -1019,7 +1019,7 @@ Giải thích:
 
 ### 3.1.2 Runtime View
 
-Runtime View mô tả các luồng động có ảnh hưởng lớn nhất đến tính đúng đắn của hệ thống: tạo đơn, đồng bộ dữ liệu xuyên bounded context, xử lý thanh toán và bù trừ, cùng vòng đời giao hàng đến review. Cách trình bày dưới đây đặt mỗi sơ đồ ngay trước phần giải thích tương ứng để người đọc theo dõi thuận theo luồng nghiệp vụ thay vì phải ghép nhiều hình rồi mới suy diễn.
+Runtime View mô tả các luồng động có ảnh hưởng lớn nhất đến tính đúng đắn của hệ thống: tạo đơn, đồng bộ dữ liệu xuyên bounded context, xử lý thanh toán và bù trừ, cùng vòng đời giao hàng đến review.
 
 #### 3.1.2.1 Order Placement Runtime
 
@@ -2574,9 +2574,9 @@ Khả năng sửa lỗi còn được tăng cường bởi validation tập trun
 
 **Adaptive maintenance**
 
-Adaptive maintenance thể hiện ở khả năng thích ứng khi môi trường triển khai, đối tác tích hợp hoặc yêu cầu nghiệp vụ thay đổi. Trên phương diện kiến trúc, việc chia hệ thống thành các bounded context với ownership dữ liệu tương đối độc lập làm giảm phạm vi ảnh hưởng của thay đổi. Một điều chỉnh ở Notification BC hoặc Payment BC không buộc toàn bộ hệ thống phải đồng thời thay đổi schema, repository và service ở các context khác.
+Adaptive maintenance thể hiện ở khả năng thích ứng khi môi trường triển khai, đối tác tích hợp hoặc yêu cầu nghiệp vụ thay đổi. Trên phương diện kiến trúc, việc chia hệ thống thành các bounded context với ownership dữ liệu tương đối độc lập làm giảm phạm vi ảnh hưởng của thay đổi, cũng như dễ dàng migrate lên Microservices sau này khi hệ thống cần mở rộng. Một điều chỉnh ở Notification BC hoặc Payment BC không buộc toàn bộ hệ thống phải đồng thời thay đổi schema, repository và service ở các context khác.
 
-Trong Notification BC, khả năng thích ứng được thể hiện rõ qua cơ chế Strategy cho channel và provider. Lớp điều phối gửi thông báo làm việc với abstraction mức kênh như in-app, email và push; bên dưới, từng kênh tiếp tục chọn provider phù hợp như `NodemailerEmailProvider` hoặc `NoopEmailProvider`, `FirebasePushProvider` hoặc `StubPushProvider`. Cấu trúc này cho phép hệ thống thay đổi cách gửi thông báo theo môi trường hoặc theo nhà cung cấp mà không phải viết lại toàn bộ luồng notification nghiệp vụ.
+Trong Notification BC, khả năng thích ứng được thể hiện rõ qua cơ chế Strategy cho channel và provider. Lớp điều phối gửi thông báo làm việc với abstraction mức kênh như in-app, email và push; bên dưới, từng kênh tiếp tục chọn provider phù hợp như `NodemailerEmailProvider`, `FirebasePushProvider`. Cấu trúc này cho phép hệ thống thay đổi cách gửi thông báo theo môi trường hoặc theo nhà cung cấp mà không phải viết lại toàn bộ luồng notification nghiệp vụ.
 
 Đối với thanh toán, logic đặc thù của VNPay được cô lập trong Payment BC, còn phần orchestration chung nằm ở `PaymentService`. Thiết kế này chưa đồng nghĩa với việc bài toán đa cổng thanh toán đã hoàn tất, nhưng nó tạo ra một điểm mở rộng hợp lý: khi cần bổ sung thêm nhà cung cấp mới, nhóm phát triển có thể tập trung thay đổi tại Payment BC thay vì phát tán logic thanh toán sang Ordering hay Notification.
 
@@ -2612,7 +2612,7 @@ Mô hình singleton xuất hiện dưới dạng framework-assisted singleton th
 
 **Strategy**
 
-Strategy là pattern nổi bật trong Notification BC. Ở lớp kênh gửi, hệ thống lựa chọn giữa in-app, email và push tùy theo cấu hình thông báo và ngữ cảnh nghiệp vụ. Ở lớp provider phía dưới, email có thể được xử lý bởi `NodemailerEmailProvider` hoặc `NoopEmailProvider`, còn push có thể dùng `FirebasePushProvider` hoặc `StubPushProvider`. Lợi ích kiến trúc của pattern này là tách phần quyết định "gửi bằng cách nào" ra khỏi phần "khi nào cần gửi", nhờ đó luồng nghiệp vụ giữ được tính ổn định ngay cả khi hạ tầng tích hợp thay đổi.
+Strategy là pattern nổi bật trong Notification BC. Ở lớp kênh gửi, hệ thống lựa chọn giữa in-app, email và push tùy theo cấu hình thông báo và ngữ cảnh nghiệp vụ. Ở lớp provider phía dưới, email có thể được xử lý bởi `NodemailerEmailProvider`, còn push có thể dùng `FirebasePushProvider`. Lợi ích kiến trúc của pattern này là tách phần quyết định "gửi bằng cách nào" ra khỏi phần "khi nào cần gửi", nhờ đó luồng nghiệp vụ giữ được tính ổn định ngay cả khi hạ tầng tích hợp thay đổi.
 
 **Command**
 
@@ -2636,15 +2636,15 @@ Adapter được áp dụng tại các điểm mà hệ thống cần thích ngh
 
 **Bảng 3.8. Tổng hợp các design pattern đã áp dụng**
 
-| Pattern   | Applied Components                                                                                                                                              | Architectural Benefit                                                                       |
-| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| Singleton | `RedisService`, `GeoService`, global infrastructure providers                                                                                                   | Tái sử dụng tài nguyên dùng chung, giảm chi phí khởi tạo và giữ cấu hình hạ tầng nhất quán  |
-| Strategy  | `INotificationChannel`, `EmailChannelService`, `PushChannelService`, `NodemailerEmailProvider`, `NoopEmailProvider`, `FirebasePushProvider`, `StubPushProvider` | Cho phép thay đổi channel hoặc provider mà không làm vỡ luồng notification nghiệp vụ        |
-| Command   | `PlaceOrderCommand`, `TransitionOrderCommand`, `ProcessIpnCommand`, `SubmitReviewCommand`                                                                       | Biểu diễn ý định nghiệp vụ rõ ràng, thuận lợi cho transaction management, telemetry và test |
-| Observer  | Domain events và các `@EventsHandler` subscriber                                                                                                                | Giảm coupling giữa nơi phát sinh sự kiện và nơi phản ứng, hỗ trợ mở rộng hậu xử lý          |
-| Mediator  | `CommandBus`, `EventBus`                                                                                                                                        | Chuẩn hóa cơ chế điều phối ở application layer, hạn chế giao tiếp point-to-point phức tạp   |
-| Facade    | `NotificationService`, `CartService`, `OrderHistoryService`, `AclService`                                                                                       | Đơn giản hóa bề mặt truy cập của module và che giấu phức tạp nội bộ                         |
-| Adapter   | `CartRedisRepository`, `drizzleAdapter()`                                                                                                                       | Thích nghi contract chung với hạ tầng triển khai cụ thể, giảm ràng buộc chéo giữa các lớp   |
+| Pattern   | Applied Components                                                                                                     | Architectural Benefit                                                                       |
+| --------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Singleton | `RedisService`, `GeoService`, global infrastructure providers                                                          | Tái sử dụng tài nguyên dùng chung, giảm chi phí khởi tạo và giữ cấu hình hạ tầng nhất quán  |
+| Strategy  | `INotificationChannel`, `EmailChannelService`, `PushChannelService`, `NodemailerEmailProvider`, `FirebasePushProvider` | Cho phép thay đổi channel hoặc provider mà không làm vỡ luồng notification nghiệp vụ        |
+| Command   | `PlaceOrderCommand`, `TransitionOrderCommand`, `ProcessIpnCommand`, `SubmitReviewCommand`                              | Biểu diễn ý định nghiệp vụ rõ ràng, thuận lợi cho transaction management, telemetry và test |
+| Observer  | Domain events và các `@EventsHandler` subscriber                                                                       | Giảm coupling giữa nơi phát sinh sự kiện và nơi phản ứng, hỗ trợ mở rộng hậu xử lý          |
+| Mediator  | `CommandBus`, `EventBus`                                                                                               | Chuẩn hóa cơ chế điều phối ở application layer, hạn chế giao tiếp point-to-point phức tạp   |
+| Facade    | `NotificationService`, `CartService`, `OrderHistoryService`, `AclService`                                              | Đơn giản hóa bề mặt truy cập của module và che giấu phức tạp nội bộ                         |
+| Adapter   | `CartRedisRepository`, `drizzleAdapter()`                                                                              | Thích nghi contract chung với hạ tầng triển khai cụ thể, giảm ràng buộc chéo giữa các lớp   |
 
 ### 3.1.10 Architectural Traceability Matrix
 
@@ -3407,7 +3407,7 @@ The following table summarizes every domain-level use case specification contain
 
 | Spec ID   | Domain Use Case                     | Primary Actor(s)                             | Priority | Status                                            |
 | --------- | ----------------------------------- | -------------------------------------------- | -------- | ------------------------------------------------- |
-| UC-DOM-01 | Authentication & Account Management | Guest, Customer, Restaurant, Shipper, Admin  | P1       | Implemented (with planned extensions)             |
+| UC-DOM-01 | Authentication & Account Management | Guest, Customer, Restaurant, Shipper, Admin  | P1       | Implemented                                       |
 | UC-DOM-02 | Restaurant Discovery & Search       | Guest, Customer                              | P1       | Implemented                                       |
 | UC-DOM-03 | Cart & Checkout                     | Customer                                     | P1       | Implemented                                       |
 | UC-DOM-04 | Payment                             | Customer, Admin, VNPay, System               | P1       | Implemented                                       |
@@ -3415,10 +3415,10 @@ The following table summarizes every domain-level use case specification contain
 | UC-DOM-06 | Restaurant Operations               | Restaurant, Admin                            | P1       | Implemented (flash sales planned)                 |
 | UC-DOM-07 | Delivery Operations                 | Shipper, Admin                               | P1       | Implemented (routing/earnings planned)            |
 | UC-DOM-08 | Notifications                       | Customer, Restaurant, Shipper, Admin, System | P1       | Implemented                                       |
-| UC-DOM-09 | Reviews & Feedback                  | Customer, Restaurant, Admin                  | P3       | Planned (R2)                                      |
-| UC-DOM-10 | Administration                      | Admin                                        | P1       | Implemented (reporting partial)                   |
+| UC-DOM-09 | Reviews & Feedback                  | Customer, Restaurant, Admin                  | P3       | Implemented                                       |
+| UC-DOM-10 | Administration                      | Admin                                        | P1       | Implemented                                       |
 | UC-DOM-11 | Real-time Tracking                  | Customer, Shipper                            | P1 / P3  | Status updates implemented; live GPS planned (R2) |
-| UC-DOM-12 | Reporting & Monitoring              | Admin                                        | P2       | Partial (full suite R2)                           |
+| UC-DOM-12 | Reporting & Monitoring              | Admin                                        | P2       | Implemented                                       |
 
 ---
 
