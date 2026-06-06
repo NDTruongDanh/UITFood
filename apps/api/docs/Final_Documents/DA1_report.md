@@ -2493,6 +2493,140 @@ Drizzle phù hợp với kiến trúc modular monolith vì schema có thể số
 
 Nhóm phát triển cần hiểu rõ PostgreSQL và cách Drizzle biểu diễn query, chứ không thể xem ORM như một lớp che hoàn toàn database. Một số migration phức tạp vẫn đòi hỏi rà soát thủ công. Bù lại, data model trở nên minh bạch hơn, dễ review hơn và phù hợp với định hướng giữ ownership dữ liệu theo bounded context trong toàn bộ SoLi.
 
+### 3.1.7 Observability & Operational Monitoring
+
+Một hệ thống giao đồ ăn không chỉ cần xử lý đúng nghiệp vụ mà còn phải cho phép đội vận hành quan sát được những gì đang diễn ra trong từng phiên checkout, thanh toán, giao hàng và gửi thông báo. Đặc điểm của SoLi là nhiều luồng xử lý diễn ra theo thời gian thực, có sự phối hợp giữa HTTP request, command handler, domain event, Redis và các dịch vụ phía người dùng cuối. Vì vậy, khả năng quan sát không được xem là phần bổ sung tùy chọn mà là một năng lực vận hành cốt lõi giúp hệ thống phát hiện sự cố sớm, khoanh vùng nguyên nhân và đánh giá chất lượng trải nghiệm sau mỗi lần phát hành.
+
+**Structured Logging và request context**
+
+Tầng backend xây dựng logging theo hướng structured JSON thay vì log chuỗi tự do. Mỗi request được gắn một `requestId` ổn định, đồng thời giữ thêm các trường ngữ cảnh như `traceId`, `spanId`, `method`, `path`, `routeTemplate`, `statusCode`, `durationMs`, `userId` và thông tin lỗi khi phát sinh exception. Cách tiếp cận này giải quyết ba vấn đề vận hành thường gặp.
+
+Thứ nhất, nó tạo ra một khóa liên kết xuyên suốt giữa log ứng dụng, trace và phản hồi trả về cho client. Khi người dùng báo lỗi ở một phiên thanh toán cụ thể, đội vận hành có thể lần ngược từ `x-request-id` để xác định đúng request, đúng handler và đúng thời điểm phát sinh lỗi. Thứ hai, logging theo cấu trúc giúp việc lọc dữ liệu trên các công cụ tập trung trở nên nhất quán hơn, đặc biệt với các tiêu chí như tuyến API, nhóm route hoặc actor đang thao tác. Thứ ba, cơ chế redaction ở logger hạn chế việc ghi nhận dữ liệu nhạy cảm vào log, từ đó giảm rủi ro lộ thông tin trong quá trình chẩn đoán sự cố.
+
+Ngoài logging ở request layer, hệ thống còn gắn interceptor ở mức toàn cục để thu thập telemetry cho các lỗi chưa được xử lý ở controller và command flow. Điều này làm tăng độ đầy đủ của bằng chứng chẩn đoán, nhất là trong các luồng nghiệp vụ dài như đặt món kèm thanh toán trực tuyến hoặc xử lý callback từ cổng thanh toán.
+
+**Distributed tracing và metrics**
+
+SoLi sử dụng OpenTelemetry làm lớp tiêu chuẩn hóa cho tracing, metrics và telemetry export. Việc lựa chọn một cơ chế chung giúp backend không bị khóa vào một công cụ quan sát cụ thể, đồng thời vẫn duy trì được khả năng xuất dữ liệu sang môi trường giám sát tập trung thông qua giao thức OTLP. Trong thực tế vận hành, cách tổ chức này đặc biệt hữu ích với các tác vụ có nhiều bước phụ thuộc lẫn nhau như:
+
+- tạo phiên checkout và kiểm tra idempotency;
+- khởi tạo giao dịch thanh toán;
+- xử lý IPN và cập nhật trạng thái đơn hàng;
+- phát sinh event để đồng bộ ACL hoặc gửi notification.
+
+Ở mức kỹ thuật, trace cho phép biểu diễn một transaction nghiệp vụ dưới dạng cây thao tác thay vì các dòng log rời rạc. Khi thời gian xử lý tăng bất thường, đội vận hành có thể phân biệt được độ trễ nằm ở khâu truy vấn database, thao tác Redis hay bước tích hợp thanh toán. Metrics bổ sung thêm góc nhìn định lượng bằng các bộ đếm và histogram ở cả request layer lẫn domain layer, chẳng hạn số lượng request, số lỗi HTTP, thời gian phản hồi và các chỉ số nghiệp vụ như số đơn được đặt hoặc số lần thanh toán thất bại. Từ đó, hệ thống không chỉ trả lời câu hỏi "đã xảy ra lỗi gì" mà còn trả lời được "lỗi đó có tần suất bao nhiêu và đang ảnh hưởng đến khu vực nghiệp vụ nào".
+
+Hạ tầng dashboard của dự án được chuẩn bị theo hướng tương thích với Grafana stack để trực quan hóa logs, traces và metrics trên cùng một mặt phẳng vận hành. Giá trị lớn nhất của cách tổ chức này nằm ở khả năng kết nối tín hiệu: một spike lỗi thanh toán có thể được soi tiếp bằng trace chi tiết, sau đó đối chiếu lại log của request tương ứng mà không phải chuyển đổi tư duy giữa nhiều hệ thống rời rạc.
+
+**Quan sát phía frontend và thiết bị di động**
+
+Khả năng quan sát của SoLi không dừng ở backend. Ứng dụng web tích hợp Grafana Faro để ghi nhận lỗi phía trình duyệt, route transition, API breadcrumbs và các sự kiện giao diện liên quan đến hành vi sử dụng thật. Đây là lớp quan sát quan trọng vì nhiều vấn đề trải nghiệm người dùng không phát sinh từ server error mà đến từ rendering failure, lỗi điều hướng hoặc tương tác không hoàn tất ở client. Khi telemetry từ client được đặt cạnh telemetry từ backend, đội phát triển có thể xác định liệu một phiên checkout thất bại xuất phát từ API, từ giao diện hay từ sự kết hợp của cả hai.
+
+Với ứng dụng mobile, hệ thống sử dụng Sentry để theo dõi lỗi runtime, gắn release metadata và lưu lại breadcrumb trong những thao tác có giá trị chẩn đoán như gọi API hoặc xử lý socket thông báo. Điều này giúp việc phân tích sự cố trên thiết bị di động trở nên khả thi hơn, nhất là khi lỗi xuất hiện phân tán theo phiên bản ứng dụng hoặc theo môi trường phát hành. Mobile telemetry vì vậy đóng vai trò như lớp bằng chứng bổ sung cho backend, thay vì chỉ là công cụ thống kê lỗi đơn lẻ.
+
+Ở thời điểm hiện tại, phần telemetry phía client được triển khai rõ nhất trên web và mobile. Dashboard quản trị tập trung chủ yếu vào việc khai thác dữ liệu nghiệp vụ và tín hiệu vận hành đã được thu thập, thay vì tự nó trở thành một nguồn telemetry ngang hàng với hai ứng dụng người dùng cuối.
+
+**Product analytics và quan sát hành vi sử dụng**
+
+Ngoài tín hiệu phục vụ chẩn đoán kỹ thuật, SoLi còn duy trì một lớp product analytics trên web thông qua PostHog. Mục tiêu của lớp này không phải thay thế logging hay tracing, mà là giúp nhóm phát triển hiểu người dùng đang tương tác với hệ thống như thế nào: họ có vào được trang thanh toán hay không, ở bước nào tỷ lệ rời bỏ cao hơn, hoặc sau khi thêm các tính năng như review và reorder thì tần suất sử dụng thay đổi ra sao.
+
+Việc tách product analytics khỏi telemetry vận hành đem lại một lợi ích quan trọng: dữ liệu phân tích hành vi có thể được xử lý theo mô hình tối ưu cho sản phẩm, trong khi dữ liệu quan sát kỹ thuật vẫn giữ cấu trúc phù hợp cho điều tra sự cố. Đồng thời, lớp analytics hiện tại có cơ chế lọc bớt các thuộc tính nhạy cảm trước khi gửi sự kiện, từ đó cân bằng giữa nhu cầu hiểu người dùng và yêu cầu bảo vệ dữ liệu.
+
+**Lợi ích vận hành tổng thể**
+
+Khi ghép các lớp structured logging, tracing, metrics, frontend monitoring, mobile error monitoring và analytics vào cùng một kiến trúc, SoLi đạt được một mức độ hiển thị vận hành đủ sâu cho bối cảnh capstone có nhiều phân hệ. Hệ thống có thể:
+
+- phát hiện sớm các bất thường như tăng độ trễ checkout hoặc lỗi IPN;
+- rút ngắn thời gian phân tích nguyên nhân gốc nhờ liên kết giữa log, trace và request identifier;
+- đánh giá ảnh hưởng của từng phiên bản phát hành thông qua release metadata ở cả backend và mobile;
+- theo dõi tác động của thay đổi sản phẩm bằng dữ liệu hành vi thay vì chỉ dựa vào cảm nhận chủ quan.
+
+Về bản chất, observability trong SoLi không chỉ phục vụ sửa lỗi. Nó tạo nên nền tảng để hệ thống được vận hành có kiểm soát, đo lường được chất lượng dịch vụ và hỗ trợ các quyết định cải tiến sản phẩm trong những vòng phát triển tiếp theo.
+
+### 3.1.8 Khả năng bảo trì và mở rộng hệ thống
+
+Khả năng bảo trì của SoLi được hình thành từ cách phân tách bounded context, tổ chức code theo module và bổ sung các cơ chế kiểm soát rủi ro ngay trong runtime. Thay vì xem bảo trì là hoạt động sửa lỗi sau cùng, kiến trúc của hệ thống hướng đến việc làm cho thay đổi trở nên cục bộ hơn, an toàn hơn và có thể kiểm chứng được bằng test cũng như tín hiệu vận hành. Dưới góc nhìn kỹ thuật phần mềm, năng lực này có thể được phân tích theo bốn loại bảo trì phổ biến.
+
+**Corrective maintenance**
+
+Corrective maintenance tập trung vào khả năng phát hiện, cô lập và sửa lỗi mà không làm tổn hại đến các luồng nghiệp vụ đã ổn định. SoLi hỗ trợ mục tiêu này bằng một cấu trúc kiểm thử nhiều lớp gồm unit test, integration-oriented test và e2e test ở backend. Các kịch bản e2e không chỉ kiểm tra endpoint đơn lẻ mà còn bao phủ các chuỗi nghiệp vụ có rủi ro cao như order lifecycle, payment callback, promotion application, review submission và search behavior. Cách tổ chức này giúp mỗi lần chỉnh sửa lỗi đều có thể được đối chiếu ngay với hành vi hệ thống ở mức gần thực tế.
+
+Khả năng sửa lỗi còn được tăng cường bởi validation tập trung và logging có ngữ cảnh. Khi dữ liệu đầu vào sai định dạng hoặc thiếu điều kiện tiền đề, lỗi được chặn ở sớm thay vì lan sâu vào domain flow. Khi lỗi vẫn lọt qua đến runtime, request context và structured log giúp đội phát triển truy nguyên được request nào, actor nào và handler nào đã gây ra bất thường. Nhờ đó, corrective maintenance không biến thành hoạt động phỏng đoán mà dựa trên bằng chứng tương đối rõ ràng.
+
+**Adaptive maintenance**
+
+Adaptive maintenance thể hiện ở khả năng thích ứng khi môi trường triển khai, đối tác tích hợp hoặc yêu cầu nghiệp vụ thay đổi. Trên phương diện kiến trúc, việc chia hệ thống thành các bounded context với ownership dữ liệu tương đối độc lập làm giảm phạm vi ảnh hưởng của thay đổi. Một điều chỉnh ở Notification BC hoặc Payment BC không buộc toàn bộ hệ thống phải đồng thời thay đổi schema, repository và service ở các context khác.
+
+Trong Notification BC, khả năng thích ứng được thể hiện rõ qua cơ chế Strategy cho channel và provider. Lớp điều phối gửi thông báo làm việc với abstraction mức kênh như in-app, email và push; bên dưới, từng kênh tiếp tục chọn provider phù hợp như `NodemailerEmailProvider` hoặc `NoopEmailProvider`, `FirebasePushProvider` hoặc `StubPushProvider`. Cấu trúc này cho phép hệ thống thay đổi cách gửi thông báo theo môi trường hoặc theo nhà cung cấp mà không phải viết lại toàn bộ luồng notification nghiệp vụ.
+
+Đối với thanh toán, logic đặc thù của VNPay được cô lập trong Payment BC, còn phần orchestration chung nằm ở `PaymentService`. Thiết kế này chưa đồng nghĩa với việc bài toán đa cổng thanh toán đã hoàn tất, nhưng nó tạo ra một điểm mở rộng hợp lý: khi cần bổ sung thêm nhà cung cấp mới, nhóm phát triển có thể tập trung thay đổi tại Payment BC thay vì phát tán logic thanh toán sang Ordering hay Notification.
+
+Khả năng thích ứng còn thể hiện ở phương diện nền tảng. Hệ thống được chuẩn bị cho quy trình build và triển khai container hóa, đồng thời sử dụng schema validation cho biến môi trường để phát hiện sai lệch cấu hình ngay từ đầu vòng đời chạy ứng dụng. Cách tổ chức đó làm giảm rủi ro khi chuyển môi trường từ máy phát triển sang CI hoặc môi trường triển khai thực tế, và đặc biệt hữu ích với một hệ thống có backend, web, admin và mobile cùng phát triển song song.
+
+**Perfective maintenance**
+
+Perfective maintenance hướng đến việc cải thiện hiệu năng, khả năng sử dụng và giá trị nghiệp vụ khi hệ thống đã hoạt động ổn định. Trong SoLi, lớp Redis runtime đóng vai trò quan trọng cho nhóm cải tiến này. Shopping cart được đặt trên Redis để hỗ trợ thao tác cập nhật nhanh và giảm độ phụ thuộc vào database giao dịch cho các hành vi tần suất cao. Cùng với đó, Redis còn được dùng cho những nhu cầu runtime như idempotency, lock ngắn hạn và một phần dữ liệu phục vụ xử lý thời gian thực, qua đó giúp hệ thống phản hồi mượt hơn ở các luồng nhạy cảm.
+
+Ở tầng dữ liệu, schema được thiết kế kèm index và constraint cho các truy vấn quan trọng như order lookup, notification delivery, review và payment transaction. Điều này không chỉ phục vụ tính đúng đắn mà còn tạo điều kiện để tối ưu hiệu năng truy vấn khi dữ liệu tăng dần. Bên cạnh đó, việc xây dựng dashboard quản trị, lớp analytics trên web và cơ chế theo dõi review mở rộng giá trị của hệ thống từ một ứng dụng đặt món đơn thuần thành một nền tảng có khả năng hỗ trợ quyết định vận hành.
+
+Hướng phát triển AI cho review quality analysis cũng thuộc nhóm perfective maintenance. Nó không thay đổi bản chất lõi của nghiệp vụ đặt món, nhưng làm tăng chiều sâu giá trị dữ liệu sau bán bằng cách biến review thành nguồn tri thức phục vụ nhà hàng và đội quản trị.
+
+**Preventive maintenance**
+
+Preventive maintenance trong SoLi tập trung vào việc giảm xác suất phát sinh lỗi khó phục hồi trước khi chúng xảy ra trong môi trường thật. Ở luồng đặt hàng, hệ thống áp dụng idempotency key và checkout lock trên Redis để hạn chế tình trạng submit lặp hoặc tạo nhiều đơn ngoài ý muốn. Trong các transaction nhạy cảm như payment transaction hoặc cập nhật trạng thái đơn hàng, optimistic locking giúp phát hiện xung đột ghi thay vì âm thầm ghi đè dữ liệu mới bằng dữ liệu cũ.
+
+ACL snapshot pattern cũng là một biện pháp phòng ngừa quan trọng. Thay vì để các bounded context truy vấn chéo dữ liệu nghiệp vụ theo thời gian thực, hệ thống sao chụp những phần thông tin cần thiết về context sở hữu cục bộ. Cách làm này giảm coupling trực tiếp, giảm xác suất lỗi dây chuyền khi một context thay đổi cấu trúc đọc và đồng thời làm cho các giao diện nội bộ ổn định hơn.
+
+Một yếu tố phòng ngừa khác là cơ chế state transition của đơn hàng. Việc biểu diễn lifecycle bằng tập chuyển trạng thái hợp lệ giúp loại bỏ nhiều lớp lỗi logic như nhảy trạng thái không hợp lệ hoặc xử lý sai thứ tự nghiệp vụ. Các tác vụ nền như timeout payment session hoặc dọn dẹp device token cũ tiếp tục củng cố preventive maintenance bằng cách ngăn dữ liệu tạm thời hoặc phiên giao dịch treo tích tụ theo thời gian.
+
+Cuối cùng, chuỗi CI/CD với lint, typecheck, audit, test và build tạo thành quality gate tự động trước khi mã nguồn được đóng gói và triển khai. Đây là lớp phòng thủ cuối nhưng rất quan trọng, bởi nó giúp ngăn các lỗi hồi quy phổ biến xâm nhập vào môi trường chạy thật ngay từ sớm trong pipeline phát triển.
+
+Nhìn tổng thể, khả năng bảo trì và mở rộng của SoLi không đến từ một kỹ thuật đơn lẻ mà từ sự phối hợp giữa modular architecture, kiểm thử tự động, cơ chế runtime an toàn và quy trình phát hành có kiểm soát. Nhờ vậy, hệ thống có thể tiếp tục tiến hóa mà không đánh đổi quá nhiều về độ ổn định của các luồng nghiệp vụ cốt lõi.
+
+### 3.1.9 Design Patterns Applied in the System
+
+SoLi không theo đuổi việc áp dụng design pattern một cách hình thức. Các pattern xuất hiện chủ yếu như kết quả của việc giải quyết những vấn đề thực tế: điều phối command, phát tán event, thay thế provider, gom logic phức tạp sau một façade hay thích nghi với cơ chế lưu trữ cụ thể. Việc nhận diện đúng các pattern này giúp làm rõ vì sao codebase vẫn giữ được tính tổ chức khi số lượng module và luồng nghiệp vụ tăng lên.
+
+**Singleton**
+
+Mô hình singleton xuất hiện dưới dạng framework-assisted singleton thông qua cơ chế dependency injection của NestJS. Những service dùng chung như `RedisService`, `GeoService` và một số provider hạ tầng toàn cục được khởi tạo một lần và tái sử dụng xuyên suốt ứng dụng. Cách tổ chức này giúp hệ thống tránh việc mở nhiều kết nối hoặc tạo nhiều bản thể không cần thiết cho các thành phần mang tính dùng chung ở cấp hạ tầng.
+
+**Strategy**
+
+Strategy là pattern nổi bật trong Notification BC. Ở lớp kênh gửi, hệ thống lựa chọn giữa in-app, email và push tùy theo cấu hình thông báo và ngữ cảnh nghiệp vụ. Ở lớp provider phía dưới, email có thể được xử lý bởi `NodemailerEmailProvider` hoặc `NoopEmailProvider`, còn push có thể dùng `FirebasePushProvider` hoặc `StubPushProvider`. Lợi ích kiến trúc của pattern này là tách phần quyết định "gửi bằng cách nào" ra khỏi phần "khi nào cần gửi", nhờ đó luồng nghiệp vụ giữ được tính ổn định ngay cả khi hạ tầng tích hợp thay đổi.
+
+**Command**
+
+Pattern Command được thể hiện rõ trong các nghiệp vụ có side effect lớn như `PlaceOrderCommand`, `TransitionOrderCommand`, `ProcessIpnCommand` và `SubmitReviewCommand`. Việc đóng gói dữ liệu đầu vào thành command object rồi chuyển cho handler phù hợp giúp hệ thống biểu diễn được ý định nghiệp vụ một cách tường minh, đồng thời làm cho transaction boundary, validation và telemetry dễ gắn vào hơn. Đây cũng là cơ sở để các tác vụ thay đổi trạng thái được tách khỏi controller và trở nên thuận tiện hơn trong kiểm thử.
+
+**Observer**
+
+Observer xuất hiện ở cơ chế domain event và các subscriber đăng ký qua `EventBus`. Sau khi một sự kiện nghiệp vụ được phát ra, nhiều thành phần có thể phản ứng độc lập như đồng bộ ACL snapshot, gửi notification hoặc cập nhật read model. Pattern này giúp SoLi giảm phụ thuộc trực tiếp giữa nơi phát sinh sự kiện và nơi xử lý hậu quả của sự kiện, từ đó phù hợp với kiến trúc bounded context có nhu cầu cộng tác nhưng không muốn ghép chặt.
+
+**Mediator**
+
+`CommandBus` và `EventBus` đóng vai trò mediator ở mức kiến trúc ứng dụng. Thay vì để controller hoặc service gọi trực tiếp lẫn nhau theo kiểu point-to-point, các thành phần gửi yêu cầu hoặc phát sự kiện vào bus chung, còn việc chọn đúng handler hay subscriber được mediator đảm nhận. Cách tổ chức này làm giảm coupling giữa người gửi và người nhận, đồng thời giữ cho luồng điều phối ở mức application trở nên nhất quán hơn khi số lượng use case tăng dần.
+
+**Facade**
+
+Một số service được thiết kế như facade nhằm che bớt sự phân mảnh nội bộ của module. `NotificationService` gom logic tạo thông báo, quản lý preference, đăng ký push token và phối hợp channel dispatch. `CartService` cung cấp một mặt truy cập thống nhất cho giỏ hàng đặt trên Redis. `OrderHistoryService` và `AclService` che đi chi tiết truy vấn, mapping và kiểm tra điều kiện đọc dữ liệu. Nhờ facade, controller và tầng gọi phía trên không cần biết toàn bộ cấu trúc repository, projector hay provider nằm phía dưới.
+
+**Adapter**
+
+Adapter được áp dụng tại các điểm mà hệ thống cần thích nghi một contract chung với cơ chế triển khai cụ thể. `CartRedisRepository` là ví dụ rõ nhất khi lớp repository cho giỏ hàng được thiết kế xoay quanh Redis nhưng vẫn đóng vai trò như cổng truy cập ổn định cho tầng nghiệp vụ. Bên cạnh đó, `drizzleAdapter()` là cầu nối giữa cơ chế persistence của ứng dụng và thư viện xác thực, cho phép lớp xác thực làm việc với hạ tầng dữ liệu hiện tại mà không kéo business module phụ thuộc trực tiếp vào chi tiết triển khai của auth stack.
+
+**Bảng tổng hợp các pattern đã áp dụng**
+
+| Pattern | Applied Components | Architectural Benefit |
+| --- | --- | --- |
+| Singleton | `RedisService`, `GeoService`, global infrastructure providers | Tái sử dụng tài nguyên dùng chung, giảm chi phí khởi tạo và giữ cấu hình hạ tầng nhất quán |
+| Strategy | `INotificationChannel`, `EmailChannelService`, `PushChannelService`, `NodemailerEmailProvider`, `NoopEmailProvider`, `FirebasePushProvider`, `StubPushProvider` | Cho phép thay đổi channel hoặc provider mà không làm vỡ luồng notification nghiệp vụ |
+| Command | `PlaceOrderCommand`, `TransitionOrderCommand`, `ProcessIpnCommand`, `SubmitReviewCommand` | Biểu diễn ý định nghiệp vụ rõ ràng, thuận lợi cho transaction management, telemetry và test |
+| Observer | Domain events và các `@EventsHandler` subscriber | Giảm coupling giữa nơi phát sinh sự kiện và nơi phản ứng, hỗ trợ mở rộng hậu xử lý |
+| Mediator | `CommandBus`, `EventBus` | Chuẩn hóa cơ chế điều phối ở application layer, hạn chế giao tiếp point-to-point phức tạp |
+| Facade | `NotificationService`, `CartService`, `OrderHistoryService`, `AclService` | Đơn giản hóa bề mặt truy cập của module và che giấu phức tạp nội bộ |
+| Adapter | `CartRedisRepository`, `drizzleAdapter()` | Thích nghi contract chung với hạ tầng triển khai cụ thể, giảm ràng buộc chéo giữa các lớp |
+
 ## 3.2 Thiết kế Use Case
 
 Thiết kế use case của hệ thống được trình bày ở mức domain-level. Cách trình bày này giữ nguyên 12 use case domain lớn, mỗi domain đại diện cho một nhóm năng lực nghiệp vụ chính của nền tảng. Các use case chi tiết hơn được bao hàm trong từng domain thông qua normal course, alternative course, exception, include, extend và special requirements.
