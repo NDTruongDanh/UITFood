@@ -100,7 +100,7 @@ function LocateControl() {
 export function StoreTab() {
   const { data: restaurant, isLoading } = useMyRestaurant();
   const { mutateAsync: updateRestaurant } = useUpdateRestaurant();
-  const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [showSaved, setShowSaved] = useState(false);
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [pendingImageMeta, setPendingImageMeta] = useState<any | null>(null);
 
@@ -153,8 +153,8 @@ export function StoreTab() {
       }
 
       reset(data); // Reset form to new values
-      setSavedAt(Date.now());
-      setTimeout(() => setSavedAt(null), 2500);
+      setShowSaved(true);
+      setTimeout(() => setShowSaved(false), 2500);
     } catch (error) {
       console.error('Failed to update restaurant', error);
     }
@@ -229,7 +229,13 @@ export function StoreTab() {
     });
   };
 
-  const currentCoverUrl = methods.watch('coverImageUrl');
+  const currentCoverUrl = useWatch<
+    UpdateRestaurantFormValues,
+    'coverImageUrl'
+  >({
+    control: methods.control,
+    name: 'coverImageUrl',
+  });
 
   if (isLoading) {
     return (
@@ -263,7 +269,7 @@ export function StoreTab() {
             <h3 className="font-headline text-lg font-bold text-on-surface">
               Store Profile
             </h3>
-            {savedAt && (
+            {showSaved && (
               <span className="text-xs text-primary font-medium flex items-center gap-1 animate-in fade-in">
                 <span className="material-symbols-outlined text-sm">
                   check_circle
