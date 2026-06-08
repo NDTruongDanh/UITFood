@@ -1,52 +1,38 @@
-import { useNavigate } from "react-router-dom";
-import { cn } from "@/lib/utils";
-import type { Order } from "@/features/orders/types/order.types";
-import { Badge } from "@/components/ui/badge";
-import type { VariantProps } from "class-variance-authority";
-import { badgeVariants } from "@/components/ui/badge-variants";
-import { Draggable } from "@hello-pangea/dnd";
-import { canDragFromColumn } from "@/features/orders/utils/dragTransitions";
-import { getColumnForStatus } from "@/features/orders/utils/statusMapping";
-import { useOrderCardDetail } from "@/features/orders/hooks/useOrderCardDetail";
-import { OrderCardItems } from "@/features/orders/components/OrderCardItems";
-import { formatElapsedTime, formatVND } from "@/features/orders/utils/timeFormat";
-
-// ── Tag badge variant mapping ────────────────────────────────────────────────
-type BadgeVariant = VariantProps<typeof badgeVariants>["variant"];
-
-const TAG_BADGE_VARIANT: Record<string, BadgeVariant> = {
-  unaccepted: "order-neutral",
-  review: "order-neutral",
-  high_priority: "order-priority",
-  delivery: "order-delivery",
-  preparing: "order-preparing",
-  ready: "order-ready",
-  ready_pickup: "order-ready",
-};
+import { cn } from '@/lib/utils';
+import type { Order } from '@/features/orders/types/order.types';
+import { Draggable } from '@hello-pangea/dnd';
+import { canDragFromColumn } from '@/features/orders/utils/dragTransitions';
+import { getColumnForStatus } from '@/features/orders/utils/statusMapping';
+import { useOrderCardDetail } from '@/features/orders/hooks/useOrderCardDetail';
+import { OrderCardItems } from '@/features/orders/components/OrderCardItems';
+import {
+  formatElapsedTime,
+  formatVND,
+} from '@/features/orders/utils/timeFormat';
 
 // ── Status icon mapping ───────────────────────────────────────────────────────
 type StatusConfig = { icon: string; iconColor: string };
 
 function getStatusConfig(order: Order): StatusConfig {
-  if (order.status === "requesting")
-    return { icon: "pending", iconColor: "text-outline" };
-  if (order.status === "todo") {
-    return order.tag.variant === "high_priority"
-      ? { icon: "error", iconColor: "text-primary" }
-      : { icon: "radio_button_unchecked", iconColor: "text-outline" };
+  if (order.status === 'requesting')
+    return { icon: 'pending', iconColor: 'text-outline' };
+  if (order.status === 'todo') {
+    return order.tag.variant === 'high_priority'
+      ? { icon: 'error', iconColor: 'text-primary' }
+      : { icon: 'radio_button_unchecked', iconColor: 'text-outline' };
   }
-  if (order.status === "in_progress")
-    return { icon: "schedule", iconColor: "text-blue-500" };
-  return { icon: "check_circle", iconColor: "text-primary" };
+  if (order.status === 'in_progress')
+    return { icon: 'schedule', iconColor: 'text-blue-500' };
+  return { icon: 'check_circle', iconColor: 'text-primary' };
 }
 
 // ── Left-border accent mapping ────────────────────────────────────────────────
 function getBorderAccent(order: Order): string {
-  if (order.status === "requesting")
-    return "border-l-4 border-l-outline-variant";
-  if (order.status === "in_progress") return "border-l-4 border-l-blue-500";
-  if (order.status === "done") return "border-l-4 border-l-primary";
-  return "";
+  if (order.status === 'requesting')
+    return 'border-l-4 border-l-outline-variant';
+  if (order.status === 'in_progress') return 'border-l-4 border-l-blue-500';
+  if (order.status === 'done') return 'border-l-4 border-l-primary';
+  return '';
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
@@ -58,17 +44,20 @@ type OrderCardProps = {
 
 export function OrderCard({ order, index = 0, isOverlay }: OrderCardProps) {
   const navigate = useNavigate();
-  const badgeVariant = TAG_BADGE_VARIANT[order.tag.variant] ?? "order-neutral";
   const statusConfig = getStatusConfig(order);
   const borderAccent = getBorderAccent(order);
-  const isOpaque = order.status === "requesting";
+  const isOpaque = order.status === 'requesting';
   const column = getColumnForStatus(order.status);
   const isDragDisabled = !canDragFromColumn(column);
 
   const { data: detail, isLoading } = useOrderCardDetail(order.id);
 
   return (
-    <Draggable draggableId={order.id} index={index} isDragDisabled={isDragDisabled}>
+    <Draggable
+      draggableId={order.id}
+      index={index}
+      isDragDisabled={isDragDisabled}
+    >
       {(provided, snapshot) => {
         const isDragging = snapshot.isDragging;
         return (
@@ -77,39 +66,39 @@ export function OrderCard({ order, index = 0, isOverlay }: OrderCardProps) {
             {...provided.draggableProps}
             {...provided.dragHandleProps}
             onClick={() => !isOverlay && navigate(`/orders/${order.id}`)}
-            role={!isOverlay ? "button" : undefined}
+            role={!isOverlay ? 'button' : undefined}
             tabIndex={!isOverlay ? 0 : undefined}
             onKeyDown={(e) => {
-              if (!isOverlay && (e.key === "Enter" || e.key === " ")) {
+              if (!isOverlay && (e.key === 'Enter' || e.key === ' ')) {
                 e.preventDefault();
                 navigate(`/orders/${order.id}`);
               }
             }}
             className={cn(
-              "bg-surface-container-lowest p-4 rounded-lg",
-              "shadow-[0_1px_4px_rgba(0,0,0,0.06)]",
-              "transition-all duration-200",
+              'bg-surface-container-lowest p-4 rounded-lg',
+              'shadow-[0_1px_4px_rgba(0,0,0,0.06)]',
+              'transition-all duration-200',
               isOverlay || isDragging
-                ? "cursor-grabbing shadow-[0_8px_30px_rgba(0,0,0,0.12)] rotate-2 z-50 bg-white"
-                : "hover:-translate-y-0.5 cursor-pointer",
+                ? 'cursor-grabbing shadow-[0_8px_30px_rgba(0,0,0,0.12)] rotate-2 z-50 bg-white'
+                : 'hover:-translate-y-0.5 cursor-pointer',
               !(isOverlay || isDragging) &&
-                "hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)]",
+                'hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)]',
               borderAccent,
-              isOpaque && "opacity-80",
+              isOpaque && 'opacity-80',
             )}
             style={{
               ...provided.draggableProps.style,
               ...(snapshot.isDropAnimating
-                ? { transitionDuration: "0.1s" }
+                ? { transitionDuration: '0.1s' }
                 : {}),
             }}
           >
-            {/* ── Header: order number + status badge ─────────────────────── */}
-            <div className="flex justify-between items-center mb-3 gap-2">
+            {/* ── Header: order number ─────────────────────────────────────── */}
+            <div className="flex items-center mb-3 gap-2">
               <div className="flex items-center gap-1.5">
                 <span
                   className={cn(
-                    "material-symbols-outlined text-sm",
+                    'material-symbols-outlined text-sm',
                     statusConfig.iconColor,
                   )}
                   aria-hidden="true"
@@ -120,7 +109,6 @@ export function OrderCard({ order, index = 0, isOverlay }: OrderCardProps) {
                   {order.orderNumber}
                 </span>
               </div>
-              <Badge variant={badgeVariant}>{order.tag.label}</Badge>
             </div>
 
             {/* ── Items list ─────────────────────────────────────────────────── */}

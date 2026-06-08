@@ -31,7 +31,7 @@ export function NewOrderToast() {
     return () => {
       if (t) clearTimeout(t);
     };
-  }, [newOrderToast]);
+  }, [newOrderToast, sendNotification]);
 
   if (!newOrderToast) return null;
 

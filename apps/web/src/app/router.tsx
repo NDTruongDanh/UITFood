@@ -1,6 +1,7 @@
 import { withFaroRouterInstrumentation } from '@grafana/faro-react';
 import { createBrowserRouter } from 'react-router-dom';
 import { FaroErrorBoundary } from '@/lib/observability';
+import { PageErrorFallback } from '@/app/PageErrorFallback';
 import { RegisterPage } from '@/app/pages/auth/register/RegisterPage';
 import { RegisterLocationPage } from '@/app/pages/auth/register/RegisterBusinessPage';
 import { RegisterPendingPage } from '@/app/pages/auth/register/RegisterPendingPage';
@@ -21,15 +22,6 @@ import { RequireRestaurantAccess } from '@/components/auth/RequireRestaurantAcce
 import { PromotionsPage } from '@/app/pages/promotions/PromotionsPage';
 import { PromotionFormPage } from '@/app/pages/promotions/PromotionFormPage';
 import { LandingPage } from '@/app/pages/landing/LandingPage';
-
-function PageErrorFallback() {
-  return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3 text-center px-4">
-      <p className="text-lg font-semibold text-foreground">This page encountered an error.</p>
-      <p className="text-sm text-muted-foreground">Try refreshing the page.</p>
-    </div>
-  );
-}
 
 export const router = withFaroRouterInstrumentation(createBrowserRouter([
   {
