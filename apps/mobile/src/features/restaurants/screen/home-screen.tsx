@@ -61,7 +61,7 @@ export function HomeScreen() {
     () => restaurants.map((restaurant) => restaurant.id),
     [restaurants],
   );
-  const deliveryEstimateResults = useDeliveryEstimates(
+  const deliveryEstimateMap = useDeliveryEstimates(
     restaurantIds,
     latitude,
     longitude,
@@ -140,7 +140,7 @@ export function HomeScreen() {
             <SpecialOffersCarousel onOfferPress={handleOfferPress} />
             <FeaturedRestaurantsSection
               restaurants={restaurants}
-              deliveryEstimateResults={deliveryEstimateResults}
+              deliveryEstimateMap={deliveryEstimateMap}
               hasCoordinates={hasCoordinates}
               isLoading={isLoading}
               hasError={Boolean(error)}

@@ -164,6 +164,7 @@ async function restoreCheckoutCartFromOrder(
   await clearCart();
 
   let restoredCart: CartResponse | null = null;
+  const failedItems: string[] = [];
 
   for (const item of order.items) {
     try {
@@ -186,11 +187,15 @@ async function restoreCheckoutCartFromOrder(
           price: modifier.price,
         })),
       });
-    } catch (err) {
-      throw new Error(
-        `Failed to restore cart item "${item.itemName}": ${(err as Error).message}`,
-      );
+    } catch {
+      failedItems.push(item.itemName.trim() || item.menuItemId);
     }
+  }
+
+  if (failedItems.length > 0) {
+    throw new Error(
+      `Could not restore checkout items: ${failedItems.join(', ')}.`,
+    );
   }
 
   return restoredCart;
@@ -300,6 +305,10 @@ export function VNPayPaymentStatusScreen() {
       router.dismissAll();
       router.replace('/(customer)/checkout');
     } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Could not restore checkout details.';
       captureMobileException(error, {
         source: 'vnpay_status_restore_checkout',
         orderId: order.orderId,
@@ -308,7 +317,7 @@ export function VNPayPaymentStatusScreen() {
       Toast.show({
         type: 'error',
         text1: 'Payment cancelled',
-        text2: 'Could not restore checkout details.',
+        text2: message,
       });
     } finally {
       setIsCancellingPayment(false);

@@ -2,11 +2,29 @@ import React from 'react';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { Image } from 'expo-image';
 
-const SPECIAL_OFFERS = [
+type SpecialOffer = {
+  id: string;
+  title: string;
+  tag: string;
+  tagBg: string;
+  imageUrl: string;
+} & (
+  | {
+      type: 'promo';
+      promoCode: string;
+    }
+  | {
+      type: 'feature';
+      code: string;
+    }
+);
+
+const SPECIAL_OFFERS: SpecialOffer[] = [
   {
     id: '1',
+    type: 'promo',
     title: '50% Off First Order',
-    code: 'TASTY50',
+    promoCode: 'TASTY50',
     tag: 'Limited Time',
     tagBg: 'bg-primary',
     imageUrl:
@@ -14,6 +32,7 @@ const SPECIAL_OFFERS = [
   },
   {
     id: '2',
+    type: 'feature',
     title: 'Top Rated Bowls',
     code: 'Healthy & Delicious',
     tag: 'Trending',
@@ -63,7 +82,9 @@ export function SpecialOffersCarousel({
                 {offer.title}
               </Text>
               <Text className="text-white/90 font-inter text-sm mt-1">
-                {offer.id === '1' ? `Code: ${offer.code}` : offer.code}
+                {offer.type === 'promo'
+                  ? `Code: ${offer.promoCode}`
+                  : offer.code}
               </Text>
             </View>
           </TouchableOpacity>

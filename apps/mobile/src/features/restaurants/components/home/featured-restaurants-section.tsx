@@ -17,7 +17,7 @@ import {
 
 interface FeaturedRestaurantsSectionProps {
   restaurants: RestaurantSearchResult[];
-  deliveryEstimateResults: readonly DeliveryEstimateQueryState[];
+  deliveryEstimateMap: ReadonlyMap<string, DeliveryEstimateQueryState>;
   hasCoordinates: boolean;
   isLoading: boolean;
   hasError: boolean;
@@ -125,7 +125,7 @@ function FeaturedRestaurantCard({
 
 export function FeaturedRestaurantsSection({
   restaurants,
-  deliveryEstimateResults,
+  deliveryEstimateMap,
   hasCoordinates,
   isLoading,
   hasError,
@@ -164,11 +164,11 @@ export function FeaturedRestaurantsSection({
         </View>
       ) : (
         <View className="flex-col gap-5">
-          {restaurants.map((restaurant, index) => (
+          {restaurants.map((restaurant) => (
             <FeaturedRestaurantCard
               key={restaurant.id}
               restaurant={restaurant}
-              deliveryEstimateQuery={deliveryEstimateResults[index]}
+              deliveryEstimateQuery={deliveryEstimateMap.get(restaurant.id)}
               onPress={() => onRestaurantPress(restaurant.id)}
             />
           ))}
