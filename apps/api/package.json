@@ -25,10 +25,12 @@
     "db:studio": "drizzle-kit studio",
     "db:push": "drizzle-kit push",
     "db:seed": "tsx src/drizzle/seeds/seed.ts",
+    "db:seed:nutrition": "tsx src/drizzle/seeds/nutrition-foods.seed.ts",
     "db:seed:rich": "tsx src/drizzle/seeds/rich-catalog.seed.ts",
     "db:seed:adong": "tsx src/drizzle/seeds/restaurant-adong.seed.ts"
   },
   "dependencies": {
+    "@ai-sdk/openai-compatible": "^0.2.16",
     "@better-auth/drizzle-adapter": "^1.6.11",
     "@better-auth/expo": "^1.6.11",
     "@nestjs/common": "^11.1.21",
@@ -56,6 +58,7 @@
     "@scalar/nestjs-api-reference": "^1.1.16",
     "@thallesp/nestjs-better-auth": "^2.6.0",
     "@types/ioredis": "^5.0.0",
+    "ai": "^4.3.19",
     "better-auth": "^1.6.11",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
