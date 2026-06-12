@@ -24,3 +24,8 @@ if (fs.existsSync(envTest)) {
 } else if (fs.existsSync(envDev)) {
   dotenv.config({ path: envDev, override: true });
 }
+
+// Ensure the application uses the test database if TEST_DATABASE_URL is provided
+if (process.env.TEST_DATABASE_URL) {
+  process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
+}

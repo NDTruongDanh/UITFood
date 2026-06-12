@@ -155,14 +155,11 @@ const baseEnvSchema = z.object({
   FIREBASE_SERVICE_ACCOUNT_PATH: z.string().optional(),
 
   // ---------------------------------------------------------------------------
-  // AI nutrition extraction via local Ollama OpenAI-compatible API
+  // AI nutrition extraction via Ollama
   // ---------------------------------------------------------------------------
-  OLLAMA_BASE_URL: z
-    .string()
-    .url()
-    .default('http://localhost:11434/v1'),
-  OLLAMA_MODEL: z.string().min(1).default('qwen2.5:7b'),
-  OLLAMA_API_KEY: z.string().min(1).default('ollama'),
+  OLLAMA_BASE_URL: z.string().trim().url().default('http://localhost:11434/v1'),
+  OLLAMA_MODEL: z.string().trim().min(1).default('qwen2.5:7b'),
+  OLLAMA_API_KEY: z.string().trim().min(1).default('ollama'),
 
   // ---------------------------------------------------------------------------
   // Observability - optional. When absent, OpenTelemetry exporters stay disabled
