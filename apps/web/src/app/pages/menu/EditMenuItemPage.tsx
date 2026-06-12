@@ -8,6 +8,7 @@ import { DietaryTagsCard } from '@/features/menu/components/create/DietaryTagsCa
 import { MediaUploadCard } from '@/features/menu/components/create/MediaUploadCard';
 import { MarketVisibilityCard } from '@/features/menu/components/create/MarketVisibilityCard';
 import { ModifiersCard } from '@/features/menu/components/create/ModifiersCard';
+import { NutritionAssistantCard } from '@/features/menu/components/create/NutritionAssistantCard';
 import { CreateMenuItemFooter } from '@/features/menu/components/create/CreateMenuItemFooter';
 import { createMenuItemSchema, type CreateMenuItemFormValues } from '@/features/menu/schemas/menu.schema';
 import { useUpdateMenuItem } from '@/features/menu/hooks/useMenuMutations';
@@ -131,6 +132,10 @@ export default function EditMenuItemPage() {
           </div>
           <div className="col-span-12 lg:col-span-4 space-y-8">
             <MediaUploadCard />
+            <NutritionAssistantCard
+              menuItemId={itemId!}
+              currentNutrition={editItem.nutrition}
+            />
             <MarketVisibilityCard />
           </div>
         </div>

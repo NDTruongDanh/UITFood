@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { menuApi, type CreateMenuItemDto, type UpdateMenuItemDto, type CreateMenuCategoryDto, type CreateModifierGroupDto, type UpdateModifierGroupDto, type CreateModifierOptionDto, type UpdateModifierOptionDto } from '../api/menu.api';
+import type { CalculateNutritionRequest, SaveNutritionRequest } from '../types';
 import { menuKeys } from './useMenu';
 
 export function useCreateMenuItem(restaurantId: string) {
@@ -123,6 +124,31 @@ export function useDeleteModifierOption(menuItemId: string, groupId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: menuKeys.modifierGroups(menuItemId) });
       qc.invalidateQueries({ queryKey: menuKeys.modifierGroup(menuItemId, groupId) });
+    },
+  });
+}
+
+export function useAnalyzeNutrition(menuItemId: string) {
+  return useMutation({
+    mutationFn: (recipeText: string) =>
+      menuApi.analyzeNutrition(menuItemId, recipeText),
+  });
+}
+
+export function useCalculateNutrition(menuItemId: string) {
+  return useMutation({
+    mutationFn: (dto: CalculateNutritionRequest) =>
+      menuApi.calculateNutrition(menuItemId, dto),
+  });
+}
+
+export function useSaveNutrition(menuItemId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (dto: SaveNutritionRequest) =>
+      menuApi.saveNutrition(menuItemId, dto),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: menuKeys.item(menuItemId) });
     },
   });
 }
