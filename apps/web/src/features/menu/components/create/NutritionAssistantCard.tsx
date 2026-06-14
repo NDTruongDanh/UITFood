@@ -41,8 +41,10 @@ const PREPARATION_OPTIONS: PreparationState[] = [
 ];
 
 interface NutritionAssistantCardProps {
-  menuItemId: string;
+  menuItemId?: string;
   currentNutrition?: MenuItemNutrition | null;
+  onSaveBeforeAnalyze?: () => Promise<string | null>;
+  isSavingItem?: boolean;
 }
 
 const emptyIngredient = (): NutritionReviewIngredient => ({
@@ -58,6 +60,8 @@ const emptyIngredient = (): NutritionReviewIngredient => ({
 export function NutritionAssistantCard({
   menuItemId,
   currentNutrition,
+  onSaveBeforeAnalyze,
+  isSavingItem = false,
 }: NutritionAssistantCardProps) {
   const [recipeText, setRecipeText] = useState('');
   const [analysis, setAnalysis] = useState<AnalyzeRecipeResponse | null>(null);
@@ -70,8 +74,8 @@ export function NutritionAssistantCard({
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
   const analyzeNutrition = useAnalyzeNutrition(menuItemId);
-  const calculateNutrition = useCalculateNutrition(menuItemId);
-  const saveNutrition = useSaveNutrition(menuItemId);
+  const calculateNutrition = useCalculateNutrition(menuItemId ?? '');
+  const saveNutrition = useSaveNutrition(menuItemId ?? '');
 
   const allWarnings = useMemo(
     () =>
@@ -89,23 +93,33 @@ export function NutritionAssistantCard({
     servings > 0 &&
     ingredients.some((ingredient) => ingredient.name.trim().length > 0);
 
-  const handleAnalyze = () => {
+  const handleAnalyze = async () => {
     setSaveMessage(null);
     setCalculation(null);
-    analyzeNutrition.mutate(recipeText, {
-      onSuccess: (result) => {
-        setAnalysis(result);
-        setIngredients(
-          result.ingredients.length > 0
-            ? result.ingredients.map((ingredient) => ({
-                ...ingredient,
-                preparation: ingredient.preparation ?? 'unknown',
-              }))
-            : [emptyIngredient()],
-        );
-        setServings(result.servings ?? 1);
+    const targetMenuItemId = menuItemId ?? (await onSaveBeforeAnalyze?.());
+
+    if (!targetMenuItemId) return;
+
+    analyzeNutrition.mutate(
+      {
+        menuItemId: targetMenuItemId,
+        recipeText,
       },
-    });
+      {
+        onSuccess: (result) => {
+          setAnalysis(result);
+          setIngredients(
+            result.ingredients.length > 0
+              ? result.ingredients.map((ingredient) => ({
+                  ...ingredient,
+                  preparation: ingredient.preparation ?? 'unknown',
+                }))
+              : [emptyIngredient()],
+          );
+          setServings(result.servings ?? 1);
+        },
+      },
+    );
   };
 
   const updateIngredient = (
@@ -207,11 +221,22 @@ export function NutritionAssistantCard({
         <Button
           type="button"
           onClick={handleAnalyze}
-          disabled={recipeText.trim().length === 0 || analyzeNutrition.isPending}
+          disabled={
+            recipeText.trim().length === 0 ||
+            analyzeNutrition.isPending ||
+            isSavingItem ||
+            (!menuItemId && !onSaveBeforeAnalyze)
+          }
           className="w-full gap-2"
         >
           <Sparkles className="h-4 w-4" />
-          {analyzeNutrition.isPending ? 'Analyzing' : 'Analyze recipe'}
+          {isSavingItem
+            ? 'Saving'
+            : analyzeNutrition.isPending
+              ? 'Analyzing'
+              : menuItemId
+                ? 'Analyze recipe'
+                : 'Save and analyze recipe'}
         </Button>
         {analyzeNutrition.error && (
           <p className="text-sm text-destructive">
@@ -462,4 +487,3 @@ function NutritionMetric({
     </div>
   );
 }
-

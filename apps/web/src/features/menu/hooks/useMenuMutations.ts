@@ -128,10 +128,29 @@ export function useDeleteModifierOption(menuItemId: string, groupId: string) {
   });
 }
 
-export function useAnalyzeNutrition(menuItemId: string) {
+type AnalyzeNutritionVariables =
+  | string
+  | {
+      menuItemId?: string;
+      recipeText: string;
+    };
+
+export function useAnalyzeNutrition(defaultMenuItemId?: string) {
   return useMutation({
-    mutationFn: (recipeText: string) =>
-      menuApi.analyzeNutrition(menuItemId, recipeText),
+    mutationFn: (variables: AnalyzeNutritionVariables) => {
+      const menuItemId =
+        typeof variables === 'string'
+          ? defaultMenuItemId
+          : (variables.menuItemId ?? defaultMenuItemId);
+      const recipeText =
+        typeof variables === 'string' ? variables : variables.recipeText;
+
+      if (!menuItemId) {
+        throw new Error('Save this item before analyzing the recipe.');
+      }
+
+      return menuApi.analyzeNutrition(menuItemId, recipeText);
+    },
   });
 }
 

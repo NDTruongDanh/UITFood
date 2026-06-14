@@ -148,15 +148,15 @@ export default function EditMenuItemPage() {
               categories={categories}
               restaurantId={restaurantId!}
             />
+            <NutritionAssistantCard
+              menuItemId={itemId!}
+              currentNutrition={editItem.nutrition}
+            />
             <DietaryTagsCard />
             <ModifiersCard menuItemId={itemId!} />
           </div>
           <div className="col-span-12 lg:col-span-4 space-y-8">
             <MediaUploadCard />
-            <NutritionAssistantCard
-              menuItemId={itemId!}
-              currentNutrition={editItem.nutrition}
-            />
             <MarketVisibilityCard />
           </div>
         </div>

@@ -2,8 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FormProvider, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Info, Sparkles } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Info } from 'lucide-react';
 import { CreateMenuItemHeader } from '@/features/menu/components/create/CreateMenuItemHeader';
 import { ProductEssenceCard } from '@/features/menu/components/create/ProductEssenceCard';
 import { DietaryTagsCard } from '@/features/menu/components/create/DietaryTagsCard';
@@ -32,12 +31,12 @@ export default function CreateMenuItemPage() {
 
   const { data: categories = [] } = useMenuCategories(restaurantId);
   const {
-    mutate: createItem,
+    mutateAsync: createItem,
     isPending: createPending,
     error: createError,
   } = useCreateMenuItem(restaurantId ?? '');
   const {
-    mutate: updateItem,
+    mutateAsync: updateItem,
     isPending: updatePending,
     error: updateError,
   } = useUpdateMenuItem(restaurantId ?? '');
@@ -53,8 +52,8 @@ export default function CreateMenuItemPage() {
     },
   });
 
-  const onSubmit = (values: CreateMenuItemFormValues) => {
-    if (!restaurantId) return;
+  const saveMenuItem = async (values: CreateMenuItemFormValues) => {
+    if (!restaurantId) return null;
 
     const itemFields = {
       name: values.name,
@@ -67,23 +66,36 @@ export default function CreateMenuItemPage() {
     };
 
     if (savedItem) {
-      updateItem(
-        {
-          id: savedItem.id,
-          dto: itemFields,
-        },
-        { onSuccess: (item) => setSavedItem(item) },
-      );
-      return;
+      const item = await updateItem({
+        id: savedItem.id,
+        dto: itemFields,
+      });
+      setSavedItem(item);
+      return item;
     }
 
-    createItem(
-      {
-        restaurantId,
-        ...itemFields,
-      },
-      { onSuccess: (item) => setSavedItem(item) },
-    );
+    const item = await createItem({
+      restaurantId,
+      ...itemFields,
+    });
+    setSavedItem(item);
+    return item;
+  };
+
+  const onSubmit = (values: CreateMenuItemFormValues) => {
+    void saveMenuItem(values).catch(() => undefined);
+  };
+
+  const saveBeforeAnalyze = async () => {
+    const isValid = await methods.trigger();
+    if (!isValid) return null;
+
+    try {
+      const item = await saveMenuItem(methods.getValues());
+      return item?.id ?? null;
+    } catch {
+      return null;
+    }
   };
 
   const isSaving = createPending || updatePending;
@@ -145,6 +157,12 @@ export default function CreateMenuItemPage() {
               categories={categories}
               restaurantId={restaurantId!}
             />
+            <NutritionAssistantCard
+              menuItemId={savedItemId}
+              currentNutrition={savedItem?.nutrition}
+              onSaveBeforeAnalyze={saveBeforeAnalyze}
+              isSavingItem={isSaving}
+            />
             <DietaryTagsCard />
             {savedItemId ? (
               <ModifiersCard menuItemId={savedItemId} />
@@ -168,17 +186,6 @@ export default function CreateMenuItemPage() {
           </div>
           <div className="col-span-12 lg:col-span-4 space-y-8">
             <MediaUploadCard menuItemId={savedItemId} />
-            {savedItemId ? (
-              <NutritionAssistantCard
-                menuItemId={savedItemId}
-                currentNutrition={savedItem.nutrition}
-              />
-            ) : (
-              <NutritionSaveGateCard
-                onSave={methods.handleSubmit(onSubmit)}
-                isPending={isSaving}
-              />
-            )}
             <MarketVisibilityCard />
           </div>
         </div>
@@ -191,34 +198,5 @@ export default function CreateMenuItemPage() {
         />
       </div>
     </FormProvider>
-  );
-}
-
-function NutritionSaveGateCard({
-  onSave,
-  isPending,
-}: {
-  onSave: () => void;
-  isPending: boolean;
-}) {
-  return (
-    <div className="bg-card rounded-3xl p-8 shadow-sm border border-border/50">
-      <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
-        <Sparkles className="h-5 w-5 text-primary" />
-        AI Nutrition
-      </h3>
-      <p className="text-sm leading-relaxed text-muted-foreground">
-        Save this item to unlock recipe analysis and verified nutrition values.
-      </p>
-      <Button
-        type="button"
-        onClick={onSave}
-        disabled={isPending}
-        className="mt-5 w-full gap-2"
-      >
-        <Sparkles className="h-4 w-4" />
-        {isPending ? 'Saving...' : 'Save and analyze'}
-      </Button>
-    </div>
   );
 }
