@@ -10,6 +10,7 @@ services:
       - '5432:5432'
     volumes:
       - food_order_db:/var/lib/postgresql
+      - ./infra/postgres/init-test-db.sql:/docker-entrypoint-initdb.d/01-init-test-db.sql:ro
     restart: unless-stopped
 
   redis:

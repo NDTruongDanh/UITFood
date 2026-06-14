@@ -8,7 +8,10 @@ import {
   nutritionAnalysisIngredients,
   nutritionAnalysisSessions,
 } from '../../src/module/nutrition/domain/nutrition.schema';
-import type { ExtractedRecipe } from '../../src/module/nutrition/types/nutrition.types';
+import {
+  NUTRITION_DISCLAIMER,
+  type ExtractedRecipe,
+} from '../../src/module/nutrition/types/nutrition.types';
 import { ownerHeaders, setAuthManager } from '../helpers/auth';
 import { TestAuthManager } from '../helpers/test-auth';
 import { createTestApp, teardownTestApp } from '../setup/app-factory';
@@ -201,6 +204,98 @@ describe('AI Nutrition Analyzer (E2E)', () => {
     await expect(
       getAnalysisIngredients(res.body.analysisSessionId),
     ).resolves.toEqual([]);
+  });
+
+  it('returns saved nutrition and exposes it on menu item detail', async () => {
+    const menuItemId = await createMenuItem('E2E Saved nutrition item');
+    const extractedRecipe: ExtractedRecipe = {
+      recipeName: 'Saved nutrition item',
+      servings: 2,
+      ingredients: [
+        {
+          rawText: '500g uc ga',
+          name: 'uc ga',
+          quantity: 500,
+          unit: 'g',
+          preparation: 'cooked',
+          confidence: 0.96,
+        },
+      ],
+      warnings: [],
+    };
+    extractRecipeMock.mockResolvedValueOnce(extractedRecipe);
+
+    const analyzeRes = await http
+      .post(`/api/restaurant/menu-items/${menuItemId}/nutrition/analyze-recipe`)
+      .set(ownerHeaders())
+      .send({ recipeText: 'Saved nutrition item\n- 500g uc ga' });
+
+    expect(analyzeRes.status).toBe(201);
+
+    const saveRes = await http
+      .put(`/api/restaurant/menu-items/${menuItemId}/nutrition`)
+      .set(ownerHeaders())
+      .send({
+        analysisSessionId: analyzeRes.body.analysisSessionId,
+        servings: 2,
+        nutrition: {
+          calories: 300,
+          protein: 32.5,
+          carbs: 10,
+          fat: 8.2,
+          fiber: null,
+          sugar: null,
+          sodium: null,
+        },
+        ingredients: [],
+        verifiedByRestaurant: true,
+      });
+
+    expect(saveRes.status).toBe(200);
+    expect(saveRes.body).toMatchObject({
+      servings: 2,
+      calories: 300,
+      protein: 32.5,
+      carbs: 10,
+      fat: 8.2,
+      fiber: null,
+      sugar: null,
+      sodium: null,
+      source: 'AI_ESTIMATED',
+      verifiedByRestaurant: true,
+      disclaimer: NUTRITION_DISCLAIMER,
+    });
+
+    const detailRes = await http.get(`/api/menu-items/${menuItemId}`);
+
+    expect(detailRes.status).toBe(200);
+    expect(detailRes.body.nutrition).toMatchObject(saveRes.body);
+
+    const latestAnalysisRes = await http
+      .get(`/api/restaurant/menu-items/${menuItemId}/nutrition/latest`)
+      .set(ownerHeaders());
+
+    expect(latestAnalysisRes.status).toBe(200);
+    expect(latestAnalysisRes.body).toMatchObject({
+      analysisSessionId: analyzeRes.body.analysisSessionId,
+      recipeName: 'Saved nutrition item',
+      recipeText: 'Saved nutrition item\n- 500g uc ga',
+      servings: 2,
+      status: 'SAVED',
+      warnings: [],
+      ingredients: [
+        {
+          rawText: '500g uc ga',
+          name: 'uc ga',
+          quantity: 500,
+          unit: 'g',
+          preparation: 'cooked',
+          confidence: 0.96,
+          requiresConfirmation: false,
+          notes: [],
+        },
+      ],
+    });
   });
 
   async function createMenuItem(name: string): Promise<string> {

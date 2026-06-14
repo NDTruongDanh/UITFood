@@ -132,7 +132,7 @@ describeRealOllama('AI Nutrition Analyzer with real Ollama (E2E)', () => {
 function assertRealOllamaE2eConfig() {
   if (!process.env.TEST_DATABASE_URL) {
     throw new Error(
-      'Real Ollama E2E requires TEST_DATABASE_URL so resetDb() never targets the dev database.',
+      'Real Ollama E2E requires TEST_DATABASE_URL to point at a dedicated E2E database.',
     );
   }
 
