@@ -10,6 +10,9 @@ export const NUTRITION_UNITS = [
   'tsp',
   'piece',
   'cup',
+  'bowl',
+  'bunch',
+  'pinch',
   'unknown',
 ] as const;
 
@@ -83,4 +86,3 @@ export interface NutritionTotals {
   total: NutritionAmount;
   perServing: NutritionAmount;
 }
-

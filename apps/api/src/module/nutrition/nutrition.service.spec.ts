@@ -3,6 +3,7 @@ import { UnitConversionService } from './matching/unit-conversion.service';
 import { IngredientMatchingService } from './matching/ingredient-matching.service';
 import { NutritionCalculatorService } from './calculator/nutrition-calculator.service';
 import type { NutritionFood } from './domain/nutrition.schema';
+import type { ExtractedRecipe } from './types/nutrition.types';
 
 const menuItemId = '11111111-1111-4111-8111-111111111111';
 const restaurantId = '22222222-2222-4222-8222-222222222222';
@@ -30,6 +31,75 @@ function makeFood(overrides: Partial<NutritionFood> = {}): NutritionFood {
 }
 
 describe('NutritionService', () => {
+  it('marks extraction-provided confirmation notes as needing review', async () => {
+    const extractedRecipe: ExtractedRecipe = {
+      recipeName: 'Bun cha',
+      servings: 2,
+      ingredients: [
+        {
+          rawText: 'vai nhanh mui tau',
+          name: 'mui tau',
+          quantity: 3,
+          unit: 'piece',
+          preparation: 'raw',
+          confidence: 0.9,
+          requiresConfirmation: true,
+          notes: [
+            'Approximate household quantity inferred for mui tau. Please confirm.',
+          ],
+        },
+      ],
+      warnings: [],
+    };
+    const repo = {
+      createSession: jest.fn().mockResolvedValue({
+        id: analysisSessionId,
+        menuItemId,
+        restaurantId,
+        inputType: 'text',
+        rawRecipeText: 'Bun cha',
+        aiExtractedJson: extractedRecipe,
+        status: 'NEEDS_REVIEW',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }),
+      insertIngredients: jest.fn().mockResolvedValue(undefined),
+    };
+    const service = new NutritionService(
+      {
+        findOne: jest.fn().mockResolvedValue({ id: menuItemId, restaurantId }),
+      } as any,
+      {} as any,
+      {
+        extractRecipe: jest.fn().mockResolvedValue(extractedRecipe),
+      } as any,
+      repo as any,
+      new UnitConversionService(),
+      new IngredientMatchingService(),
+      new NutritionCalculatorService(),
+    );
+
+    const result = await service.analyzeRecipe(menuItemId, 'admin-user', true, {
+      recipeText: 'Bun cha',
+    });
+
+    expect(result.status).toBe('NEEDS_REVIEW');
+    expect(result.warnings).toContain(
+      'Approximate household quantity inferred for mui tau. Please confirm.',
+    );
+    expect(result.ingredients[0]).toMatchObject({
+      requiresConfirmation: true,
+      notes: [
+        'Approximate household quantity inferred for mui tau. Please confirm.',
+      ],
+    });
+    expect(repo.createSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'NEEDS_REVIEW',
+      }),
+    );
+  });
+
   it('calculates nutrition from bounded DB candidates instead of loading all foods', async () => {
     const chicken = makeFood();
     const rice = makeFood({
@@ -69,9 +139,7 @@ describe('NutritionService', () => {
 
     const service = new NutritionService(
       {
-        findOne: jest
-          .fn()
-          .mockResolvedValue({ id: menuItemId, restaurantId }),
+        findOne: jest.fn().mockResolvedValue({ id: menuItemId, restaurantId }),
       } as any,
       {} as any,
       {} as any,

@@ -54,5 +54,28 @@ describe('UnitConversionService', () => {
     expect(result.quantityGram).toBeNull();
     expect(result.requiresConfirmation).toBe(true);
   });
-});
 
+  it('keeps bowl quantities review-required instead of inventing grams', () => {
+    const result = service.convertToGrams({
+      ingredientName: 'du du xanh',
+      quantity: 0.25,
+      unit: 'bowl',
+    });
+
+    expect(result.quantityGram).toBeNull();
+    expect(result.requiresConfirmation).toBe(true);
+    expect(result.notes[0]).toContain('requires restaurant confirmation');
+  });
+
+  it('keeps bunch quantities review-required because they are variable', () => {
+    const result = service.convertToGrams({
+      ingredientName: 'rau song',
+      quantity: 1,
+      unit: 'bunch',
+    });
+
+    expect(result.quantityGram).toBeNull();
+    expect(result.requiresConfirmation).toBe(true);
+    expect(result.notes[0]).toContain('too variable');
+  });
+});

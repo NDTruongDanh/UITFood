@@ -212,8 +212,10 @@ export class NutritionRepository {
         lower(${nutritionFoods.nameVi}) = lower(${query})
         OR lower(${nutritionFoods.nameEn}) = lower(${query})
         OR ${indexedAliasExactMatch}
+        OR ${exactAliasMatch}
         OR lower(${nutritionFoods.nameVi}) ILIKE lower(${queryPattern})
         OR lower(${nutritionFoods.nameEn}) ILIKE lower(${queryPattern})
+        OR ${partialAliasMatch}
         OR ${fullText} @@ ${fullTextQuery}
         OR lower(${nutritionFoods.nameVi}) % lower(${query})
         OR lower(${nutritionFoods.nameEn}) % lower(${query})

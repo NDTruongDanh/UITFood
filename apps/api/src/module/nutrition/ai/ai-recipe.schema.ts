@@ -11,6 +11,8 @@ export const extractedRecipeIngredientSchema = z.object({
   unit: aiRecipeUnitSchema.nullable().default('unknown'),
   preparation: aiRecipePreparationSchema.nullable().default('unknown'),
   confidence: z.number().min(0).max(1),
+  requiresConfirmation: z.boolean().optional().default(false),
+  notes: z.array(z.string()).optional().default([]),
 });
 
 export const extractedRecipeSchema = z.object({
@@ -51,6 +53,11 @@ export const extractedRecipeJsonSchema = {
           unit: nullableEnumJsonSchema(NUTRITION_UNITS),
           preparation: nullableEnumJsonSchema(PREPARATION_STATES),
           confidence: { type: 'number', minimum: 0, maximum: 1 },
+          requiresConfirmation: { type: 'boolean' },
+          notes: {
+            type: 'array',
+            items: { type: 'string' },
+          },
         },
         required: [
           'rawText',

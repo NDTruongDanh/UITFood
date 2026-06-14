@@ -32,25 +32,23 @@ describe('AiRecipeExtractionService', () => {
   });
 
   it('calls direct Ollama Cloud and does not send unsupported structured-output format', async () => {
-    const fetchMock = jest
-      .spyOn(global, 'fetch')
-      .mockResolvedValue(
-        mockOllamaResponse({
-          recipeName: 'Com ga',
-          servings: 2,
-          ingredients: [
-            {
-              rawText: '500 g uc ga',
-              name: 'uc ga',
-              quantity: 500,
-              unit: 'g',
-              preparation: 'cooked',
-              confidence: 0.9,
-            },
-          ],
-          warnings: [],
-        }),
-      );
+    const fetchMock = jest.spyOn(global, 'fetch').mockResolvedValue(
+      mockOllamaResponse({
+        recipeName: 'Com ga',
+        servings: 2,
+        ingredients: [
+          {
+            rawText: '500 g uc ga',
+            name: 'uc ga',
+            quantity: 500,
+            unit: 'g',
+            preparation: 'cooked',
+            confidence: 0.9,
+          },
+        ],
+        warnings: [],
+      }),
+    );
     const service = buildService({
       OLLAMA_BASE_URL: 'http://localhost:11434/v1',
       OLLAMA_MODEL: 'gemma4:31b-cloud',
@@ -111,6 +109,109 @@ describe('AiRecipeExtractionService', () => {
           confidence: 0.5,
         },
       ],
+    });
+  });
+
+  it('normalizes common Vietnamese household units before schema validation', async () => {
+    jest.spyOn(global, 'fetch').mockResolvedValue(
+      mockOllamaResponse({
+        recipeName: 'Bún chả',
+        servings: null,
+        ingredients: [
+          {
+            rawText: '5 lạng ba chỉ',
+            name: 'ba chỉ heo',
+            quantity: 5,
+            unit: 'lạng',
+            preparation: 'grilled',
+            confidence: 0.92,
+          },
+          {
+            rawText: 'nửa cân thịt vai xay',
+            name: 'thịt vai xay',
+            quantity: 'nửa',
+            unit: 'cân',
+            preparation: 'raw',
+            confidence: 0.88,
+          },
+          {
+            rawText: '3 muỗng canh nước mắm',
+            name: 'nước mắm',
+            quantity: 3,
+            unit: 'muỗng canh',
+            preparation: 'unknown',
+            confidence: 0.9,
+          },
+          {
+            rawText: '1/4 bát dấm',
+            name: 'dấm',
+            quantity: '1/4',
+            unit: 'bát',
+            preparation: 'unknown',
+            confidence: 0.82,
+          },
+          {
+            rawText: 'hai vắt bún',
+            name: 'bún',
+            quantity: null,
+            unit: null,
+            preparation: 'cooked',
+            confidence: 0.84,
+          },
+          {
+            rawText: 'vài nhánh mùi tàu',
+            name: 'mùi tàu',
+            quantity: null,
+            unit: null,
+            preparation: 'raw',
+            confidence: 0.81,
+          },
+        ],
+        warnings: [],
+      }),
+    );
+    const service = buildService({
+      OLLAMA_MODEL: 'gpt-oss:20b',
+      OLLAMA_API_KEY: 'test-key',
+    });
+
+    const result = await service.extractRecipe('Bún chả');
+
+    expect(result.ingredients).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          rawText: '5 lạng ba chỉ',
+          quantity: 500,
+          unit: 'g',
+        }),
+        expect.objectContaining({
+          rawText: 'nửa cân thịt vai xay',
+          quantity: 0.5,
+          unit: 'kg',
+        }),
+        expect.objectContaining({
+          rawText: '3 muỗng canh nước mắm',
+          quantity: 3,
+          unit: 'tbsp',
+        }),
+        expect.objectContaining({
+          rawText: '1/4 bát dấm',
+          quantity: 0.25,
+          unit: 'bowl',
+        }),
+        expect.objectContaining({
+          rawText: 'hai vắt bún',
+          quantity: 2,
+          unit: 'piece',
+        }),
+      ]),
+    );
+    expect(result.ingredients[5]).toMatchObject({
+      rawText: 'vài nhánh mùi tàu',
+      quantity: 3,
+      unit: 'piece',
+      requiresConfirmation: true,
+      notes: [expect.stringContaining('Approximate household quantity')],
     });
   });
 

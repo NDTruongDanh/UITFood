@@ -467,6 +467,11 @@ export class NutritionService {
       const notes = [...(ingredient.notes ?? [])];
       let requiresConfirmation = ingredient.requiresConfirmation ?? false;
 
+      if (requiresConfirmation || notes.length > 0) {
+        hasReviewIssues = true;
+        warnings.push(...notes);
+      }
+
       const addNote = (note: string) => {
         notes.push(note);
         warnings.push(note);

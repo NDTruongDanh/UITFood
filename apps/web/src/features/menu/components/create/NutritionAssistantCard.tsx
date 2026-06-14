@@ -28,6 +28,9 @@ const UNIT_OPTIONS: NutritionUnit[] = [
   'tsp',
   'piece',
   'cup',
+  'bowl',
+  'bunch',
+  'pinch',
   'unknown',
 ];
 
@@ -304,7 +307,9 @@ export function NutritionAssistantCard({
             <Button
               type="button"
               variant="outline"
-              onClick={() => setIngredients((current) => [...current, emptyIngredient()])}
+              onClick={() =>
+                setIngredients((current) => [...current, emptyIngredient()])
+              }
               className="gap-2"
             >
               <Plus className="h-4 w-4" />
@@ -428,7 +433,9 @@ export function NutritionAssistantCard({
             className="w-full gap-2"
           >
             <Calculator className="h-4 w-4" />
-            {calculateNutrition.isPending ? 'Calculating' : 'Calculate nutrition'}
+            {calculateNutrition.isPending
+              ? 'Calculating'
+              : 'Calculate nutrition'}
           </Button>
           {calculateNutrition.error && (
             <p className="text-sm text-destructive">

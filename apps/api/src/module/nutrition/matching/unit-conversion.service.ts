@@ -36,7 +36,11 @@ export class UnitConversionService {
 
     switch (input.unit) {
       case 'g':
-        return { quantityGram: quantity, requiresConfirmation: false, notes: [] };
+        return {
+          quantityGram: quantity,
+          requiresConfirmation: false,
+          notes: [],
+        };
       case 'kg':
         return {
           quantityGram: quantity * 1000,
@@ -74,12 +78,31 @@ export class UnitConversionService {
           ],
         };
       case 'cup':
+      case 'bowl':
+        return {
+          quantityGram: null,
+          requiresConfirmation: true,
+          notes: [
+            `${this.formatUnit(input.unit)} quantity for ${input.ingredientName} requires restaurant confirmation or conversion to g/ml.`,
+          ],
+        };
+      case 'bunch':
+      case 'pinch':
+        return {
+          quantityGram: null,
+          requiresConfirmation: true,
+          notes: [
+            `${this.formatUnit(input.unit)} quantity for ${input.ingredientName} is too variable for automatic conversion.`,
+          ],
+        };
       case 'unknown':
       default:
         return {
           quantityGram: null,
           requiresConfirmation: true,
-          notes: [`Unit ${input.unit} is not supported for automatic conversion.`],
+          notes: [
+            `Unit ${input.unit} is not supported for automatic conversion.`,
+          ],
         };
     }
   }
@@ -139,5 +162,8 @@ export class UnitConversionService {
   private isEgg(normalizedName: string): boolean {
     return normalizedName.includes('trung') || normalizedName.includes('egg');
   }
-}
 
+  private formatUnit(unit: NutritionUnit): string {
+    return unit.charAt(0).toUpperCase() + unit.slice(1);
+  }
+}

@@ -8,6 +8,9 @@ export type NutritionUnit =
   | 'tsp'
   | 'piece'
   | 'cup'
+  | 'bowl'
+  | 'bunch'
+  | 'pinch'
   | 'unknown';
 
 export type PreparationState =
