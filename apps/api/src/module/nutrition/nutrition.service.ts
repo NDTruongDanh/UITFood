@@ -58,6 +58,9 @@ const OPTIONAL_MEASUREMENT_CATEGORIES: ReadonlySet<IngredientCategory> =
 const DEFAULT_NUTRITION_LOCALE = 'vi';
 const CANONICAL_NAME_CONFIRMATION_THRESHOLD = 0.8;
 
+const hasPositiveQuantity = (quantity: number | null | undefined) =>
+  typeof quantity === 'number' && quantity > 0;
+
 interface NutritionFoodMatchResolution {
   foods: NutritionFoodSearchResult[];
   match: IngredientMatchResult;
@@ -420,7 +423,7 @@ export class NutritionService {
       name: ingredient.name,
       canonicalNameEn: ingredient.canonicalNameEn ?? null,
       canonicalNameConfidence: ingredient.canonicalNameConfidence ?? null,
-      quantity: ingredient.quantity,
+      quantity: metadata.measurementRequired ? ingredient.quantity : 0,
       unit: ingredient.unit,
       preparation: metadata.preparationApplicable
         ? ingredient.preparation
@@ -441,7 +444,7 @@ export class NutritionService {
     const preparationApplicable = !NO_PREPARATION_CATEGORIES.has(category);
     const measurementRequired =
       !OPTIONAL_MEASUREMENT_CATEGORIES.has(category) ||
-      ingredient.quantity !== null;
+      hasPositiveQuantity(ingredient.quantity);
 
     return {
       measurementRequired,
@@ -667,7 +670,7 @@ export class NutritionService {
     const category = ingredient.category ?? 'main';
     if (
       OPTIONAL_MEASUREMENT_CATEGORIES.has(category) &&
-      ingredient.quantity == null
+      !hasPositiveQuantity(ingredient.quantity)
     ) {
       return {
         inputName: ingredient.name,

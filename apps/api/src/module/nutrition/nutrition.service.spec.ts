@@ -170,6 +170,7 @@ describe('NutritionService', () => {
       expect.arrayContaining([
         expect.objectContaining({
           name: 'muoi',
+          quantity: 0,
           preparation: null,
           category: 'seasoning',
           measurementRequired: false,
@@ -178,6 +179,7 @@ describe('NutritionService', () => {
         }),
         expect.objectContaining({
           name: 'rau song',
+          quantity: 0,
           preparation: null,
           category: 'herb_side',
           measurementRequired: false,
@@ -350,7 +352,7 @@ describe('NutritionService', () => {
           },
           {
             name: 'muoi',
-            quantity: null,
+            quantity: 0,
             unit: 'unknown',
             preparation: null,
             category: 'seasoning',

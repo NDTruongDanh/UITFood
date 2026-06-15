@@ -55,6 +55,21 @@ const NO_PREPARATION_CATEGORIES: ReadonlySet<IngredientCategory> = new Set([
 const OPTIONAL_MEASUREMENT_CATEGORIES: ReadonlySet<IngredientCategory> =
   new Set(['seasoning', 'sauce', 'garnish', 'herb_side']);
 
+const hasPositiveQuantity = (quantity: number | null | undefined) =>
+  typeof quantity === 'number' && quantity > 0;
+
+const formatServingsInput = (servings: number | null | undefined) =>
+  typeof servings === 'number' && Number.isFinite(servings)
+    ? `${servings}`
+    : '0';
+
+const parseServingsInput = (value: string) => {
+  if (value.trim() === '') return null;
+
+  const servings = Number(value);
+  return Number.isFinite(servings) ? servings : null;
+};
+
 interface NutritionAssistantCardProps {
   menuItemId?: string;
   currentNutrition?: MenuItemNutrition | null;
@@ -95,10 +110,11 @@ const applyIngredientReviewHints = (
   const preparationApplicable = !NO_PREPARATION_CATEGORIES.has(category);
   const measurementRequired =
     !OPTIONAL_MEASUREMENT_CATEGORIES.has(category) ||
-    ingredient.quantity !== null;
+    hasPositiveQuantity(ingredient.quantity);
 
   return {
     ...ingredient,
+    quantity: measurementRequired ? ingredient.quantity : 0,
     preparation: preparationApplicable
       ? (ingredient.preparation ?? 'unknown')
       : null,
@@ -119,7 +135,7 @@ export function NutritionAssistantCard({
   const [ingredients, setIngredients] = useState<NutritionReviewIngredient[]>(
     [],
   );
-  const [servings, setServings] = useState(1);
+  const [servingsInput, setServingsInput] = useState('0');
   const [calculation, setCalculation] =
     useState<CalculateNutritionResponse | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
@@ -144,9 +160,15 @@ export function NutritionAssistantCard({
     [analysis, calculation],
   );
 
+  const parsedServings = parseServingsInput(servingsInput);
+  const isServingsValid = parsedServings !== null && parsedServings > 0;
+  const servingsValidationMessage = !isServingsValid
+    ? 'Enter a serving count greater than 0 before calculating.'
+    : null;
+
   const canCalculate =
     !!analysis?.analysisSessionId &&
-    servings > 0 &&
+    isServingsValid &&
     ingredients.some((ingredient) => {
       const reviewedIngredient = applyIngredientReviewHints(ingredient);
       return (
@@ -168,13 +190,12 @@ export function NutritionAssistantCard({
     setRecipeText(latestAnalysis.recipeText);
     setAnalysis(latestAnalysis);
     setIngredients(normalizeReviewIngredients(latestAnalysis.ingredients));
-    setServings(latestAnalysis.servings ?? currentNutrition?.servings ?? 1);
+    setServingsInput(formatServingsInput(latestAnalysis.servings));
     setCalculation(null);
     setSaveMessage(null);
     setHydratedAnalysisSessionId(latestAnalysis.analysisSessionId);
   }, [
     analysis,
-    currentNutrition?.servings,
     hydratedAnalysisSessionId,
     latestAnalysis,
   ]);
@@ -195,7 +216,7 @@ export function NutritionAssistantCard({
         onSuccess: (result) => {
           setAnalysis(result);
           setIngredients(normalizeReviewIngredients(result.ingredients));
-          setServings(result.servings ?? 1);
+          setServingsInput(formatServingsInput(result.servings));
           setHydratedAnalysisSessionId(result.analysisSessionId);
         },
       },
@@ -217,12 +238,19 @@ export function NutritionAssistantCard({
     setSaveMessage(null);
   };
 
+  const updateServingsInput = (value: string) => {
+    setServingsInput(value);
+    setCalculation(null);
+    setSaveMessage(null);
+  };
+
   const handleCalculate = () => {
-    if (!analysis) return;
+    if (!analysis || !isServingsValid) return;
+
     calculateNutrition.mutate(
       {
         analysisSessionId: analysis.analysisSessionId,
-        servings,
+        servings: parsedServings,
         ingredients: ingredients
           .filter((ingredient) => ingredient.name.trim().length > 0)
           .map((ingredient) => {
@@ -249,11 +277,12 @@ export function NutritionAssistantCard({
   };
 
   const handleSave = () => {
-    if (!analysis || !calculation) return;
+    if (!analysis || !calculation || !isServingsValid) return;
+
     saveNutrition.mutate(
       {
         analysisSessionId: analysis.analysisSessionId,
-        servings,
+        servings: parsedServings,
         nutrition: calculation.nutrition.perServing,
         ingredients: calculation.matchedIngredients
           .filter((ingredient) => ingredient.quantityGram !== null)
@@ -346,12 +375,25 @@ export function NutritionAssistantCard({
               <Input
                 id="servings"
                 type="number"
-                min={1}
-                value={servings}
+                min={0}
+                step={1}
+                value={servingsInput}
+                aria-invalid={!isServingsValid}
+                aria-describedby={
+                  servingsValidationMessage ? 'servings-error' : undefined
+                }
                 onChange={(event) =>
-                  setServings(Math.max(1, Number(event.target.value) || 1))
+                  updateServingsInput(event.target.value)
                 }
               />
+              {servingsValidationMessage && (
+                <p
+                  id="servings-error"
+                  className="mt-1 text-xs text-destructive"
+                >
+                  {servingsValidationMessage}
+                </p>
+              )}
             </div>
             <Button
               type="button"
@@ -560,7 +602,7 @@ export function NutritionAssistantCard({
           <Button
             type="button"
             onClick={handleSave}
-            disabled={saveNutrition.isPending}
+            disabled={saveNutrition.isPending || !isServingsValid}
             className="w-full gap-2"
           >
             <Save className="h-4 w-4" />
