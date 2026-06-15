@@ -19,6 +19,7 @@ async function main(): Promise<void> {
   console.log(`[e2e-db] Using ${source}: ${redactDatabaseUrl(databaseUrl)}`);
 
   await ensureDatabaseExists(databaseUrl);
+  await ensureSearchExtensions(databaseUrl);
   runDrizzlePush(databaseUrl);
   await ensureSearchExtensions(databaseUrl);
 }
@@ -83,6 +84,9 @@ async function ensureSearchExtensions(databaseUrl: string): Promise<void> {
     );
     await client.query(
       'CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public',
+    );
+    await client.query(
+      'CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA public',
     );
     console.log('[e2e-db] Search extensions are ready.');
   } finally {

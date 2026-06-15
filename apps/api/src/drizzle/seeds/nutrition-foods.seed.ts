@@ -276,7 +276,7 @@ const foods: (typeof nutritionFoods.$inferInsert)[] = [
   {
     nameVi: 'mùi tàu',
     nameEn: 'culantro',
-    aliases: ['mui tau', 'mui tau', 'ngo gai', 'culantro'],
+    aliases: ['mui tau', 'ngo gai', 'culantro'],
     category: 'vegetable',
     state: 'raw' as const,
     calories100g: 23,
@@ -357,13 +357,7 @@ const foods: (typeof nutritionFoods.$inferInsert)[] = [
   {
     nameVi: 'hành tím',
     nameEn: 'shallot',
-    aliases: [
-      'hanh tim',
-      'hanh kho',
-      'cu hanh tim',
-      'cu hanh kho',
-      'shallot',
-    ],
+    aliases: ['hanh tim', 'hanh kho', 'cu hanh tim', 'cu hanh kho', 'shallot'],
     category: 'vegetable',
     state: 'raw' as const,
     calories100g: 72,
@@ -509,7 +503,14 @@ const foods: (typeof nutritionFoods.$inferInsert)[] = [
   {
     nameVi: 'giấm',
     nameEn: 'vinegar',
-    aliases: ['giam', 'dam', 'giam tao', 'dam tao', 'vinegar', 'apple cider vinegar'],
+    aliases: [
+      'giam',
+      'dam',
+      'giam tao',
+      'dam tao',
+      'vinegar',
+      'apple cider vinegar',
+    ],
     category: 'sauce',
     state: 'unknown' as const,
     calories100g: 18,

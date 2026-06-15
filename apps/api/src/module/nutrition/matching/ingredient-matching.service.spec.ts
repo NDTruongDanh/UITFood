@@ -89,6 +89,80 @@ describe('IngredientMatchingService', () => {
     expect(result.requiresConfirmation).toBe(true);
   });
 
+  it('matches common bun cha ingredient names through seed aliases', () => {
+    const foods = [
+      makeFood({
+        id: 'pork-belly',
+        nameVi: 'ba chỉ heo',
+        nameEn: 'pork belly',
+        aliases: ['ba chi heo', 'ba roi heo', 'thit lon ba chi'],
+        category: 'meat',
+      }),
+      makeFood({
+        id: 'pork-shoulder',
+        nameVi: 'nạc vai heo',
+        nameEn: 'pork shoulder',
+        aliases: ['nac vai', 'nac vai heo', 'thit vai bam'],
+        category: 'meat',
+      }),
+      makeFood({
+        id: 'green-papaya',
+        nameVi: 'đu đủ xanh',
+        nameEn: 'green papaya',
+        aliases: ['du du xanh', 'green papaya'],
+        category: 'vegetable',
+      }),
+      makeFood({
+        id: 'vinegar',
+        nameVi: 'giấm',
+        nameEn: 'vinegar',
+        aliases: ['giam', 'dam', 'giam tao'],
+        category: 'sauce',
+        state: 'unknown',
+      }),
+      makeFood({
+        id: 'caramel-sauce',
+        nameVi: 'nước màu',
+        nameEn: 'caramel cooking sauce',
+        aliases: ['nuoc mau', 'nuoc hang'],
+        category: 'sauce',
+        state: 'unknown',
+      }),
+      makeFood({
+        id: 'mixed-herbs',
+        nameVi: 'rau thơm',
+        nameEn: 'mixed Vietnamese herbs',
+        aliases: ['rau thom', 'rau song', 'rau an kem'],
+        category: 'vegetable',
+      }),
+    ];
+
+    expect(
+      service.matchIngredient({ name: 'thịt lợn ba chỉ' }, foods).bestCandidate
+        ?.matchedFoodId,
+    ).toBe('pork-belly');
+    expect(
+      service.matchIngredient({ name: 'nạc vai băm' }, foods).bestCandidate
+        ?.matchedFoodId,
+    ).toBe('pork-shoulder');
+    expect(
+      service.matchIngredient({ name: 'đu đủ xanh' }, foods).bestCandidate
+        ?.matchedFoodId,
+    ).toBe('green-papaya');
+    expect(
+      service.matchIngredient({ name: 'dấm táo' }, foods).bestCandidate
+        ?.matchedFoodId,
+    ).toBe('vinegar');
+    expect(
+      service.matchIngredient({ name: 'nước hàng' }, foods).bestCandidate
+        ?.matchedFoodId,
+    ).toBe('caramel-sauce');
+    expect(
+      service.matchIngredient({ name: 'rau sống' }, foods).bestCandidate
+        ?.matchedFoodId,
+    ).toBe('mixed-herbs');
+  });
+
   it('flags generic ingredient names', () => {
     expect(service.isGenericIngredientName('thịt')).toBe(true);
     expect(service.isGenericIngredientName('uc ga')).toBe(false);

@@ -15,7 +15,7 @@
 
 services:
   postgres:
-    image: postgres:18
+    image: pgvector/pgvector:0.8.2-pg18-trixie
     container_name: food_order_db
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-food_order}

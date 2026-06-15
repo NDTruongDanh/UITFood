@@ -12,9 +12,14 @@ WHERE NOT EXISTS (
 -- Grant the default user full access to the test database.
 GRANT ALL PRIVILEGES ON DATABASE food_order_test TO food_order;
 
--- Install extensions that the search module requires.
--- \connect switches context so the extensions are created inside the test DB.
+-- Install extensions that search and semantic search require in the main DB.
+CREATE EXTENSION IF NOT EXISTS unaccent  WITH SCHEMA public;
+CREATE EXTENSION IF NOT EXISTS pg_trgm   WITH SCHEMA public;
+CREATE EXTENSION IF NOT EXISTS vector    WITH SCHEMA public;
+
+-- \connect switches context so the extensions are also created inside the test DB.
 \connect food_order_test
 
 CREATE EXTENSION IF NOT EXISTS unaccent  WITH SCHEMA public;
 CREATE EXTENSION IF NOT EXISTS pg_trgm   WITH SCHEMA public;
+CREATE EXTENSION IF NOT EXISTS vector    WITH SCHEMA public;

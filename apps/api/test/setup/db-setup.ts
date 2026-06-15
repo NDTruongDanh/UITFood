@@ -145,6 +145,7 @@ export async function ensureExtensions(): Promise<void> {
   const db = getTestDb();
   await db.execute(sql`CREATE EXTENSION IF NOT EXISTS unaccent`);
   await db.execute(sql`CREATE EXTENSION IF NOT EXISTS pg_trgm`);
+  await db.execute(sql`CREATE EXTENSION IF NOT EXISTS vector`);
 }
 
 export async function seedBaseRestaurant(ownerId: string): Promise<void> {
