@@ -1,20 +1,18 @@
 import 'dotenv/config';
 import { Client } from 'pg';
+import {
+  getNodePostgresSslConfig,
+  requireDatabaseUrl,
+} from './postgres-connection';
 
 const REQUIRED_EXTENSIONS = ['unaccent', 'pg_trgm', 'vector'] as const;
 
 async function main(): Promise<void> {
-  const databaseUrl = process.env.DATABASE_URL?.trim();
-
-  if (!databaseUrl) {
-    throw new Error(
-      'DATABASE_URL is required before preparing PostgreSQL extensions.',
-    );
-  }
+  const databaseUrl = requireDatabaseUrl();
 
   const client = new Client({
     connectionString: databaseUrl,
-    ssl: getSslConfig(databaseUrl),
+    ssl: getNodePostgresSslConfig(databaseUrl),
   });
 
   await client.connect();
@@ -49,28 +47,6 @@ async function main(): Promise<void> {
 
 function quoteIdentifier(identifier: string): string {
   return `"${identifier.replace(/"/g, '""')}"`;
-}
-
-function getSslConfig(
-  databaseUrl: string,
-): false | { rejectUnauthorized: boolean } {
-  let host: string;
-  try {
-    host = new URL(databaseUrl).hostname;
-  } catch {
-    return { rejectUnauthorized: false };
-  }
-
-  const localHosts = new Set([
-    'localhost',
-    '127.0.0.1',
-    '::1',
-    'host.docker.internal',
-    'postgres',
-  ]);
-
-  if (localHosts.has(host)) return false;
-  return { rejectUnauthorized: false };
 }
 
 function printExtensionHint(error: unknown): void {

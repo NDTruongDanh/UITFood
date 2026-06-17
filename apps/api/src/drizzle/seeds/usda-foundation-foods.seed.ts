@@ -4,6 +4,10 @@ import { join, resolve } from 'node:path';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import {
+  getNodePostgresSslConfig,
+  requireDatabaseUrl,
+} from '../postgres-connection';
+import {
   USDA_FOUNDATION_FOODS_ARCHIVE_URL,
   USDA_FOUNDATION_FOODS_RELEASE_DATE,
   buildUsdaEnglishLocalization,
@@ -19,7 +23,13 @@ import {
   nutritionFoods,
 } from '../../module/nutrition/domain/nutrition.schema';
 
-const db = drizzle(process.env.DATABASE_URL!);
+const databaseUrl = requireDatabaseUrl();
+const db = drizzle({
+  connection: {
+    connectionString: databaseUrl,
+    ssl: getNodePostgresSslConfig(databaseUrl),
+  },
+});
 
 type NutritionFoodInsert = typeof nutritionFoods.$inferInsert;
 type NutritionFoodLocalizationInsert =
