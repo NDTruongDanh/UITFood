@@ -85,4 +85,21 @@ describe('environment schema observability settings', () => {
 
     expect(env.OLLAMA_API_KEY).toBe('');
   });
+
+  it('parses AI search provider settings', () => {
+    const env = validate({
+      ...baseConfig,
+      AI_SEARCH_ENABLED: 'true',
+      AI_SEARCH_MODEL: ' gpt-oss:120b-cloud ',
+      AI_SEARCH_TIMEOUT_MS: '9000',
+      AI_SEARCH_MIN_CONFIDENCE: '0.7',
+      AI_SEARCH_DAILY_LIMIT_PER_USER: '250',
+    });
+
+    expect(env.AI_SEARCH_ENABLED).toBe(true);
+    expect(env.AI_SEARCH_MODEL).toBe('gpt-oss:120b-cloud');
+    expect(env.AI_SEARCH_TIMEOUT_MS).toBe(9000);
+    expect(env.AI_SEARCH_MIN_CONFIDENCE).toBe(0.7);
+    expect(env.AI_SEARCH_DAILY_LIMIT_PER_USER).toBe(250);
+  });
 });

@@ -2,6 +2,14 @@ import { z } from 'zod';
 
 const emptyStringToUndefined = (value: unknown) =>
   value === '' ? undefined : value;
+const stringToBoolean = (defaultValue: boolean) =>
+  z
+    .string()
+    .optional()
+    .default(defaultValue ? 'true' : 'false')
+    .transform((value) =>
+      ['1', 'true', 'yes'].includes(value.trim().toLowerCase()),
+    );
 
 /**
  * Zod schema for all required environment variables.
@@ -163,6 +171,19 @@ const baseEnvSchema = z.object({
     emptyStringToUndefined,
     z.string().trim().default(''),
   ),
+
+  // ---------------------------------------------------------------------------
+  // AI search intent extraction. When disabled, deterministic parsing is used.
+  // ---------------------------------------------------------------------------
+  AI_SEARCH_ENABLED: stringToBoolean(false),
+  AI_SEARCH_MODEL: z.string().trim().min(1).default('gpt-oss:20b'),
+  AI_SEARCH_TIMEOUT_MS: z.coerce.number().int().positive().default(8000),
+  AI_SEARCH_MIN_CONFIDENCE: z.coerce.number().min(0).max(1).default(0.65),
+  AI_SEARCH_DAILY_LIMIT_PER_USER: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(100),
 
   // ---------------------------------------------------------------------------
   // Observability - optional. When absent, OpenTelemetry exporters stay disabled
