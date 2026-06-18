@@ -19,6 +19,7 @@ import {
   type NutritionFood,
 } from '../domain/nutrition.schema';
 import type { ExtractedRecipe } from '../types/nutrition.types';
+import { AiSearchIndexRepository } from '@/module/restaurant-catalog/search/indexing/ai-search-index.repository';
 
 const DEFAULT_NUTRITION_FOOD_CANDIDATE_LIMIT = 50;
 const MAX_NUTRITION_FOOD_CANDIDATE_LIMIT = 100;
@@ -56,6 +57,7 @@ export class NutritionRepository {
   constructor(
     @Inject(DB_CONNECTION)
     private readonly db: NodePgDatabase<typeof schema>,
+    private readonly searchIndex: AiSearchIndexRepository,
   ) {}
 
   async createSession(
@@ -411,30 +413,36 @@ export class NutritionRepository {
     sodium?: number | null;
     verifiedByRestaurant: boolean;
   }): Promise<MenuItemNutrition> {
-    const [row] = await this.db
-      .insert(menuItemNutrition)
-      .values({
-        ...values,
-        source: 'AI_ESTIMATED',
-      })
-      .onConflictDoUpdate({
-        target: menuItemNutrition.menuItemId,
-        set: {
-          servings: values.servings,
-          calories: values.calories,
-          protein: values.protein,
-          carbs: values.carbs,
-          fat: values.fat,
-          fiber: values.fiber ?? null,
-          sugar: values.sugar ?? null,
-          sodium: values.sodium ?? null,
+    return this.db.transaction(async (tx) => {
+      const [row] = await tx
+        .insert(menuItemNutrition)
+        .values({
+          ...values,
           source: 'AI_ESTIMATED',
-          verifiedByRestaurant: values.verifiedByRestaurant,
-          updatedAt: new Date(),
-        },
-      })
-      .returning();
-    return row;
+        })
+        .onConflictDoUpdate({
+          target: menuItemNutrition.menuItemId,
+          set: {
+            servings: values.servings,
+            calories: values.calories,
+            protein: values.protein,
+            carbs: values.carbs,
+            fat: values.fat,
+            fiber: values.fiber ?? null,
+            sugar: values.sugar ?? null,
+            sodium: values.sodium ?? null,
+            source: 'AI_ESTIMATED',
+            verifiedByRestaurant: values.verifiedByRestaurant,
+            updatedAt: new Date(),
+          },
+        })
+        .returning();
+      await this.searchIndex.refreshMenuItemSearchMetadata(
+        values.menuItemId,
+        tx,
+      );
+      return row;
+    });
   }
 
   private normalizeNutritionFoodSearch(value: string): string {

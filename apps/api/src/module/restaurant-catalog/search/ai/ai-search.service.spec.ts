@@ -73,7 +73,10 @@ function makeRestaurant(
 }
 
 describe('AiSearchService', () => {
-  function buildService(candidates: AiSearchItemCandidate[]) {
+  function buildService(
+    candidates: AiSearchItemCandidate[],
+    embedding: number[] | null = null,
+  ) {
     const repo = {
       findItems: jest.fn(async (filters: AiSearchRepositoryFilters) =>
         candidates
@@ -100,15 +103,32 @@ describe('AiSearchService', () => {
         total: { restaurants: 0, items: 0 },
       })),
     };
+    const embeddings = {
+      getConfig: jest.fn(() => ({
+        model: 'embeddinggemma',
+        version: '1',
+        dimensions: 768,
+        timeoutMs: 8000,
+        workerEnabled: false,
+        batchSize: 20,
+        rateLimitPerMinute: 60,
+      })),
+      embedSearchDocument: jest.fn(async () => {
+        if (!embedding) throw new Error('embeddings unavailable');
+        return embedding;
+      }),
+    };
 
     return {
       service: new AiSearchService(
         repo as any,
         new AiSearchIntentService(),
         standardSearch as any,
+        embeddings as any,
       ),
       repo,
       standardSearch,
+      embeddings,
     };
   }
 
@@ -183,6 +203,25 @@ describe('AiSearchService', () => {
       undefined,
       undefined,
       undefined,
+    );
+  });
+
+  it('adds the semantic branch when query embeddings are available', async () => {
+    const item = makeItem({ id: 'item-semantic', name: 'Chicken Rice' });
+    const queryEmbedding = Array.from({ length: 768 }, (_, index) =>
+      index === 0 ? 1 : 0,
+    );
+    const { service, repo } = buildService([item], queryEmbedding);
+
+    await service.search({ query: 'chicken rice' });
+
+    expect(repo.findItems).toHaveBeenCalledWith(
+      expect.objectContaining({
+        branch: 'semantic',
+        queryEmbedding,
+        embeddingModel: 'embeddinggemma',
+        embeddingVersion: '1',
+      }),
     );
   });
 });

@@ -192,9 +192,18 @@ export interface AiSearchFollowUp {
   query: string;
 }
 
+export interface AiSearchNutritionFacts {
+  calories: number | null;
+  protein: number | null;
+  carbs: number | null;
+  fat: number | null;
+  verifiedByRestaurant: boolean | null;
+}
+
 export interface AiSearchItemResult extends SearchItemResult {
   score: number;
   matchReasons: string[];
+  nutrition?: AiSearchNutritionFacts | null;
 }
 
 export interface AiSearchResponse {

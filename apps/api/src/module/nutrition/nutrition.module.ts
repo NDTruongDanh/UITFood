@@ -3,6 +3,7 @@ import { AiModule } from '@/module/ai/ai.module';
 import { DatabaseModule } from '@/drizzle/drizzle.module';
 import { MenuModule } from '@/module/restaurant-catalog/menu/menu.module';
 import { RestaurantModule } from '@/module/restaurant-catalog/restaurant/restaurant.module';
+import { AiSearchIndexModule } from '@/module/restaurant-catalog/search/indexing/ai-search-index.module';
 import { NutritionController } from './nutrition.controller';
 import { NutritionService } from './nutrition.service';
 import { AiRecipeExtractionService } from './ai/ai-recipe-extraction.service';
@@ -14,7 +15,13 @@ import { NutritionCalculatorService } from './calculator/nutrition-calculator.se
 import { NutritionRepository } from './repositories/nutrition.repository';
 
 @Module({
-  imports: [DatabaseModule, MenuModule, RestaurantModule, AiModule],
+  imports: [
+    DatabaseModule,
+    MenuModule,
+    RestaurantModule,
+    AiModule,
+    AiSearchIndexModule,
+  ],
   controllers: [NutritionController],
   providers: [
     NutritionService,

@@ -8,6 +8,7 @@ import {
 import { CreateRestaurantDto, UpdateRestaurantDto } from './dto/restaurant.dto';
 import { DB_CONNECTION } from '@/drizzle/drizzle.constants';
 import * as schema from '@/drizzle/schema';
+import { AiSearchIndexRepository } from '@/module/restaurant-catalog/search/indexing/ai-search-index.repository';
 
 export interface FindAllOptions {
   offset?: number;
@@ -25,6 +26,7 @@ export interface PaginatedResult<T> {
 export class RestaurantRepository {
   constructor(
     @Inject(DB_CONNECTION) readonly db: NodePgDatabase<typeof schema>,
+    private readonly searchIndex: AiSearchIndexRepository,
   ) {}
 
   async findAll(
@@ -81,11 +83,14 @@ export class RestaurantRepository {
   }
 
   async create(ownerId: string, dto: CreateRestaurantDto): Promise<Restaurant> {
-    const [row] = await this.db
-      .insert(restaurants)
-      .values({ ...dto, ownerId })
-      .returning();
-    return row;
+    return this.db.transaction(async (tx) => {
+      const [row] = await tx
+        .insert(restaurants)
+        .values({ ...dto, ownerId })
+        .returning();
+      await this.searchIndex.refreshRestaurantSearchMetadata(row.id, tx);
+      return row;
+    });
   }
 
   /**
@@ -96,12 +101,18 @@ export class RestaurantRepository {
     id: string,
     dto: UpdateRestaurantDto,
   ): Promise<Restaurant | undefined> {
-    const [row] = await this.db
-      .update(restaurants)
-      .set({ ...dto, updatedAt: new Date() })
-      .where(eq(restaurants.id, id))
-      .returning();
-    return row;
+    return this.db.transaction(async (tx) => {
+      const [row] = await tx
+        .update(restaurants)
+        .set({ ...dto, updatedAt: new Date() })
+        .where(eq(restaurants.id, id))
+        .returning();
+      if (row) {
+        await this.searchIndex.refreshRestaurantSearchMetadata(row.id, tx);
+        await this.searchIndex.refreshMenuItemsForRestaurant(row.id, tx);
+      }
+      return row;
+    });
   }
 
   async remove(id: string): Promise<void> {

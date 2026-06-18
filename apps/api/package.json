@@ -31,6 +31,7 @@
     "db:seed:nutrition:usda": "tsx src/drizzle/seeds/usda-foundation-foods.seed.ts",
     "db:seed:rich": "tsx src/drizzle/seeds/rich-catalog.seed.ts",
     "db:seed:adong": "tsx src/drizzle/seeds/restaurant-adong.seed.ts",
+    "ai-search:backfill-embeddings": "tsx src/module/restaurant-catalog/search/indexing/ai-search-backfill.ts",
     "db:seed:admin": "tsx src/drizzle/seeds/admin.seed.ts"
   },
   "dependencies": {

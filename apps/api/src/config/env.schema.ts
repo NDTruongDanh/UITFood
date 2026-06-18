@@ -184,6 +184,34 @@ const baseEnvSchema = z.object({
     .int()
     .positive()
     .default(100),
+  AI_SEARCH_EMBEDDING_BASE_URL: z
+    .string()
+    .trim()
+    .url()
+    .default('http://localhost:11434'),
+  AI_SEARCH_EMBEDDING_MODEL: z.string().trim().min(1).default('embeddinggemma'),
+  AI_SEARCH_EMBEDDING_VERSION: z.string().trim().min(1).default('1'),
+  AI_SEARCH_EMBEDDING_DIMENSIONS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(768),
+  AI_SEARCH_EMBEDDING_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(8000),
+  AI_SEARCH_EMBEDDING_WORKER_ENABLED: stringToBoolean(false),
+  AI_SEARCH_EMBEDDING_BATCH_SIZE: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(20),
+  AI_SEARCH_EMBEDDING_RATE_LIMIT_PER_MINUTE: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(60),
 
   // ---------------------------------------------------------------------------
   // Observability - optional. When absent, OpenTelemetry exporters stay disabled

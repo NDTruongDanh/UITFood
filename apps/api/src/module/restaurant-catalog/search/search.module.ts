@@ -8,9 +8,10 @@ import { SearchController } from './standard/search.controller';
 import { SearchService } from './standard/search.service';
 import { SearchRepository } from './standard/search.repository';
 import { DatabaseModule } from '@/drizzle/drizzle.module';
+import { AiSearchIndexModule } from './indexing/ai-search-index.module';
 
 @Module({
-  imports: [DatabaseModule, AiModule],
+  imports: [DatabaseModule, AiModule, AiSearchIndexModule],
   controllers: [SearchController, AiSearchController],
   providers: [
     SearchService,

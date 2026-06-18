@@ -1,5 +1,7 @@
 import {
+  LOCAL_OLLAMA_API_BASE_URL,
   OLLAMA_CLOUD_API_BASE_URL,
+  resolveOllamaEmbeddingRuntimeConfig,
   resolveOllamaRuntimeConfig,
 } from './ollama.provider';
 
@@ -60,5 +62,42 @@ describe('resolveOllamaRuntimeConfig', () => {
 
     expect(config.model).toBe('gpt-oss:120b');
     expect(config.apiKey).toBe('');
+  });
+});
+
+describe('resolveOllamaEmbeddingRuntimeConfig', () => {
+  it('defaults embeddings to the local Ollama API', () => {
+    const config = resolveOllamaEmbeddingRuntimeConfig({});
+
+    expect(config).toEqual({
+      endpoint: {
+        mode: 'native',
+        baseURL: LOCAL_OLLAMA_API_BASE_URL,
+        isDirectCloud: false,
+      },
+      model: 'embeddinggemma',
+      apiKey: '',
+    });
+  });
+
+  it('normalizes local embedding base URLs to the native /api path', () => {
+    expect(
+      resolveOllamaEmbeddingRuntimeConfig({
+        baseURL: ' http://localhost:11434/ ',
+        model: ' qwen3-embedding ',
+      }),
+    ).toMatchObject({
+      endpoint: {
+        baseURL: 'http://localhost:11434/api',
+        isDirectCloud: false,
+      },
+      model: 'qwen3-embedding',
+    });
+
+    expect(
+      resolveOllamaEmbeddingRuntimeConfig({
+        baseURL: 'http://localhost:11434/v1/',
+      }).endpoint.baseURL,
+    ).toBe('http://localhost:11434/api');
   });
 });

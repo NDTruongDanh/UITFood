@@ -49,4 +49,3 @@ export const aiSearchIntentSchema = z
   .strict();
 
 export type AiSearchIntentSchema = z.infer<typeof aiSearchIntentSchema>;
-

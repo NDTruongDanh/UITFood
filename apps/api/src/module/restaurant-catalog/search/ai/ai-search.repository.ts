@@ -17,6 +17,7 @@ import type {
 } from './ai-search.types';
 
 const EARTH_RADIUS_KM = 6371;
+const TRIGRAM_MIN_SIMILARITY = 0.08;
 
 @Injectable()
 export class AiSearchRepository {
@@ -44,6 +45,10 @@ export class AiSearchRepository {
 
     const whereClause = and(...conditions);
     const distanceExpr = this.buildDistanceExpr(filters);
+    const branchScoreExpr = this.buildItemBranchScoreExpr(
+      filters,
+      distanceExpr,
+    );
 
     const rows = await this.db
       .select({
@@ -71,12 +76,17 @@ export class AiSearchRepository {
         restaurantLatitude: restaurants.latitude,
         restaurantLongitude: restaurants.longitude,
         distanceKm: distanceExpr,
+        branchScore: branchScoreExpr,
       })
       .from(menuItems)
       .innerJoin(restaurants, eq(menuItems.restaurantId, restaurants.id))
       .leftJoin(menuCategories, eq(menuItems.categoryId, menuCategories.id))
-      .leftJoin(menuItemNutrition, eq(menuItemNutrition.menuItemId, menuItems.id))
+      .leftJoin(
+        menuItemNutrition,
+        eq(menuItemNutrition.menuItemId, menuItems.id),
+      )
       .where(whereClause)
+      .orderBy(...this.buildItemOrderBy(filters, branchScoreExpr, distanceExpr))
       .limit(filters.limit);
 
     return rows.map((row) => ({
@@ -102,6 +112,9 @@ export class AiSearchRepository {
               verifiedByRestaurant: row.verifiedByRestaurant ?? null,
             },
       retrievalBranches: [filters.branch],
+      branchScores: {
+        [filters.branch]: clamp01(numberOrZero(row.branchScore)),
+      },
       restaurant: {
         id: row.restaurantId,
         name: row.restaurantName,
@@ -144,6 +157,11 @@ export class AiSearchRepository {
 
     const branchCondition = this.buildRestaurantBranchCondition(filters);
     if (branchCondition) conditions.push(branchCondition);
+    const distanceExpr = this.buildDistanceExpr(filters);
+    const branchScoreExpr = this.buildRestaurantBranchScoreExpr(
+      filters,
+      distanceExpr,
+    );
 
     const rows = await this.db
       .select({
@@ -163,10 +181,14 @@ export class AiSearchRepository {
         reviewCount: restaurants.reviewCount,
         createdAt: restaurants.createdAt,
         updatedAt: restaurants.updatedAt,
-        distanceKm: this.buildDistanceExpr(filters),
+        distanceKm: distanceExpr,
+        branchScore: branchScoreExpr,
       })
       .from(restaurants)
       .where(and(...conditions))
+      .orderBy(
+        ...this.buildRestaurantOrderBy(filters, branchScoreExpr, distanceExpr),
+      )
       .limit(filters.limit);
 
     return rows.map((row) => ({
@@ -188,6 +210,10 @@ export class AiSearchRepository {
       updatedAt: row.updatedAt,
       distanceKm: numberOrNull(row.distanceKm),
       score: 0,
+      retrievalBranches: [filters.branch],
+      branchScores: {
+        [filters.branch]: clamp01(numberOrZero(row.branchScore)),
+      },
     }));
   }
 
@@ -224,7 +250,9 @@ export class AiSearchRepository {
       );
     }
     if (intent.nutrition.fatMaxG !== undefined) {
-      conditions.push(sql`${menuItemNutrition.fat} <= ${intent.nutrition.fatMaxG}`);
+      conditions.push(
+        sql`${menuItemNutrition.fat} <= ${intent.nutrition.fatMaxG}`,
+      );
     }
     if (intent.nutrition.carbsMaxG !== undefined) {
       conditions.push(
@@ -243,6 +271,18 @@ export class AiSearchRepository {
       ...intent.cuisineTerms,
     ]);
 
+    if (branch === 'fulltext') {
+      return this.buildItemFullTextCondition(filters);
+    }
+
+    if (branch === 'trigram') {
+      return this.buildItemTrigramCondition(filters);
+    }
+
+    if (branch === 'semantic') {
+      return this.buildItemSemanticCondition(filters);
+    }
+
     if (branch === 'lexical' || branch === 'tag') {
       return this.buildItemTermCondition(terms);
     }
@@ -259,7 +299,11 @@ export class AiSearchRepository {
       return sql`${restaurants.averageRating} >= ${intent.rating.minAverageRating}`;
     }
 
-    if (branch === 'geo' && filters.lat !== undefined && filters.lon !== undefined) {
+    if (
+      branch === 'geo' &&
+      filters.lat !== undefined &&
+      filters.lon !== undefined
+    ) {
       return sql`${restaurants.latitude} IS NOT NULL AND ${restaurants.longitude} IS NOT NULL`;
     }
 
@@ -276,6 +320,18 @@ export class AiSearchRepository {
       ...intent.cuisineTerms,
     ]);
 
+    if (branch === 'fulltext') {
+      return this.buildRestaurantFullTextCondition(filters);
+    }
+
+    if (branch === 'trigram') {
+      return this.buildRestaurantTrigramCondition(filters);
+    }
+
+    if (branch === 'semantic') {
+      return this.buildRestaurantSemanticCondition(filters);
+    }
+
     if (branch === 'lexical' || branch === 'tag') {
       return this.buildRestaurantTermCondition(terms);
     }
@@ -284,11 +340,93 @@ export class AiSearchRepository {
       return sql`${restaurants.averageRating} >= ${intent.rating.minAverageRating}`;
     }
 
-    if (branch === 'geo' && filters.lat !== undefined && filters.lon !== undefined) {
+    if (
+      branch === 'geo' &&
+      filters.lat !== undefined &&
+      filters.lon !== undefined
+    ) {
       return sql`${restaurants.latitude} IS NOT NULL AND ${restaurants.longitude} IS NOT NULL`;
     }
 
     return undefined;
+  }
+
+  private buildItemFullTextCondition(
+    filters: AiSearchRepositoryFilters,
+  ): SQL<unknown> {
+    if (!filters.normalizedQuery) return sql`false`;
+
+    return sql`${menuItems.searchDocument} IS NOT NULL
+      AND to_tsvector('simple', ${menuItems.searchDocument})
+        @@ websearch_to_tsquery('simple', ${filters.normalizedQuery})`;
+  }
+
+  private buildRestaurantFullTextCondition(
+    filters: AiSearchRepositoryFilters,
+  ): SQL<unknown> {
+    if (!filters.normalizedQuery) return sql`false`;
+
+    return sql`${restaurants.searchDocument} IS NOT NULL
+      AND to_tsvector('simple', ${restaurants.searchDocument})
+        @@ websearch_to_tsquery('simple', ${filters.normalizedQuery})`;
+  }
+
+  private buildItemTrigramCondition(
+    filters: AiSearchRepositoryFilters,
+  ): SQL<unknown> {
+    if (!filters.normalizedQuery) return sql`false`;
+
+    return sql`${menuItems.searchDocument} IS NOT NULL
+      AND similarity(${menuItems.searchDocument}, ${filters.normalizedQuery})
+        >= ${TRIGRAM_MIN_SIMILARITY}`;
+  }
+
+  private buildRestaurantTrigramCondition(
+    filters: AiSearchRepositoryFilters,
+  ): SQL<unknown> {
+    if (!filters.normalizedQuery) return sql`false`;
+
+    return sql`${restaurants.searchDocument} IS NOT NULL
+      AND similarity(${restaurants.searchDocument}, ${filters.normalizedQuery})
+        >= ${TRIGRAM_MIN_SIMILARITY}`;
+  }
+
+  private buildItemSemanticCondition(
+    filters: AiSearchRepositoryFilters,
+  ): SQL<unknown> {
+    if (
+      !filters.queryEmbedding ||
+      !filters.embeddingModel ||
+      !filters.embeddingVersion
+    ) {
+      return sql`false`;
+    }
+
+    return sql`${menuItems.embedding} IS NOT NULL
+      AND ${menuItems.searchDocument} IS NOT NULL
+      AND ${menuItems.searchContentHash} IS NOT NULL
+      AND ${menuItems.embeddingGeneratedAt} IS NOT NULL
+      AND ${menuItems.embeddingModel} = ${filters.embeddingModel}
+      AND ${menuItems.embeddingVersion} = ${filters.embeddingVersion}`;
+  }
+
+  private buildRestaurantSemanticCondition(
+    filters: AiSearchRepositoryFilters,
+  ): SQL<unknown> {
+    if (
+      !filters.queryEmbedding ||
+      !filters.embeddingModel ||
+      !filters.embeddingVersion
+    ) {
+      return sql`false`;
+    }
+
+    return sql`${restaurants.embedding} IS NOT NULL
+      AND ${restaurants.searchDocument} IS NOT NULL
+      AND ${restaurants.searchContentHash} IS NOT NULL
+      AND ${restaurants.embeddingGeneratedAt} IS NOT NULL
+      AND ${restaurants.embeddingModel} = ${filters.embeddingModel}
+      AND ${restaurants.embeddingVersion} = ${filters.embeddingVersion}`;
   }
 
   private buildItemTermCondition(terms: string[]): SQL<unknown> | undefined {
@@ -375,6 +513,190 @@ export class AiSearchRepository {
       ))
     )`;
   }
+
+  private buildItemBranchScoreExpr(
+    filters: AiSearchRepositoryFilters,
+    distanceExpr: SQL<unknown>,
+  ): SQL<number> {
+    if (filters.branch === 'fulltext' && filters.normalizedQuery) {
+      return sql<number>`LEAST(
+        1,
+        COALESCE(
+          ts_rank_cd(
+            to_tsvector('simple', ${menuItems.searchDocument}),
+            websearch_to_tsquery('simple', ${filters.normalizedQuery})
+          ),
+          0
+        ) * 4
+      )`;
+    }
+
+    if (filters.branch === 'trigram' && filters.normalizedQuery) {
+      return sql<number>`GREATEST(
+        0,
+        LEAST(1, similarity(${menuItems.searchDocument}, ${filters.normalizedQuery}))
+      )`;
+    }
+
+    if (filters.branch === 'semantic' && filters.queryEmbedding) {
+      const distance = this.buildItemVectorDistanceExpr(filters);
+      return sql<number>`GREATEST(0, LEAST(1, 1 - (${distance})))`;
+    }
+
+    if (
+      filters.branch === 'nutrition' &&
+      filters.intent.nutrition.proteinMinG !== undefined
+    ) {
+      return sql<number>`LEAST(
+        1,
+        COALESCE(${menuItemNutrition.protein}, 0)
+          / ${filters.intent.nutrition.proteinMinG}
+      )`;
+    }
+
+    if (
+      filters.branch === 'price' &&
+      filters.intent.price.maxPriceVnd !== undefined
+    ) {
+      return sql<number>`GREATEST(
+        0,
+        LEAST(
+          1,
+          1 - (${menuItems.price}::float / ${filters.intent.price.maxPriceVnd})
+        )
+      )`;
+    }
+
+    if (
+      filters.branch === 'rating' &&
+      filters.intent.rating.minAverageRating !== undefined
+    ) {
+      return sql<number>`LEAST(1, COALESCE(${restaurants.averageRating}, 0) / 5)`;
+    }
+
+    if (
+      filters.branch === 'geo' &&
+      filters.lat !== undefined &&
+      filters.lon !== undefined
+    ) {
+      return sql<number>`GREATEST(
+        0,
+        LEAST(1, 1 - ((${distanceExpr}) / ${filters.radiusKm}))
+      )`;
+    }
+
+    return sql<number>`0.6`;
+  }
+
+  private buildRestaurantBranchScoreExpr(
+    filters: AiSearchRepositoryFilters,
+    distanceExpr: SQL<unknown>,
+  ): SQL<number> {
+    if (filters.branch === 'fulltext' && filters.normalizedQuery) {
+      return sql<number>`LEAST(
+        1,
+        COALESCE(
+          ts_rank_cd(
+            to_tsvector('simple', ${restaurants.searchDocument}),
+            websearch_to_tsquery('simple', ${filters.normalizedQuery})
+          ),
+          0
+        ) * 4
+      )`;
+    }
+
+    if (filters.branch === 'trigram' && filters.normalizedQuery) {
+      return sql<number>`GREATEST(
+        0,
+        LEAST(1, similarity(${restaurants.searchDocument}, ${filters.normalizedQuery}))
+      )`;
+    }
+
+    if (filters.branch === 'semantic' && filters.queryEmbedding) {
+      const distance = this.buildRestaurantVectorDistanceExpr(filters);
+      return sql<number>`GREATEST(0, LEAST(1, 1 - (${distance})))`;
+    }
+
+    if (
+      filters.branch === 'rating' &&
+      filters.intent.rating.minAverageRating !== undefined
+    ) {
+      return sql<number>`LEAST(1, COALESCE(${restaurants.averageRating}, 0) / 5)`;
+    }
+
+    if (
+      filters.branch === 'geo' &&
+      filters.lat !== undefined &&
+      filters.lon !== undefined
+    ) {
+      return sql<number>`GREATEST(
+        0,
+        LEAST(1, 1 - ((${distanceExpr}) / ${filters.radiusKm}))
+      )`;
+    }
+
+    return sql<number>`0.6`;
+  }
+
+  private buildItemOrderBy(
+    filters: AiSearchRepositoryFilters,
+    branchScoreExpr: SQL<number>,
+    distanceExpr: SQL<unknown>,
+  ): SQL<unknown>[] {
+    if (filters.branch === 'semantic' && filters.queryEmbedding) {
+      return [sql`${this.buildItemVectorDistanceExpr(filters)} ASC`];
+    }
+    if (
+      filters.branch === 'geo' &&
+      filters.lat !== undefined &&
+      filters.lon !== undefined
+    ) {
+      return [sql`${distanceExpr} ASC`];
+    }
+    return [
+      sql`${branchScoreExpr} DESC`,
+      sql`${restaurants.averageRating} DESC`,
+      sql`${restaurants.reviewCount} DESC`,
+    ];
+  }
+
+  private buildRestaurantOrderBy(
+    filters: AiSearchRepositoryFilters,
+    branchScoreExpr: SQL<number>,
+    distanceExpr: SQL<unknown>,
+  ): SQL<unknown>[] {
+    if (filters.branch === 'semantic' && filters.queryEmbedding) {
+      return [sql`${this.buildRestaurantVectorDistanceExpr(filters)} ASC`];
+    }
+    if (
+      filters.branch === 'geo' &&
+      filters.lat !== undefined &&
+      filters.lon !== undefined
+    ) {
+      return [sql`${distanceExpr} ASC`];
+    }
+    return [
+      sql`${branchScoreExpr} DESC`,
+      sql`${restaurants.averageRating} DESC`,
+      sql`${restaurants.reviewCount} DESC`,
+    ];
+  }
+
+  private buildItemVectorDistanceExpr(
+    filters: AiSearchRepositoryFilters,
+  ): SQL<number> {
+    return sql<number>`${menuItems.embedding} <=> ${toVectorLiteral(
+      filters.queryEmbedding ?? [],
+    )}::vector`;
+  }
+
+  private buildRestaurantVectorDistanceExpr(
+    filters: AiSearchRepositoryFilters,
+  ): SQL<number> {
+    return sql<number>`${restaurants.embedding} <=> ${toVectorLiteral(
+      filters.queryEmbedding ?? [],
+    )}::vector`;
+  }
 }
 
 function numberOrNull(value: unknown): number | null {
@@ -389,3 +711,13 @@ function unique(values: string[]): string[] {
   return Array.from(new Set(values.filter(Boolean)));
 }
 
+function clamp01(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(1, value));
+}
+
+function toVectorLiteral(embedding: number[]): string {
+  return `[${embedding
+    .map((value) => (Number.isFinite(value) ? value : 0))
+    .join(',')}]`;
+}

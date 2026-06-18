@@ -86,7 +86,11 @@ export const menuItems = pgTable(
     name: text('name').notNull(),
     description: text('description'),
     searchDocument: text('search_document'),
+    searchContentHash: text('search_content_hash'),
     embedding: vector('embedding'),
+    embeddingModel: text('embedding_model'),
+    embeddingVersion: text('embedding_version'),
+    embeddingGeneratedAt: timestamp('embedding_generated_at'),
     // Price stored as integer VND (no fractional currency in Vietnam).
     price: integer('price').notNull(),
     sku: text('sku'),

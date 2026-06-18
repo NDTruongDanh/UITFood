@@ -28,6 +28,57 @@ export const aiSearchLatencyMs = meter.createHistogram(
   },
 );
 
+export const aiSearchBranchLatencyMs = meter.createHistogram(
+  'api.domain.ai_search.branch_latency_ms',
+  {
+    description: 'AI search retrieval branch latency in milliseconds',
+    unit: 'ms',
+  },
+);
+
+export const aiSearchBranchHitsCount = meter.createCounter(
+  'api.domain.ai_search.branch_hits.count',
+  {
+    description: 'AI search retrieval branch hit counts',
+  },
+);
+
+export const aiSearchSemanticFallbackCount = meter.createCounter(
+  'api.domain.ai_search.semantic_fallback.count',
+  {
+    description: 'AI search semantic branch fallback count',
+  },
+);
+
+export const aiSearchEmbeddingJobCount = meter.createCounter(
+  'api.domain.ai_search.embedding_jobs.count',
+  {
+    description: 'AI search embedding job outcomes',
+  },
+);
+
+export const aiSearchEmbeddingJobLatencyMs = meter.createHistogram(
+  'api.domain.ai_search.embedding_job_latency_ms',
+  {
+    description: 'AI search embedding job latency in milliseconds',
+    unit: 'ms',
+  },
+);
+
+export const aiSearchStaleEmbeddingsCount = meter.createHistogram(
+  'api.domain.ai_search.stale_embeddings.count',
+  {
+    description: 'Current count of stale AI search embeddings',
+  },
+);
+
+export const aiSearchBackfillCount = meter.createCounter(
+  'api.domain.ai_search.backfill.count',
+  {
+    description: 'AI search embedding backfill progress counters',
+  },
+);
+
 export function recordOrderPlaced(
   attributes: Record<string, string | number> = {},
 ) {
@@ -58,4 +109,46 @@ export function recordAiSearch(attributes: {
 
   aiSearchCount.add(1, metricAttributes);
   aiSearchLatencyMs.record(attributes.latencyMs, metricAttributes);
+}
+
+export function recordAiSearchBranch(attributes: {
+  branch: string;
+  target: 'items' | 'restaurants';
+  hitCount: number;
+  latencyMs: number;
+}) {
+  const metricAttributes = {
+    branch: attributes.branch,
+    target: attributes.target,
+  };
+  aiSearchBranchHitsCount.add(attributes.hitCount, metricAttributes);
+  aiSearchBranchLatencyMs.record(attributes.latencyMs, metricAttributes);
+}
+
+export function recordAiSearchSemanticFallback(reason: string) {
+  aiSearchSemanticFallbackCount.add(1, { reason });
+}
+
+export function recordAiSearchEmbeddingJob(attributes: {
+  status: string;
+  targetType: string;
+  latencyMs: number;
+}) {
+  const metricAttributes = {
+    status: attributes.status,
+    target_type: attributes.targetType,
+  };
+  aiSearchEmbeddingJobCount.add(1, metricAttributes);
+  aiSearchEmbeddingJobLatencyMs.record(attributes.latencyMs, metricAttributes);
+}
+
+export function recordAiSearchStaleEmbeddings(count: number) {
+  aiSearchStaleEmbeddingsCount.record(count);
+}
+
+export function recordAiSearchBackfill(attributes: {
+  status: 'queued' | 'skipped' | 'failed';
+  count: number;
+}) {
+  aiSearchBackfillCount.add(attributes.count, { status: attributes.status });
 }

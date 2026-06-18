@@ -9,6 +9,13 @@ export const AI_SEARCH_DEFAULT_RADIUS_KM = 5;
 export const AI_SEARCH_MIN_CONFIDENCE = 0.65;
 export const AI_SEARCH_MAX_QUERY_LENGTH = 300;
 
+export const AI_SEARCH_BRANCH_WEIGHTS = {
+  fulltext: 0.3,
+  semantic: 0.25,
+  trigram: 0.2,
+  factual: 0.25,
+} as const;
+
 export const AI_ITEM_SCORE = {
   exactNameMatch: 25,
   partialNameMatch: 15,
@@ -63,6 +70,9 @@ export interface AiSearchIntent {
 }
 
 export type AiSearchRetrievalBranch =
+  | 'fulltext'
+  | 'trigram'
+  | 'semantic'
   | 'lexical'
   | 'nutrition'
   | 'price'
@@ -73,6 +83,11 @@ export type AiSearchRetrievalBranch =
 export interface AiSearchRepositoryFilters {
   intent: AiSearchIntent;
   branch: AiSearchRetrievalBranch;
+  query: string;
+  normalizedQuery: string;
+  queryEmbedding?: number[];
+  embeddingModel?: string;
+  embeddingVersion?: string;
   lat?: number;
   lon?: number;
   radiusKm: number;
@@ -90,11 +105,14 @@ export interface AiSearchNutritionFacts {
 export interface AiSearchRestaurantCandidate extends RestaurantSearchResultDto {
   score?: number;
   distanceKm?: number | null;
+  retrievalBranches?: AiSearchRetrievalBranch[];
+  branchScores?: Partial<Record<AiSearchRetrievalBranch, number>>;
 }
 
 export interface AiSearchItemCandidate extends ItemSearchRowDto {
   nutrition: AiSearchNutritionFacts | null;
   retrievalBranches: AiSearchRetrievalBranch[];
+  branchScores?: Partial<Record<AiSearchRetrievalBranch, number>>;
   matchReasons?: string[];
 }
 

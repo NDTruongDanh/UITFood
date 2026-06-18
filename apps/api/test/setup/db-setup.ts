@@ -33,6 +33,7 @@ import {
 import { reviews } from '../../src/module/review/domain/review.schema';
 import { notifications } from '../../src/module/notification/domain/notification.schema';
 import { notificationDeliveryLogs } from '../../src/module/notification/domain/notification-delivery-log.schema';
+import { aiSearchEmbeddingJobs } from '../../src/module/restaurant-catalog/search/indexing/ai-search-embedding-job.schema';
 
 // ─── Test user credentials ────────────────────────────────────────────────────
 //
@@ -111,6 +112,7 @@ export async function resetDb(): Promise<void> {
   await db.delete(promotionUsages);
   await db.delete(couponCodes);
   await db.delete(promotions);
+  await db.delete(aiSearchEmbeddingJobs);
   await db.delete(restaurants);
   await resetUsers();
 }

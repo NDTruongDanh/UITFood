@@ -25,11 +25,11 @@ export class AiSearchController {
   })
   @ApiBody({ type: AiSearchRequestDto })
   @ApiOkResponse({
-    description: 'AI search results with applied filters, match reasons, and follow-up suggestions.',
+    description:
+      'AI search results with applied filters, match reasons, and follow-up suggestions.',
     type: AiSearchResponseDto,
   })
   search(@Body() body: AiSearchRequestDto) {
     return this.service.search(body);
   }
 }
-

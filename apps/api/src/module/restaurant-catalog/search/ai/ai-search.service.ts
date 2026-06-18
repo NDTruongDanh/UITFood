@@ -1,10 +1,17 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import { recordAiSearch } from '@/observability/domain-metrics';
+import {
+  recordAiSearch,
+  recordAiSearchBranch,
+  recordAiSearchSemanticFallback,
+} from '@/observability/domain-metrics';
+import { AiSearchEmbeddingService } from '../indexing/ai-search-embedding.service';
+import { normalizeSearchText } from '../indexing/ai-search-document';
 import { SearchService } from '../standard/search.service';
 import type { AiSearchRequestDto } from './ai-search.dto';
 import { AiSearchIntentService } from './ai-search-intent.service';
 import { AiSearchRepository } from './ai-search.repository';
 import {
+  AI_SEARCH_BRANCH_WEIGHTS,
   AI_ITEM_SCORE,
   AI_SEARCH_DEFAULT_RADIUS_KM,
   AI_SEARCH_MIN_CONFIDENCE,
@@ -23,6 +30,18 @@ import {
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 100;
 const MAX_BRANCH_ROWS = 150;
+const MAX_FACTUAL_SCORE = 100;
+
+interface QueryEmbeddingState {
+  embedding: number[];
+  model: string;
+  version: string;
+}
+
+interface BranchResult<T> {
+  branch: AiSearchRetrievalBranch;
+  rows: T[];
+}
 
 @Injectable()
 export class AiSearchService {
@@ -32,6 +51,7 @@ export class AiSearchService {
     private readonly repo: AiSearchRepository,
     private readonly intentService: AiSearchIntentService,
     private readonly standardSearch: SearchService,
+    private readonly embeddings: AiSearchEmbeddingService,
   ) {}
 
   async search(request: AiSearchRequestDto): Promise<AiSearchResponse> {
@@ -57,7 +77,9 @@ export class AiSearchService {
     }
 
     try {
-      const intent = this.intentService.parseIntent(query, { radiusKm });
+      const intent = await this.intentService.parseIntentWithProvider(query, {
+        radiusKm,
+      });
       const minConfidence = resolveMinConfidence();
 
       if (intent.needsFallback || intent.confidence < minConfidence) {
@@ -69,7 +91,16 @@ export class AiSearchService {
         );
       }
 
-      const branches = this.buildRetrievalBranches(intent, request);
+      const normalizedQuery = normalizeSearchText(
+        intent.rewrittenQuery || query,
+      );
+      const queryEmbedding = await this.resolveQueryEmbedding(
+        intent.rewrittenQuery || query,
+      );
+      const branches = this.buildRetrievalBranches(intent, request, {
+        hasSemantic: Boolean(queryEmbedding),
+        normalizedQuery,
+      });
       const branchLimit = Math.min(
         MAX_BRANCH_ROWS,
         Math.max(limit * 4, DEFAULT_PAGE_SIZE),
@@ -78,6 +109,11 @@ export class AiSearchService {
         (branch): AiSearchRepositoryFilters => ({
           intent,
           branch,
+          query,
+          normalizedQuery,
+          queryEmbedding: queryEmbedding?.embedding,
+          embeddingModel: queryEmbedding?.model,
+          embeddingVersion: queryEmbedding?.version,
           lat: request.lat,
           lon: request.lon,
           radiusKm,
@@ -87,22 +123,26 @@ export class AiSearchService {
 
       const [itemBranches, restaurantBranches] = await Promise.all([
         Promise.all(
-          branchFilters.map((filters) => this.repo.findItems(filters)),
+          branchFilters.map((filters) => this.findItemsForBranch(filters)),
         ),
         Promise.all(
           branchFilters
             .filter((filters) => this.shouldRetrieveRestaurants(filters))
-            .map((filters) => this.repo.findRestaurants(filters)),
+            .map((filters) => this.findRestaurantsForBranch(filters)),
         ),
       ]);
 
+      this.recordSemanticFallback(branches, itemBranches, restaurantBranches);
+
       const rankedItems = this.rankItems(
-        this.mergeItems(itemBranches.flat()),
+        this.mergeItems(itemBranches.flatMap((result) => result.rows)),
         intent,
         request,
       );
       const rankedRestaurants = this.rankRestaurants(
-        this.mergeRestaurants(restaurantBranches.flat()),
+        this.mergeRestaurants(
+          restaurantBranches.flatMap((result) => result.rows),
+        ),
         intent,
       );
 
@@ -184,6 +224,7 @@ export class AiSearchService {
   private buildRetrievalBranches(
     intent: AiSearchIntent,
     request: AiSearchRequestDto,
+    options: { hasSemantic: boolean; normalizedQuery: string },
   ): AiSearchRetrievalBranch[] {
     const branches = new Set<AiSearchRetrievalBranch>();
     const hasTerms =
@@ -191,6 +232,11 @@ export class AiSearchService {
       intent.dietaryTags.length > 0 ||
       intent.cuisineTerms.length > 0;
 
+    if (options.normalizedQuery.length > 0) {
+      branches.add('fulltext');
+      branches.add('trigram');
+      if (options.hasSemantic) branches.add('semantic');
+    }
     if (hasTerms) {
       branches.add('lexical');
       branches.add('tag');
@@ -201,6 +247,10 @@ export class AiSearchService {
     if (request.lat !== undefined && request.lon !== undefined)
       branches.add('geo');
 
+    if (branches.size === 0 && options.normalizedQuery.length > 0) {
+      branches.add('fulltext');
+      branches.add('trigram');
+    }
     if (branches.size === 0) branches.add('lexical');
     return Array.from(branches);
   }
@@ -210,6 +260,9 @@ export class AiSearchService {
   ): boolean {
     return (
       filters.branch === 'lexical' ||
+      filters.branch === 'fulltext' ||
+      filters.branch === 'trigram' ||
+      filters.branch === 'semantic' ||
       filters.branch === 'tag' ||
       filters.branch === 'rating' ||
       filters.branch === 'geo'
@@ -232,6 +285,10 @@ export class AiSearchService {
       existing.retrievalBranches = Array.from(
         new Set([...existing.retrievalBranches, ...item.retrievalBranches]),
       );
+      existing.branchScores = mergeBranchScores(
+        existing.branchScores,
+        item.branchScores,
+      );
     }
 
     return Array.from(merged.values());
@@ -243,7 +300,25 @@ export class AiSearchService {
     const merged = new Map<string, AiSearchRestaurantCandidate>();
 
     for (const restaurant of restaurants) {
-      if (!merged.has(restaurant.id)) merged.set(restaurant.id, restaurant);
+      const existing = merged.get(restaurant.id);
+      if (!existing) {
+        merged.set(restaurant.id, {
+          ...restaurant,
+          retrievalBranches: [...(restaurant.retrievalBranches ?? [])],
+        });
+        continue;
+      }
+
+      existing.retrievalBranches = Array.from(
+        new Set([
+          ...(existing.retrievalBranches ?? []),
+          ...(restaurant.retrievalBranches ?? []),
+        ]),
+      );
+      existing.branchScores = mergeBranchScores(
+        existing.branchScores,
+        restaurant.branchScores,
+      );
     }
 
     return Array.from(merged.values());
@@ -256,7 +331,13 @@ export class AiSearchService {
   ): AiSearchItemResult[] {
     return items
       .map((item) => {
-        const score = this.scoreItem(item, intent, request);
+        const factualScore = this.scoreItem(item, intent, request);
+        const score = toPublicScore(
+          combineHybridScore(
+            item.branchScores,
+            normalizeFactualScore(factualScore),
+          ),
+        );
         return {
           ...item,
           score,
@@ -271,10 +352,18 @@ export class AiSearchService {
     intent: AiSearchIntent,
   ): AiSearchRestaurantCandidate[] {
     return restaurants
-      .map((restaurant) => ({
-        ...restaurant,
-        score: this.scoreRestaurant(restaurant, intent),
-      }))
+      .map((restaurant) => {
+        const factualScore = this.scoreRestaurant(restaurant, intent);
+        return {
+          ...restaurant,
+          score: toPublicScore(
+            combineHybridScore(
+              restaurant.branchScores,
+              normalizeFactualScore(factualScore),
+            ),
+          ),
+        };
+      })
       .sort((a, b) => {
         if (intent.sort === 'distance') {
           return compareNullableNumbers(a.distanceKm, b.distanceKm);
@@ -593,6 +682,71 @@ export class AiSearchService {
       latencyMs: Date.now() - startedAt,
     });
   }
+
+  private async resolveQueryEmbedding(
+    query: string,
+  ): Promise<QueryEmbeddingState | null> {
+    try {
+      const config = this.embeddings.getConfig();
+      const embedding = await this.embeddings.embedSearchDocument(query);
+      return {
+        embedding,
+        model: config.model,
+        version: config.version,
+      };
+    } catch (error) {
+      recordAiSearchSemanticFallback('query_embedding_failed');
+      this.logger.debug(
+        `AI search semantic branch disabled: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return null;
+    }
+  }
+
+  private async findItemsForBranch(
+    filters: AiSearchRepositoryFilters,
+  ): Promise<BranchResult<AiSearchItemCandidate>> {
+    const startedAt = Date.now();
+    const rows = await this.repo.findItems(filters);
+    recordAiSearchBranch({
+      branch: filters.branch,
+      target: 'items',
+      hitCount: rows.length,
+      latencyMs: Date.now() - startedAt,
+    });
+    return { branch: filters.branch, rows };
+  }
+
+  private async findRestaurantsForBranch(
+    filters: AiSearchRepositoryFilters,
+  ): Promise<BranchResult<AiSearchRestaurantCandidate>> {
+    const startedAt = Date.now();
+    const rows = await this.repo.findRestaurants(filters);
+    recordAiSearchBranch({
+      branch: filters.branch,
+      target: 'restaurants',
+      hitCount: rows.length,
+      latencyMs: Date.now() - startedAt,
+    });
+    return { branch: filters.branch, rows };
+  }
+
+  private recordSemanticFallback(
+    branches: AiSearchRetrievalBranch[],
+    itemBranches: BranchResult<AiSearchItemCandidate>[],
+    restaurantBranches: BranchResult<AiSearchRestaurantCandidate>[],
+  ): void {
+    if (!branches.includes('semantic')) return;
+
+    const semanticHits = [...itemBranches, ...restaurantBranches]
+      .filter((result) => result.branch === 'semantic')
+      .reduce((total, result) => total + result.rows.length, 0);
+    if (semanticHits === 0) {
+      recordAiSearchSemanticFallback('no_fresh_results');
+    }
+  }
 }
 
 function normalizeText(value: string): string {
@@ -614,4 +768,51 @@ function compareNullableNumbers(
 function resolveMinConfidence(): number {
   const raw = Number(process.env.AI_SEARCH_MIN_CONFIDENCE);
   return Number.isFinite(raw) ? raw : AI_SEARCH_MIN_CONFIDENCE;
+}
+
+function mergeBranchScores(
+  existing: Partial<Record<AiSearchRetrievalBranch, number>> | undefined,
+  incoming: Partial<Record<AiSearchRetrievalBranch, number>> | undefined,
+): Partial<Record<AiSearchRetrievalBranch, number>> {
+  const merged = { ...(existing ?? {}) };
+
+  for (const [branch, score] of Object.entries(incoming ?? {}) as [
+    AiSearchRetrievalBranch,
+    number,
+  ][]) {
+    merged[branch] = Math.max(merged[branch] ?? 0, score);
+  }
+
+  return merged;
+}
+
+function combineHybridScore(
+  branchScores: Partial<Record<AiSearchRetrievalBranch, number>> | undefined,
+  factualScore: number,
+): number {
+  const fulltextScore = Math.max(
+    branchScores?.fulltext ?? 0,
+    branchScores?.lexical ?? 0,
+    branchScores?.tag ?? 0,
+  );
+
+  return clamp01(
+    fulltextScore * AI_SEARCH_BRANCH_WEIGHTS.fulltext +
+      (branchScores?.semantic ?? 0) * AI_SEARCH_BRANCH_WEIGHTS.semantic +
+      (branchScores?.trigram ?? 0) * AI_SEARCH_BRANCH_WEIGHTS.trigram +
+      factualScore * AI_SEARCH_BRANCH_WEIGHTS.factual,
+  );
+}
+
+function normalizeFactualScore(score: number): number {
+  return clamp01(score / MAX_FACTUAL_SCORE);
+}
+
+function toPublicScore(score: number): number {
+  return Math.round(score * 100);
+}
+
+function clamp01(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(1, value));
 }
