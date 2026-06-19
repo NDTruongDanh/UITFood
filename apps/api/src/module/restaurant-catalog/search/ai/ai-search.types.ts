@@ -16,6 +16,20 @@ export const AI_SEARCH_BRANCH_WEIGHTS = {
   factual: 0.25,
 } as const;
 
+export const AI_SEARCH_DEFAULT_RANKING_WEIGHTS = {
+  retrieval: 0.35,
+  nutrition: 0.15,
+  price: 0.1,
+  distance: 0.1,
+  rating: 0.1,
+  popularity: 0.1,
+  freshness: 0.05,
+  availability: 0.05,
+} as const;
+
+export const AI_SEARCH_POPULARITY_MAX_SCORE = 0.75;
+export const AI_SEARCH_STATS_STALE_AFTER_HOURS = 48;
+
 export const AI_ITEM_SCORE = {
   exactNameMatch: 25,
   partialNameMatch: 15,
@@ -102,18 +116,50 @@ export interface AiSearchNutritionFacts {
   verifiedByRestaurant: boolean | null;
 }
 
+export interface AiSearchPopularitySignals {
+  deliveredOrderCount30d: number;
+  deliveredOrderCount90d: number;
+  orderedQuantity30d: number;
+  orderedQuantity90d: number;
+  lastOrderedAt: Date | null;
+  updatedAt: Date | null;
+}
+
+export interface AiSearchRankingBreakdown {
+  retrievalScore: number;
+  nutritionScore: number;
+  priceScore: number;
+  distanceScore: number;
+  ratingScore: number;
+  popularityScore: number;
+  freshnessScore: number;
+  availabilityScore: number;
+  finalScore: number;
+}
+
+export type AiSearchRankingWeightKey =
+  keyof typeof AI_SEARCH_DEFAULT_RANKING_WEIGHTS;
+
+export type AiSearchRankingWeights = Record<AiSearchRankingWeightKey, number>;
+
 export interface AiSearchRestaurantCandidate extends RestaurantSearchResultDto {
   score?: number;
   distanceKm?: number | null;
   retrievalBranches?: AiSearchRetrievalBranch[];
   branchScores?: Partial<Record<AiSearchRetrievalBranch, number>>;
+  popularity?: AiSearchPopularitySignals | null;
+  rankingBreakdown?: AiSearchRankingBreakdown;
 }
 
 export interface AiSearchItemCandidate extends ItemSearchRowDto {
   nutrition: AiSearchNutritionFacts | null;
+  createdAt?: Date;
+  updatedAt?: Date;
   retrievalBranches: AiSearchRetrievalBranch[];
   branchScores?: Partial<Record<AiSearchRetrievalBranch, number>>;
   matchReasons?: string[];
+  popularity?: AiSearchPopularitySignals | null;
+  rankingBreakdown?: AiSearchRankingBreakdown;
 }
 
 export interface AiSearchItemResult extends ItemSearchRowDto {

@@ -1,4 +1,5 @@
 import { AiSearchIntentService } from './ai-search-intent.service';
+import { AiSearchRankingService } from './ai-search-ranking.service';
 import { AiSearchService } from './ai-search.service';
 import type {
   AiSearchItemCandidate,
@@ -76,6 +77,7 @@ describe('AiSearchService', () => {
   function buildService(
     candidates: AiSearchItemCandidate[],
     embedding: number[] | null = null,
+    ranking: AiSearchRankingService = new AiSearchRankingService(),
   ) {
     const repo = {
       findItems: jest.fn(async (filters: AiSearchRepositoryFilters) =>
@@ -125,10 +127,12 @@ describe('AiSearchService', () => {
         new AiSearchIntentService(),
         standardSearch as any,
         embeddings as any,
+        ranking,
       ),
       repo,
       standardSearch,
       embeddings,
+      ranking,
     };
   }
 
@@ -204,6 +208,22 @@ describe('AiSearchService', () => {
       undefined,
       undefined,
     );
+  });
+
+  it('delegates merged candidate ordering to the ranking service', async () => {
+    const ranking = new AiSearchRankingService();
+    const rankItemsSpy = jest.spyOn(ranking, 'rankItems');
+    const rankRestaurantsSpy = jest.spyOn(ranking, 'rankRestaurants');
+    const { service } = buildService(
+      [makeItem({ id: 'item-ranking', name: 'Chicken Rice' })],
+      null,
+      ranking,
+    );
+
+    await service.search({ query: 'chicken rice' });
+
+    expect(rankItemsSpy).toHaveBeenCalled();
+    expect(rankRestaurantsSpy).toHaveBeenCalled();
   });
 
   it('adds the semantic branch when query embeddings are available', async () => {

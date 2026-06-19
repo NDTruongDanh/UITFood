@@ -10,8 +10,13 @@ import {
   menuItemStatusEnum,
 } from '../../menu/menu.schema';
 import { restaurants } from '../../restaurant/restaurant.schema';
+import {
+  aiSearchItemRankingStats,
+  aiSearchRestaurantRankingStats,
+} from './ai-search-ranking-stats.schema';
 import type {
   AiSearchItemCandidate,
+  AiSearchPopularitySignals,
   AiSearchRepositoryFilters,
   AiSearchRestaurantCandidate,
 } from './ai-search.types';
@@ -58,6 +63,8 @@ export class AiSearchRepository {
         price: menuItems.price,
         imageUrl: menuItems.imageUrl,
         tags: menuItems.tags,
+        createdAt: menuItems.createdAt,
+        updatedAt: menuItems.updatedAt,
         categoryName: menuCategories.name,
         calories: menuItemNutrition.calories,
         protein: menuItemNutrition.protein,
@@ -77,6 +84,14 @@ export class AiSearchRepository {
         restaurantLongitude: restaurants.longitude,
         distanceKm: distanceExpr,
         branchScore: branchScoreExpr,
+        popularityDeliveredOrderCount30d:
+          aiSearchItemRankingStats.deliveredOrderCount30d,
+        popularityDeliveredOrderCount90d:
+          aiSearchItemRankingStats.deliveredOrderCount90d,
+        popularityOrderedQuantity30d: aiSearchItemRankingStats.orderedQuantity30d,
+        popularityOrderedQuantity90d: aiSearchItemRankingStats.orderedQuantity90d,
+        popularityLastOrderedAt: aiSearchItemRankingStats.lastOrderedAt,
+        popularityUpdatedAt: aiSearchItemRankingStats.updatedAt,
       })
       .from(menuItems)
       .innerJoin(restaurants, eq(menuItems.restaurantId, restaurants.id))
@@ -84,6 +99,10 @@ export class AiSearchRepository {
       .leftJoin(
         menuItemNutrition,
         eq(menuItemNutrition.menuItemId, menuItems.id),
+      )
+      .leftJoin(
+        aiSearchItemRankingStats,
+        eq(aiSearchItemRankingStats.menuItemId, menuItems.id),
       )
       .where(whereClause)
       .orderBy(...this.buildItemOrderBy(filters, branchScoreExpr, distanceExpr))
@@ -97,6 +116,8 @@ export class AiSearchRepository {
       imageUrl: row.imageUrl,
       tags: row.tags,
       categoryName: row.categoryName,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
       score: 0,
       nutrition:
         row.protein === null &&
@@ -115,6 +136,14 @@ export class AiSearchRepository {
       branchScores: {
         [filters.branch]: clamp01(numberOrZero(row.branchScore)),
       },
+      popularity: buildPopularitySignals({
+        deliveredOrderCount30d: row.popularityDeliveredOrderCount30d,
+        deliveredOrderCount90d: row.popularityDeliveredOrderCount90d,
+        orderedQuantity30d: row.popularityOrderedQuantity30d,
+        orderedQuantity90d: row.popularityOrderedQuantity90d,
+        lastOrderedAt: row.popularityLastOrderedAt,
+        updatedAt: row.popularityUpdatedAt,
+      }),
       restaurant: {
         id: row.restaurantId,
         name: row.restaurantName,
@@ -183,8 +212,22 @@ export class AiSearchRepository {
         updatedAt: restaurants.updatedAt,
         distanceKm: distanceExpr,
         branchScore: branchScoreExpr,
+        popularityDeliveredOrderCount30d:
+          aiSearchRestaurantRankingStats.deliveredOrderCount30d,
+        popularityDeliveredOrderCount90d:
+          aiSearchRestaurantRankingStats.deliveredOrderCount90d,
+        popularityOrderedQuantity30d:
+          aiSearchRestaurantRankingStats.orderedQuantity30d,
+        popularityOrderedQuantity90d:
+          aiSearchRestaurantRankingStats.orderedQuantity90d,
+        popularityLastOrderedAt: aiSearchRestaurantRankingStats.lastOrderedAt,
+        popularityUpdatedAt: aiSearchRestaurantRankingStats.updatedAt,
       })
       .from(restaurants)
+      .leftJoin(
+        aiSearchRestaurantRankingStats,
+        eq(aiSearchRestaurantRankingStats.restaurantId, restaurants.id),
+      )
       .where(and(...conditions))
       .orderBy(
         ...this.buildRestaurantOrderBy(filters, branchScoreExpr, distanceExpr),
@@ -214,6 +257,14 @@ export class AiSearchRepository {
       branchScores: {
         [filters.branch]: clamp01(numberOrZero(row.branchScore)),
       },
+      popularity: buildPopularitySignals({
+        deliveredOrderCount30d: row.popularityDeliveredOrderCount30d,
+        deliveredOrderCount90d: row.popularityDeliveredOrderCount90d,
+        orderedQuantity30d: row.popularityOrderedQuantity30d,
+        orderedQuantity90d: row.popularityOrderedQuantity90d,
+        lastOrderedAt: row.popularityLastOrderedAt,
+        updatedAt: row.popularityUpdatedAt,
+      }),
     }));
   }
 
@@ -705,6 +756,26 @@ function numberOrNull(value: unknown): number | null {
 
 function numberOrZero(value: unknown): number {
   return value === null || value === undefined ? 0 : Number(value);
+}
+
+function buildPopularitySignals(row: {
+  deliveredOrderCount30d: unknown;
+  deliveredOrderCount90d: unknown;
+  orderedQuantity30d: unknown;
+  orderedQuantity90d: unknown;
+  lastOrderedAt: Date | null;
+  updatedAt: Date | null;
+}): AiSearchPopularitySignals | null {
+  if (row.updatedAt === null || row.updatedAt === undefined) return null;
+
+  return {
+    deliveredOrderCount30d: numberOrZero(row.deliveredOrderCount30d),
+    deliveredOrderCount90d: numberOrZero(row.deliveredOrderCount90d),
+    orderedQuantity30d: numberOrZero(row.orderedQuantity30d),
+    orderedQuantity90d: numberOrZero(row.orderedQuantity90d),
+    lastOrderedAt: row.lastOrderedAt ?? null,
+    updatedAt: row.updatedAt,
+  };
 }
 
 function unique(values: string[]): string[] {

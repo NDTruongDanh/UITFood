@@ -9,10 +9,9 @@ import { normalizeSearchText } from '../indexing/ai-search-document';
 import { SearchService } from '../standard/search.service';
 import type { AiSearchRequestDto } from './ai-search.dto';
 import { AiSearchIntentService } from './ai-search-intent.service';
+import { AiSearchRankingService } from './ai-search-ranking.service';
 import { AiSearchRepository } from './ai-search.repository';
 import {
-  AI_SEARCH_BRANCH_WEIGHTS,
-  AI_ITEM_SCORE,
   AI_SEARCH_DEFAULT_RADIUS_KM,
   AI_SEARCH_MIN_CONFIDENCE,
   type AiSearchAppliedFilter,
@@ -20,7 +19,6 @@ import {
   type AiSearchFollowUp,
   type AiSearchIntent,
   type AiSearchItemCandidate,
-  type AiSearchItemResult,
   type AiSearchRepositoryFilters,
   type AiSearchResponse,
   type AiSearchRestaurantCandidate,
@@ -30,7 +28,6 @@ import {
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 100;
 const MAX_BRANCH_ROWS = 150;
-const MAX_FACTUAL_SCORE = 100;
 
 interface QueryEmbeddingState {
   embedding: number[];
@@ -52,6 +49,7 @@ export class AiSearchService {
     private readonly intentService: AiSearchIntentService,
     private readonly standardSearch: SearchService,
     private readonly embeddings: AiSearchEmbeddingService,
+    private readonly ranking: AiSearchRankingService,
   ) {}
 
   async search(request: AiSearchRequestDto): Promise<AiSearchResponse> {
@@ -134,16 +132,18 @@ export class AiSearchService {
 
       this.recordSemanticFallback(branches, itemBranches, restaurantBranches);
 
-      const rankedItems = this.rankItems(
+      const rankedItems = this.ranking.rankItems(
         this.mergeItems(itemBranches.flatMap((result) => result.rows)),
         intent,
         request,
+        { radiusKm },
       );
-      const rankedRestaurants = this.rankRestaurants(
+      const rankedRestaurants = this.ranking.rankRestaurants(
         this.mergeRestaurants(
           restaurantBranches.flatMap((result) => result.rows),
         ),
         intent,
+        { radiusKm },
       );
 
       const items = rankedItems.slice(offset, offset + limit);
@@ -322,247 +322,6 @@ export class AiSearchService {
     }
 
     return Array.from(merged.values());
-  }
-
-  private rankItems(
-    items: AiSearchItemCandidate[],
-    intent: AiSearchIntent,
-    request: AiSearchRequestDto,
-  ): AiSearchItemResult[] {
-    return items
-      .map((item) => {
-        const factualScore = this.scoreItem(item, intent, request);
-        const score = toPublicScore(
-          combineHybridScore(
-            item.branchScores,
-            normalizeFactualScore(factualScore),
-          ),
-        );
-        return {
-          ...item,
-          score,
-          matchReasons: this.buildItemMatchReasons(item, intent),
-        };
-      })
-      .sort((a, b) => this.compareItems(a, b, intent));
-  }
-
-  private rankRestaurants(
-    restaurants: AiSearchRestaurantCandidate[],
-    intent: AiSearchIntent,
-  ): AiSearchRestaurantCandidate[] {
-    return restaurants
-      .map((restaurant) => {
-        const factualScore = this.scoreRestaurant(restaurant, intent);
-        return {
-          ...restaurant,
-          score: toPublicScore(
-            combineHybridScore(
-              restaurant.branchScores,
-              normalizeFactualScore(factualScore),
-            ),
-          ),
-        };
-      })
-      .sort((a, b) => {
-        if (intent.sort === 'distance') {
-          return compareNullableNumbers(a.distanceKm, b.distanceKm);
-        }
-        if (intent.sort === 'rating') {
-          return (
-            Number(b.averageRating ?? 0) - Number(a.averageRating ?? 0) ||
-            Number(b.reviewCount ?? 0) - Number(a.reviewCount ?? 0)
-          );
-        }
-        return Number(b.score ?? 0) - Number(a.score ?? 0);
-      });
-  }
-
-  private scoreItem(
-    item: AiSearchItemCandidate,
-    intent: AiSearchIntent,
-    request: AiSearchRequestDto,
-  ): number {
-    const terms = [
-      ...intent.foodTerms,
-      ...intent.dietaryTags,
-      ...intent.cuisineTerms,
-    ];
-    const normalizedName = normalizeText(item.name);
-    const normalizedCategory = normalizeText(item.categoryName ?? '');
-    const normalizedCuisine = normalizeText(item.restaurant.cuisineType ?? '');
-    const tags = new Set((item.tags ?? []).map((tag) => normalizeText(tag)));
-    let score = 0;
-
-    for (const term of terms) {
-      if (normalizedName === term) score += AI_ITEM_SCORE.exactNameMatch;
-      else if (normalizedName.includes(term))
-        score += AI_ITEM_SCORE.partialNameMatch;
-      if (tags.has(term)) score += AI_ITEM_SCORE.tagMatch;
-      if (normalizedCategory.includes(term))
-        score += AI_ITEM_SCORE.categoryMatch;
-      if (normalizedCuisine.includes(term)) score += AI_ITEM_SCORE.cuisineMatch;
-    }
-
-    const protein = item.nutrition?.protein;
-    if (
-      intent.nutrition.proteinMinG !== undefined &&
-      protein !== null &&
-      protein !== undefined &&
-      protein >= intent.nutrition.proteinMinG
-    ) {
-      score += AI_ITEM_SCORE.highProteinMatch + Math.min(10, protein / 5);
-    }
-
-    if (
-      intent.price.maxPriceVnd !== undefined &&
-      item.price <= intent.price.maxPriceVnd
-    ) {
-      score += AI_ITEM_SCORE.budgetMatch;
-    }
-
-    if (
-      intent.rating.minAverageRating !== undefined &&
-      Number(item.restaurant.averageRating ?? 0) >=
-        intent.rating.minAverageRating &&
-      Number(item.restaurant.reviewCount ?? 0) >=
-        (intent.rating.minReviewCount ?? 0)
-    ) {
-      score += AI_ITEM_SCORE.highlyRatedMatch;
-    }
-
-    if (
-      request.lat !== undefined &&
-      request.lon !== undefined &&
-      item.restaurant.distanceKm !== null &&
-      item.restaurant.distanceKm !== undefined
-    ) {
-      score += AI_ITEM_SCORE.nearbyMatch;
-      score += Math.max(0, 5 - item.restaurant.distanceKm);
-    }
-
-    if (Number(item.restaurant.reviewCount ?? 0) > 0) {
-      score += AI_ITEM_SCORE.reviewConfidence;
-    }
-
-    score += AI_ITEM_SCORE.openNow;
-    return Math.round(score);
-  }
-
-  private scoreRestaurant(
-    restaurant: AiSearchRestaurantCandidate,
-    intent: AiSearchIntent,
-  ): number {
-    const terms = [
-      ...intent.foodTerms,
-      ...intent.dietaryTags,
-      ...intent.cuisineTerms,
-    ];
-    const normalizedName = normalizeText(restaurant.name);
-    const normalizedCuisine = normalizeText(restaurant.cuisineType ?? '');
-    const normalizedDescription = normalizeText(restaurant.description ?? '');
-    let score = 0;
-
-    for (const term of terms) {
-      if (normalizedName === term) score += AI_ITEM_SCORE.exactNameMatch;
-      else if (normalizedName.includes(term))
-        score += AI_ITEM_SCORE.partialNameMatch;
-      if (normalizedCuisine.includes(term)) score += AI_ITEM_SCORE.cuisineMatch;
-      if (normalizedDescription.includes(term)) score += 3;
-    }
-
-    if (
-      intent.rating.minAverageRating !== undefined &&
-      Number(restaurant.averageRating ?? 0) >= intent.rating.minAverageRating &&
-      Number(restaurant.reviewCount ?? 0) >= (intent.rating.minReviewCount ?? 0)
-    ) {
-      score += AI_ITEM_SCORE.highlyRatedMatch;
-    }
-
-    if (restaurant.distanceKm !== null && restaurant.distanceKm !== undefined) {
-      score += AI_ITEM_SCORE.nearbyMatch;
-      score += Math.max(0, 5 - restaurant.distanceKm);
-    }
-
-    if (restaurant.isOpen) score += AI_ITEM_SCORE.openNow;
-    if (Number(restaurant.reviewCount ?? 0) > 0) {
-      score += AI_ITEM_SCORE.reviewConfidence;
-    }
-
-    return Math.round(score);
-  }
-
-  private compareItems(
-    a: AiSearchItemResult,
-    b: AiSearchItemResult,
-    intent: AiSearchIntent,
-  ): number {
-    if (intent.sort === 'protein_desc') {
-      return (
-        Number(b.nutrition?.protein ?? -1) -
-          Number(a.nutrition?.protein ?? -1) || b.score - a.score
-      );
-    }
-    if (intent.sort === 'price_asc') {
-      return a.price - b.price || b.score - a.score;
-    }
-    if (intent.sort === 'distance') {
-      return (
-        compareNullableNumbers(
-          a.restaurant.distanceKm,
-          b.restaurant.distanceKm,
-        ) || b.score - a.score
-      );
-    }
-    if (intent.sort === 'rating') {
-      return (
-        Number(b.restaurant.averageRating ?? 0) -
-          Number(a.restaurant.averageRating ?? 0) ||
-        Number(b.restaurant.reviewCount ?? 0) -
-          Number(a.restaurant.reviewCount ?? 0) ||
-        b.score - a.score
-      );
-    }
-    return b.score - a.score;
-  }
-
-  private buildItemMatchReasons(
-    item: AiSearchItemCandidate,
-    intent: AiSearchIntent,
-  ): string[] {
-    const reasons: string[] = [];
-    const protein = item.nutrition?.protein;
-
-    if (
-      intent.nutrition.proteinMinG !== undefined &&
-      protein !== null &&
-      protein !== undefined &&
-      protein >= intent.nutrition.proteinMinG
-    ) {
-      reasons.push(`${Math.round(protein)}g protein`);
-    }
-
-    if (
-      intent.price.maxPriceVnd !== undefined &&
-      item.price <= intent.price.maxPriceVnd
-    ) {
-      reasons.push(`Under ${intent.price.maxPriceVnd} VND`);
-    }
-
-    const rating = Number(item.restaurant.averageRating ?? 0);
-    if (rating > 0) {
-      reasons.push(`${rating.toFixed(1)} rating`);
-    }
-
-    if (
-      item.restaurant.distanceKm !== null &&
-      item.restaurant.distanceKm !== undefined
-    ) {
-      reasons.push(`${item.restaurant.distanceKm.toFixed(1)} km away`);
-    }
-
-    reasons.push('Open now');
-    return reasons.slice(0, 4);
   }
 
   private buildAppliedFilters(
@@ -749,22 +508,6 @@ export class AiSearchService {
   }
 }
 
-function normalizeText(value: string): string {
-  return value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase();
-}
-
-function compareNullableNumbers(
-  a: number | null | undefined,
-  b: number | null | undefined,
-): number {
-  const left = a ?? Number.POSITIVE_INFINITY;
-  const right = b ?? Number.POSITIVE_INFINITY;
-  return left - right;
-}
-
 function resolveMinConfidence(): number {
   const raw = Number(process.env.AI_SEARCH_MIN_CONFIDENCE);
   return Number.isFinite(raw) ? raw : AI_SEARCH_MIN_CONFIDENCE;
@@ -784,35 +527,4 @@ function mergeBranchScores(
   }
 
   return merged;
-}
-
-function combineHybridScore(
-  branchScores: Partial<Record<AiSearchRetrievalBranch, number>> | undefined,
-  factualScore: number,
-): number {
-  const fulltextScore = Math.max(
-    branchScores?.fulltext ?? 0,
-    branchScores?.lexical ?? 0,
-    branchScores?.tag ?? 0,
-  );
-
-  return clamp01(
-    fulltextScore * AI_SEARCH_BRANCH_WEIGHTS.fulltext +
-      (branchScores?.semantic ?? 0) * AI_SEARCH_BRANCH_WEIGHTS.semantic +
-      (branchScores?.trigram ?? 0) * AI_SEARCH_BRANCH_WEIGHTS.trigram +
-      factualScore * AI_SEARCH_BRANCH_WEIGHTS.factual,
-  );
-}
-
-function normalizeFactualScore(score: number): number {
-  return clamp01(score / MAX_FACTUAL_SCORE);
-}
-
-function toPublicScore(score: number): number {
-  return Math.round(score * 100);
-}
-
-function clamp01(value: number): number {
-  if (!Number.isFinite(value)) return 0;
-  return Math.max(0, Math.min(1, value));
 }
