@@ -81,6 +81,7 @@ export interface AiSearchIntent {
   sort: AiSearchSort;
   confidence: number;
   needsFallback: boolean;
+  foodNameOnly?: boolean;
 }
 
 export type AiSearchRetrievalBranch =
@@ -186,10 +187,7 @@ export interface AiSearchFollowUp {
   query: string;
 }
 
-export type AiSearchFallbackReason =
-  | 'LOW_CONFIDENCE'
-  | 'AI_SEARCH_UNAVAILABLE'
-  | 'AI_SEARCH_EMPTY_QUERY';
+export type AiSearchFallbackReason = 'EXACT_FOOD_NAME';
 
 export interface AiSearchResponse {
   mode: AiSearchMode;

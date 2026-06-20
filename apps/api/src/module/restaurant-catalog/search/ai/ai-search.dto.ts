@@ -91,7 +91,7 @@ export class AiSearchFollowUpDto {
 }
 
 export class AiSearchFallbackDto {
-  @ApiProperty({ example: 'AI_SEARCH_UNAVAILABLE' })
+  @ApiProperty({ example: 'EXACT_FOOD_NAME' })
   reason!: string;
 }
 

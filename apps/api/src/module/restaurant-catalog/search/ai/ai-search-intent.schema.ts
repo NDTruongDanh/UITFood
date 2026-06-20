@@ -45,6 +45,7 @@ export const aiSearchIntentSchema = z
     ]),
     confidence: z.number().min(0).max(1),
     needsFallback: z.boolean(),
+    foodNameOnly: z.boolean().optional().default(false),
   })
   .strict();
 

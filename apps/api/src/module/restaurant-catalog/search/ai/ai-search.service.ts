@@ -8,7 +8,10 @@ import { AiSearchEmbeddingService } from '../indexing/ai-search-embedding.servic
 import { normalizeSearchText } from '../indexing/ai-search-document';
 import { SearchService } from '../standard/search.service';
 import type { AiSearchRequestDto } from './ai-search.dto';
-import { AiSearchIntentService } from './ai-search-intent.service';
+import {
+  AiSearchIntentService,
+  isGenericFoodSearchQuery,
+} from './ai-search-intent.service';
 import { AiSearchRankingService } from './ai-search-ranking.service';
 import { AiSearchRepository } from './ai-search.repository';
 import {
@@ -28,6 +31,8 @@ import {
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 100;
 const MAX_BRANCH_ROWS = 150;
+const DEFAULT_BUDGET_RELAXATION_MULTIPLIER = 1.2;
+const DEFAULT_BUDGET_RELAXATION_INCREMENT_VND = 10_000;
 
 interface QueryEmbeddingState {
   embedding: number[];
@@ -60,10 +65,9 @@ export class AiSearchService {
     const radiusKm = request.radiusKm ?? AI_SEARCH_DEFAULT_RADIUS_KM;
 
     if (!query) {
-      return this.fallbackToClassic(
+      return this.emptyAiResponse(
         query,
-        request,
-        'AI_SEARCH_EMPTY_QUERY',
+        'Enter a food search to start.',
         startedAt,
       );
     }
@@ -80,11 +84,19 @@ export class AiSearchService {
       });
       const minConfidence = resolveMinConfidence();
 
-      if (intent.needsFallback || intent.confidence < minConfidence) {
+      if (this.shouldFallbackToClassicFoodName(intent, minConfidence)) {
         return this.fallbackToClassic(
           query,
           request,
-          'LOW_CONFIDENCE',
+          'EXACT_FOOD_NAME',
+          startedAt,
+        );
+      }
+
+      if (this.isBelowConfidenceThreshold(intent, minConfidence)) {
+        return this.emptyAiResponse(
+          query,
+          'No clear food matches found.',
           startedAt,
         );
       }
@@ -92,10 +104,12 @@ export class AiSearchService {
       const normalizedQuery = normalizeSearchText(
         intent.rewrittenQuery || query,
       );
-      const queryEmbedding = await this.resolveQueryEmbedding(
-        intent.rewrittenQuery || query,
-      );
+      const genericFoodBrowse = this.isGenericFoodBrowseIntent(intent, query);
+      const queryEmbedding = genericFoodBrowse
+        ? null
+        : await this.resolveQueryEmbedding(intent.rewrittenQuery || query);
       const branches = this.buildRetrievalBranches(intent, request, {
+        genericFoodBrowse,
         hasSemantic: Boolean(queryEmbedding),
         normalizedQuery,
       });
@@ -103,23 +117,18 @@ export class AiSearchService {
         MAX_BRANCH_ROWS,
         Math.max(limit * 4, DEFAULT_PAGE_SIZE),
       );
-      const branchFilters = branches.map(
-        (branch): AiSearchRepositoryFilters => ({
-          intent,
-          branch,
-          query,
-          normalizedQuery,
-          queryEmbedding: queryEmbedding?.embedding,
-          embeddingModel: queryEmbedding?.model,
-          embeddingVersion: queryEmbedding?.version,
-          lat: request.lat,
-          lon: request.lon,
-          radiusKm,
-          limit: branchLimit,
-        }),
-      );
+      const branchFilters = this.buildRepositoryFilters({
+        intent,
+        branches,
+        query,
+        normalizedQuery,
+        queryEmbedding,
+        request,
+        radiusKm,
+        branchLimit,
+      });
 
-      const [itemBranches, restaurantBranches] = await Promise.all([
+      let [itemBranches, restaurantBranches] = await Promise.all([
         Promise.all(
           branchFilters.map((filters) => this.findItemsForBranch(filters)),
         ),
@@ -129,12 +138,46 @@ export class AiSearchService {
             .map((filters) => this.findRestaurantsForBranch(filters)),
         ),
       ]);
+      let effectiveIntent = intent;
+
+      if (this.shouldRelaxDefaultBudgetForItems(intent, query, itemBranches)) {
+        const relaxedIntent = relaxDefaultBudgetIntent(intent);
+        const relaxedBranches = this.buildRetrievalBranches(
+          relaxedIntent,
+          request,
+          {
+            genericFoodBrowse: false,
+            hasSemantic: Boolean(queryEmbedding),
+            normalizedQuery,
+          },
+        );
+        const relaxedBranchFilters = this.buildRepositoryFilters({
+          intent: relaxedIntent,
+          branches: relaxedBranches,
+          query,
+          normalizedQuery,
+          queryEmbedding,
+          request,
+          radiusKm,
+          branchLimit,
+        });
+        const relaxedItemBranches = await Promise.all(
+          relaxedBranchFilters.map((filters) =>
+            this.findItemsForBranch(filters),
+          ),
+        );
+
+        if (relaxedItemBranches.some((result) => result.rows.length > 0)) {
+          effectiveIntent = relaxedIntent;
+          itemBranches = relaxedItemBranches;
+        }
+      }
 
       this.recordSemanticFallback(branches, itemBranches, restaurantBranches);
 
       const rankedItems = this.ranking.rankItems(
         this.mergeItems(itemBranches.flatMap((result) => result.rows)),
-        intent,
+        effectiveIntent,
         request,
         { radiusKm },
       );
@@ -142,7 +185,7 @@ export class AiSearchService {
         this.mergeRestaurants(
           restaurantBranches.flatMap((result) => result.rows),
         ),
-        intent,
+        effectiveIntent,
         { radiusKm },
       );
 
@@ -151,15 +194,19 @@ export class AiSearchService {
       const response: AiSearchResponse = {
         mode: 'ai',
         query,
-        interpretation: this.buildInterpretation(intent, request),
-        appliedFilters: this.buildAppliedFilters(intent, request, radiusKm),
+        interpretation: this.buildInterpretation(effectiveIntent, request),
+        appliedFilters: this.buildAppliedFilters(
+          effectiveIntent,
+          request,
+          radiusKm,
+        ),
         restaurants,
         items,
         total: {
           restaurants: rankedRestaurants.length,
           items: rankedItems.length,
         },
-        followUps: this.buildFollowUps(intent, query, request),
+        followUps: this.buildFollowUps(effectiveIntent, query, request),
         fallback: null,
       };
 
@@ -171,15 +218,54 @@ export class AiSearchService {
           error instanceof Error ? error.message : 'unknown error'
         }`,
       );
-      return this.fallbackToClassic(
+      return this.emptyAiResponse(
         query,
-        request,
-        'AI_SEARCH_UNAVAILABLE',
+        'AI search is unavailable right now.',
         startedAt,
       );
     }
   }
 
+  private shouldFallbackToClassicFoodName(
+    intent: AiSearchIntent,
+    minConfidence: number,
+  ): boolean {
+    return (
+      Boolean(intent.foodNameOnly) &&
+      !this.isBelowConfidenceThreshold(intent, minConfidence)
+    );
+  }
+
+  private isBelowConfidenceThreshold(
+    intent: AiSearchIntent,
+    minConfidence: number,
+  ): boolean {
+    return intent.needsFallback || intent.confidence < minConfidence;
+  }
+
+  private emptyAiResponse(
+    query: string,
+    interpretation: string,
+    startedAt: number,
+  ): AiSearchResponse {
+    const response: AiSearchResponse = {
+      mode: 'ai',
+      query,
+      interpretation,
+      appliedFilters: [],
+      restaurants: [],
+      items: [],
+      total: {
+        restaurants: 0,
+        items: 0,
+      },
+      followUps: [],
+      fallback: null,
+    };
+
+    this.recordSearch(response, startedAt);
+    return response;
+  }
   private async fallbackToClassic(
     query: string,
     request: AiSearchRequestDto,
@@ -221,10 +307,75 @@ export class AiSearchService {
     return response;
   }
 
+  private buildRepositoryFilters(options: {
+    intent: AiSearchIntent;
+    branches: AiSearchRetrievalBranch[];
+    query: string;
+    normalizedQuery: string;
+    queryEmbedding: QueryEmbeddingState | null;
+    request: AiSearchRequestDto;
+    radiusKm: number;
+    branchLimit: number;
+  }): AiSearchRepositoryFilters[] {
+    return options.branches.map(
+      (branch): AiSearchRepositoryFilters => ({
+        intent: options.intent,
+        branch,
+        query: options.query,
+        normalizedQuery: options.normalizedQuery,
+        queryEmbedding: options.queryEmbedding?.embedding,
+        embeddingModel: options.queryEmbedding?.model,
+        embeddingVersion: options.queryEmbedding?.version,
+        lat: options.request.lat,
+        lon: options.request.lon,
+        radiusKm: options.radiusKm,
+        limit: options.branchLimit,
+      }),
+    );
+  }
+
+  private isGenericFoodBrowseIntent(
+    intent: AiSearchIntent,
+    query: string,
+  ): boolean {
+    return (
+      isGenericFoodSearchQuery(query) &&
+      intent.foodTerms.length === 0 &&
+      intent.dietaryTags.length === 0 &&
+      intent.cuisineTerms.length === 0 &&
+      intent.nutrition.proteinMinG === undefined &&
+      intent.nutrition.caloriesMax === undefined &&
+      intent.nutrition.fatMaxG === undefined &&
+      intent.nutrition.carbsMaxG === undefined &&
+      intent.price.maxPriceVnd === undefined &&
+      intent.price.minPriceVnd === undefined &&
+      intent.rating.minAverageRating === undefined &&
+      intent.rating.minReviewCount === undefined
+    );
+  }
+
+  private shouldRelaxDefaultBudgetForItems(
+    intent: AiSearchIntent,
+    query: string,
+    itemBranches: BranchResult<AiSearchItemCandidate>[],
+  ): boolean {
+    return (
+      !itemBranches.some((result) => result.rows.length > 0) &&
+      Boolean(intent.price.budgetIntent) &&
+      intent.price.maxPriceVnd !== undefined &&
+      intent.nutrition.proteinMinG !== undefined &&
+      !hasExplicitPriceConstraint(query)
+    );
+  }
+
   private buildRetrievalBranches(
     intent: AiSearchIntent,
     request: AiSearchRequestDto,
-    options: { hasSemantic: boolean; normalizedQuery: string },
+    options: {
+      genericFoodBrowse: boolean;
+      hasSemantic: boolean;
+      normalizedQuery: string;
+    },
   ): AiSearchRetrievalBranch[] {
     const branches = new Set<AiSearchRetrievalBranch>();
     const hasTerms =
@@ -232,7 +383,9 @@ export class AiSearchService {
       intent.dietaryTags.length > 0 ||
       intent.cuisineTerms.length > 0;
 
-    if (options.normalizedQuery.length > 0) {
+    if (options.genericFoodBrowse) {
+      branches.add('lexical');
+    } else if (options.normalizedQuery.length > 0) {
       branches.add('fulltext');
       branches.add('trigram');
       if (options.hasSemantic) branches.add('semantic');
@@ -506,6 +659,39 @@ export class AiSearchService {
       recordAiSearchSemanticFallback('no_fresh_results');
     }
   }
+}
+
+function relaxDefaultBudgetIntent(intent: AiSearchIntent): AiSearchIntent {
+  const maxPriceVnd = intent.price.maxPriceVnd;
+  if (maxPriceVnd === undefined) return intent;
+
+  const relaxedMaxPriceVnd = roundUpToNearestThousand(
+    Math.max(
+      maxPriceVnd * DEFAULT_BUDGET_RELAXATION_MULTIPLIER,
+      maxPriceVnd + DEFAULT_BUDGET_RELAXATION_INCREMENT_VND,
+    ),
+  );
+
+  return {
+    ...intent,
+    price: {
+      ...intent.price,
+      maxPriceVnd: relaxedMaxPriceVnd,
+    },
+  };
+}
+
+function hasExplicitPriceConstraint(query: string): boolean {
+  const normalized = normalizeSearchText(query);
+  return (
+    /\b(?:under|below|less than|max|maximum|duoi)\s*\d[\d.,]*\s*(k|nghin|ngan|vnd)?\b/.test(
+      normalized,
+    ) || /<=?\s*\d[\d.,]*\s*(k|nghin|ngan|vnd)?\b/.test(normalized)
+  );
+}
+
+function roundUpToNearestThousand(value: number): number {
+  return Math.ceil(value / 1000) * 1000;
 }
 
 function resolveMinConfidence(): number {

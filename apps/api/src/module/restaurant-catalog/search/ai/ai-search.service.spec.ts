@@ -74,6 +74,20 @@ function makeRestaurant(
 }
 
 describe('AiSearchService', () => {
+  const originalMinConfidence = process.env.AI_SEARCH_MIN_CONFIDENCE;
+
+  beforeEach(() => {
+    delete process.env.AI_SEARCH_MIN_CONFIDENCE;
+  });
+
+  afterEach(() => {
+    if (originalMinConfidence === undefined) {
+      delete process.env.AI_SEARCH_MIN_CONFIDENCE;
+    } else {
+      process.env.AI_SEARCH_MIN_CONFIDENCE = originalMinConfidence;
+    }
+  });
+
   function buildService(
     candidates: AiSearchItemCandidate[],
     embedding: number[] | null = null,
@@ -190,15 +204,73 @@ describe('AiSearchService', () => {
     expect(response.items[0].matchReasons).toContain('Under 50000 VND');
   });
 
-  it('falls back to classic search for low-confidence intent', async () => {
+  it('browses menu items for generic food queries instead of falling back', async () => {
+    const item = makeItem({ id: 'item-food', name: 'Chicken Rice' });
+    const { service, standardSearch } = buildService([item]);
+
+    const response = await service.search({ query: 'Food' });
+
+    expect(response.mode).toBe('ai');
+    expect(response.items.map((result) => result.id)).toEqual(['item-food']);
+    expect(standardSearch.search).not.toHaveBeenCalled();
+  });
+
+  it('relaxes the default budget cap when budget high-protein results would otherwise be empty', async () => {
+    const nearBudgetHighProtein = makeItem({
+      id: 'item-near-budget-high-protein',
+      price: 54_000,
+      nutrition: {
+        calories: 460,
+        protein: 38,
+        carbs: 52,
+        fat: 9,
+        verifiedByRestaurant: true,
+      },
+    });
+    const expensiveHighProtein = makeItem({
+      id: 'item-expensive-high-protein',
+      price: 68_000,
+      nutrition: {
+        calories: 520,
+        protein: 42,
+        carbs: 60,
+        fat: 10,
+        verifiedByRestaurant: true,
+      },
+    });
+    const { service, standardSearch } = buildService([
+      expensiveHighProtein,
+      nearBudgetHighProtein,
+    ]);
+
+    const response = await service.search({
+      query: 'Budget high protein food',
+    });
+
+    expect(response.mode).toBe('ai');
+    expect(response.items.map((item) => item.id)).toEqual([
+      'item-near-budget-high-protein',
+    ]);
+    expect(response.appliedFilters).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: 'maxPriceVnd',
+          label: 'Price <= 60000 VND',
+        }),
+      ]),
+    );
+    expect(standardSearch.search).not.toHaveBeenCalled();
+  });
+
+  it('falls back to classic search for a confident bare food name', async () => {
     const { service, standardSearch } = buildService([]);
 
-    const response = await service.search({ query: '???' });
+    const response = await service.search({ query: 'pho' });
 
     expect(response.mode).toBe('classic_fallback');
-    expect(response.fallback?.reason).toBe('LOW_CONFIDENCE');
+    expect(response.fallback?.reason).toBe('EXACT_FOOD_NAME');
     expect(standardSearch.search).toHaveBeenCalledWith(
-      '???',
+      'pho',
       undefined,
       undefined,
       undefined,
@@ -208,6 +280,41 @@ describe('AiSearchService', () => {
       undefined,
       undefined,
     );
+  });
+
+  it('keeps AI mode for food names with additional query intent', async () => {
+    const item = makeItem({ id: 'item-pho', name: 'Pho Ga' });
+    const { service, standardSearch } = buildService([item]);
+
+    const response = await service.search({ query: 'high protein pho' });
+
+    expect(response.mode).toBe('ai');
+    expect(response.items.map((result) => result.id)).toEqual(['item-pho']);
+    expect(standardSearch.search).not.toHaveBeenCalled();
+  });
+
+  it('keeps low-confidence non-food-name queries in AI mode without broad retrieval', async () => {
+    const item = makeItem({ id: 'item-food', name: 'Chicken Rice' });
+    const { service, repo, standardSearch } = buildService([item]);
+
+    const response = await service.search({ query: '???' });
+
+    expect(response.mode).toBe('ai');
+    expect(response.total).toEqual({ restaurants: 0, items: 0 });
+    expect(response.fallback).toBeNull();
+    expect(repo.findItems).not.toHaveBeenCalled();
+    expect(standardSearch.search).not.toHaveBeenCalled();
+  });
+
+  it('uses the confidence threshold before falling back for a bare food name', async () => {
+    process.env.AI_SEARCH_MIN_CONFIDENCE = '0.95';
+    const { service, standardSearch } = buildService([]);
+
+    const response = await service.search({ query: 'bun bo' });
+
+    expect(response.mode).toBe('ai');
+    expect(response.fallback).toBeNull();
+    expect(standardSearch.search).not.toHaveBeenCalled();
   });
 
   it('delegates merged candidate ordering to the ranking service', async () => {
@@ -220,7 +327,7 @@ describe('AiSearchService', () => {
       ranking,
     );
 
-    await service.search({ query: 'chicken rice' });
+    await service.search({ query: 'high protein chicken rice' });
 
     expect(rankItemsSpy).toHaveBeenCalled();
     expect(rankRestaurantsSpy).toHaveBeenCalled();
@@ -233,7 +340,7 @@ describe('AiSearchService', () => {
     );
     const { service, repo } = buildService([item], queryEmbedding);
 
-    await service.search({ query: 'chicken rice' });
+    await service.search({ query: 'best chicken rice' });
 
     expect(repo.findItems).toHaveBeenCalledWith(
       expect.objectContaining({

@@ -19,6 +19,7 @@ describe('AiSearchIntentService', () => {
     expect(intent.nutrition.highProtein).toBe(true);
     expect(intent.nutrition.proteinMinG).toBe(25);
     expect(intent.sort).toBe('protein_desc');
+    expect(intent.foodNameOnly).toBe(false);
     expect(intent.needsFallback).toBe(false);
   });
 
@@ -53,6 +54,27 @@ describe('AiSearchIntentService', () => {
     );
   });
 
+  it('treats generic food queries as valid browse intent', () => {
+    const intent = service.parseIntent('Food');
+
+    expect(intent.needsFallback).toBe(false);
+    expect(intent.confidence).toBeGreaterThanOrEqual(0.65);
+    expect(intent.foodTerms).toEqual([]);
+    expect(intent.foodNameOnly).toBe(false);
+  });
+
+  it('marks bare food names for standard search fallback', () => {
+    expect(service.parseIntent('pho').foodNameOnly).toBe(true);
+    expect(service.parseIntent('bun bo').foodNameOnly).toBe(true);
+    expect(service.parseIntent('com tam').foodNameOnly).toBe(true);
+  });
+
+  it('keeps AI intent for food names with additional query terms', () => {
+    expect(service.parseIntent('best pho nearby').foodNameOnly).toBe(false);
+    expect(service.parseIntent('cheap bun bo').foodNameOnly).toBe(false);
+    expect(service.parseIntent('high protein com').foodNameOnly).toBe(false);
+  });
+
   it('marks low-signal queries for fallback', () => {
     const intent = service.parseIntent('???');
 
@@ -79,6 +101,7 @@ describe('AiSearchIntentService', () => {
           sort: 'protein_desc',
           confidence: 0.92,
           needsFallback: false,
+          foodNameOnly: false,
         }),
       })),
     } as unknown as OllamaAiProvider;
@@ -104,8 +127,42 @@ describe('AiSearchIntentService', () => {
     expect(intent.nutrition.proteinMinG).toBe(35);
     expect(intent.geo.radiusKm).toBe(4);
     expect(intent.sort).toBe('protein_desc');
+    expect(intent.foodNameOnly).toBe(false);
   });
 
+  it('uses the provider food-name-only classification', async () => {
+    const provider = {
+      isConfigured: jest.fn(() => true),
+      chat: jest.fn(async () => ({
+        model: 'gpt-oss:120b',
+        content: JSON.stringify({
+          rewrittenQuery: 'pho',
+          language: 'vi',
+          foodTerms: ['pho'],
+          cuisineTerms: [],
+          dietaryTags: [],
+          excludedTerms: [],
+          nutrition: {},
+          price: {},
+          rating: {},
+          geo: {},
+          sort: 'relevance',
+          confidence: 0.91,
+          needsFallback: false,
+          foodNameOnly: true,
+        }),
+      })),
+    } as unknown as OllamaAiProvider;
+    const providerService = new AiSearchIntentService(
+      provider,
+      buildConfig({ AI_SEARCH_ENABLED: true }),
+    );
+
+    const intent = await providerService.parseIntentWithProvider('pho');
+
+    expect(intent.foodNameOnly).toBe(true);
+    expect(intent.confidence).toBe(0.91);
+  });
   it('falls back to deterministic parsing when the provider fails', async () => {
     const provider = {
       isConfigured: jest.fn(() => true),

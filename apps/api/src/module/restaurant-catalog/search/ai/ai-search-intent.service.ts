@@ -55,7 +55,8 @@ const AI_SEARCH_RESPONSE_SCHEMA_PROMPT = [
   '  },',
   '  "sort": "relevance|distance|rating|price_asc|protein_desc",',
   '  "confidence": "number from 0 to 1",',
-  '  "needsFallback": "boolean"',
+  '  "needsFallback": "boolean",',
+  '  "foodNameOnly": "boolean; true only when the full query is just a dish or food name"',
   '}',
 ].join('\n');
 
@@ -135,6 +136,80 @@ const STOP_WORDS = new Set([
   'within',
 ]);
 
+const GENERIC_FOOD_TERMS = new Set(['dish', 'food', 'meal', 'option']);
+
+const FOOD_NAME_ONLY_TERMS = new Set([
+  'banh',
+  'beef',
+  'bo',
+  'boba',
+  'bread',
+  'bun',
+  'burger',
+  'ca',
+  'cake',
+  'cao',
+  'cha',
+  'chao',
+  'chicken',
+  'coffee',
+  'com',
+  'cuon',
+  'curry',
+  'dessert',
+  'dumpling',
+  'egg',
+  'fish',
+  'fried',
+  'fry',
+  'ga',
+  'gio',
+  'goi',
+  'grilled',
+  'heo',
+  'hotpot',
+  'hu',
+  'hue',
+  'kebab',
+  'lau',
+  'mi',
+  'mien',
+  'milk',
+  'muc',
+  'nem',
+  'noodle',
+  'oc',
+  'pasta',
+  'pho',
+  'pizza',
+  'pork',
+  'ramen',
+  'rice',
+  'roast',
+  'roasted',
+  'roll',
+  'salad',
+  'sandwich',
+  'seafood',
+  'shrimp',
+  'soup',
+  'steak',
+  'stir',
+  'sushi',
+  'taco',
+  'tam',
+  'tea',
+  'thit',
+  'tieu',
+  'tofu',
+  'tom',
+  'vegetable',
+  'vit',
+  'xao',
+  'xeo',
+  'xoi',
+]);
+
 @Injectable()
 export class AiSearchIntentService {
   private readonly logger = new Logger(AiSearchIntentService.name);
@@ -169,6 +244,8 @@ export class AiSearchIntentService {
       foodTerms.filter((term) => CUISINE_TERMS.has(term)),
     );
     const dietaryTags = unique(foodTerms.filter((term) => TAG_TERMS.has(term)));
+    const genericFoodIntent = isGenericFoodSearchQuery(normalized);
+    const foodNameOnly = isFoodNameOnlySearchQuery(normalized);
 
     const hasPriceIntent = budgetIntent || explicitPriceMax !== undefined;
     const hasAnySignal =
@@ -176,7 +253,8 @@ export class AiSearchIntentService {
       hasPriceIntent ||
       highlyRated ||
       nearbyIntent ||
-      foodTerms.length > 0;
+      foodTerms.length > 0 ||
+      genericFoodIntent;
     const sort = pickSort({
       highProtein,
       hasPriceIntent,
@@ -232,6 +310,7 @@ export class AiSearchIntentService {
       sort,
       confidence,
       needsFallback: !hasAnySignal,
+      foodNameOnly,
     };
 
     return aiSearchIntentSchema.parse(rawIntent);
@@ -330,6 +409,9 @@ export class AiSearchIntentService {
     const budgetIntent = readOptionalBoolean(price.budgetIntent);
     const nearbyIntent = readOptionalBoolean(geo.nearbyIntent);
     const explicitSort = readSort(source.sort);
+    const foodNameOnly =
+      readOptionalBoolean(source.foodNameOnly) ??
+      isFoodNameOnlySearchQuery(trimmed);
 
     const rawIntent: AiSearchIntent = {
       rewrittenQuery: readBoundedString(source.rewrittenQuery, trimmed, 300),
@@ -401,6 +483,7 @@ export class AiSearchIntentService {
         readOptionalNumber(source.confidence, { min: 0, max: 1 }) ??
         AI_SEARCH_MIN_CONFIDENCE,
       needsFallback: readOptionalBoolean(source.needsFallback) ?? false,
+      foodNameOnly,
     };
 
     if (
@@ -432,9 +515,22 @@ export class AiSearchIntentService {
       });
     }
 
-    if (!hasIntentSignal(rawIntent)) {
+    const genericFoodIntent = isGenericFoodSearchQuery(trimmed);
+    if (
+      !hasIntentSignal(rawIntent) &&
+      !genericFoodIntent &&
+      !rawIntent.foodNameOnly
+    ) {
       rawIntent.needsFallback = true;
       rawIntent.confidence = Math.min(rawIntent.confidence, 0.2);
+    }
+    if (genericFoodIntent) {
+      rawIntent.foodNameOnly = false;
+      rawIntent.needsFallback = false;
+      rawIntent.confidence = Math.max(rawIntent.confidence, 0.72);
+    }
+    if (rawIntent.foodNameOnly) {
+      rawIntent.needsFallback = false;
     }
 
     return aiSearchIntentSchema.parse(rawIntent);
@@ -678,6 +774,43 @@ function extractFoodTerms(normalized: string): string[] {
     .filter((term) => term.length > 1 && !STOP_WORDS.has(term));
 
   return unique(terms).slice(0, 20);
+}
+
+export function isGenericFoodSearchQuery(query: string): boolean {
+  const normalized = normalizeText(query)
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!normalized) return false;
+
+  const terms = normalized
+    .split(/\s+/)
+    .map((term) => singularize(term.trim()))
+    .filter(Boolean);
+  if (terms.length === 0) return false;
+
+  return (
+    terms.some((term) => GENERIC_FOOD_TERMS.has(term)) &&
+    terms.every((term) => STOP_WORDS.has(term) || GENERIC_FOOD_TERMS.has(term))
+  );
+}
+
+export function isFoodNameOnlySearchQuery(query: string): boolean {
+  const normalized = normalizeText(query)
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!normalized || isGenericFoodSearchQuery(normalized)) return false;
+
+  const terms = normalized
+    .split(/\s+/)
+    .map((term) => singularize(term.trim()))
+    .filter(Boolean);
+  if (terms.length === 0 || terms.length > 6) return false;
+
+  return terms.every(
+    (term) => !STOP_WORDS.has(term) && FOOD_NAME_ONLY_TERMS.has(term),
+  );
 }
 
 function singularize(term: string): string {
