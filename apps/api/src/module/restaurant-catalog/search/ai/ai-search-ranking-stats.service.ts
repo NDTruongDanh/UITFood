@@ -2,7 +2,6 @@ import { Inject, Injectable } from '@nestjs/common';
 import { sql } from 'drizzle-orm';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { DB_CONNECTION } from '@/drizzle/drizzle.constants';
-import * as schema from '@/drizzle/schema';
 
 export interface AiSearchRankingStatsRefreshResult {
   refreshedAt: Date;
@@ -12,9 +11,7 @@ export interface AiSearchRankingStatsRefreshResult {
 
 @Injectable()
 export class AiSearchRankingStatsService {
-  constructor(
-    @Inject(DB_CONNECTION) private readonly db: NodePgDatabase<typeof schema>,
-  ) {}
+  constructor(@Inject(DB_CONNECTION) private readonly db: NodePgDatabase) {}
 
   async refresh(now = new Date()): Promise<AiSearchRankingStatsRefreshResult> {
     const window30dStart = daysBefore(now, 30);

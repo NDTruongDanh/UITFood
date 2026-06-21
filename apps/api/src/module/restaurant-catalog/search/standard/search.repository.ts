@@ -8,7 +8,6 @@ import {
   menuItemStatusEnum,
 } from '@/module/restaurant-catalog/menu/menu.schema';
 import { DB_CONNECTION } from '@/drizzle/drizzle.constants';
-import * as schema from '@/drizzle/schema';
 import type { RestaurantSearchResultDto } from '../../restaurant/dto/restaurant.dto';
 import type { ItemSearchRowDto, RestaurantSummaryDto } from './search.dto';
 
@@ -81,9 +80,7 @@ export interface UnifiedSearchResult {
 
 @Injectable()
 export class SearchRepository {
-  constructor(
-    @Inject(DB_CONNECTION) private readonly db: NodePgDatabase<typeof schema>,
-  ) {}
+  constructor(@Inject(DB_CONNECTION) private readonly db: NodePgDatabase) {}
 
   // -------------------------------------------------------------------------
   // Public entry point

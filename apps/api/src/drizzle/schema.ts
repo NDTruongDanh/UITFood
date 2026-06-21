@@ -27,5 +27,5 @@ export * from '../module/promotion/domain/promotion.schema';
 
 // Review bounded context — Phase RV-2 schemas
 export * from '../module/review/domain/review.schema';
-export * from '../module/nutrition/domain/nutrition.schema';
-export * from '../module/dietary-tags/domain/dietary-tag.schema';
+export * from '../module/restaurant-catalog/nutrition/domain/nutrition.schema';
+export * from '../module/restaurant-catalog/dietary-tags/domain/dietary-tag.schema';

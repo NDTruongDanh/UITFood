@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, count, eq } from 'drizzle-orm';
+import { and, asc, count, eq, sql } from 'drizzle-orm';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import {
   restaurants,
@@ -7,8 +7,8 @@ import {
 } from '@/module/restaurant-catalog/restaurant/restaurant.schema';
 import { CreateRestaurantDto, UpdateRestaurantDto } from './dto/restaurant.dto';
 import { DB_CONNECTION } from '@/drizzle/drizzle.constants';
-import * as schema from '@/drizzle/schema';
 import { AiSearchIndexRepository } from '@/module/restaurant-catalog/search/indexing/ai-search-index.repository';
+import type { UnitOfWorkContext } from '@/shared/ports/unit-of-work-context';
 
 export interface FindAllOptions {
   offset?: number;
@@ -25,7 +25,7 @@ export interface PaginatedResult<T> {
 @Injectable()
 export class RestaurantRepository {
   constructor(
-    @Inject(DB_CONNECTION) readonly db: NodePgDatabase<typeof schema>,
+    @Inject(DB_CONNECTION) readonly db: NodePgDatabase,
     private readonly searchIndex: AiSearchIndexRepository,
   ) {}
 
@@ -115,6 +115,23 @@ export class RestaurantRepository {
     });
   }
 
+  async incrementRating(
+    restaurantId: string,
+    stars: number,
+    context?: UnitOfWorkContext,
+  ): Promise<void> {
+    const database =
+      (context?.transaction as NodePgDatabase | undefined) ?? this.db;
+    await database
+      .update(restaurants)
+      .set({
+        ratingSum: sql`${restaurants.ratingSum} + ${stars}`,
+        reviewCount: sql`${restaurants.reviewCount} + 1`,
+        averageRating: sql`(${restaurants.ratingSum} + ${stars})::real / (${restaurants.reviewCount} + 1)`,
+        updatedAt: new Date(),
+      })
+      .where(eq(restaurants.id, restaurantId));
+  }
   async remove(id: string): Promise<void> {
     await this.db.delete(restaurants).where(eq(restaurants.id, id));
   }

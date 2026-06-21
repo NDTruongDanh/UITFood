@@ -16,9 +16,8 @@ import type {
 } from './dto/menu.dto';
 import { DB_CONNECTION } from '@/drizzle/drizzle.constants';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import * as schema from '@/drizzle/schema';
-import { menuItemNutrition } from '@/module/nutrition/domain/nutrition.schema';
-import { NUTRITION_DISCLAIMER } from '@/module/nutrition/types/nutrition.types';
+import { menuItemNutrition } from '@/module/restaurant-catalog/nutrition/domain/nutrition.schema';
+import { NUTRITION_DISCLAIMER } from '@/module/restaurant-catalog/nutrition/types/nutrition.types';
 import { AiSearchIndexRepository } from '@/module/restaurant-catalog/search/indexing/ai-search-index.repository';
 
 // PostgreSQL unique-constraint violation error code.
@@ -60,7 +59,7 @@ export type MenuItemDetail = MenuItem & {
 @Injectable()
 export class MenuRepository {
   constructor(
-    @Inject(DB_CONNECTION) readonly db: NodePgDatabase<typeof schema>,
+    @Inject(DB_CONNECTION) readonly db: NodePgDatabase,
     private readonly searchIndex: AiSearchIndexRepository,
   ) {}
 

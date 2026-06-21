@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { AiModule } from '@/module/ai/ai.module';
+import { AiModule } from '@/lib/ai/ai.module';
 import { DatabaseModule } from '@/drizzle/drizzle.module';
 import { MenuModule } from '@/module/restaurant-catalog/menu/menu.module';
 import { RestaurantModule } from '@/module/restaurant-catalog/restaurant/restaurant.module';

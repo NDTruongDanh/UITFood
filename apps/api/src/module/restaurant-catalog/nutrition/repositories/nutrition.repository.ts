@@ -3,7 +3,6 @@ import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { alias } from 'drizzle-orm/pg-core';
 import { DB_CONNECTION } from '@/drizzle/drizzle.constants';
-import * as schema from '@/drizzle/schema';
 import {
   menuItemNutrition,
   nutritionAnalysisIngredients,
@@ -61,7 +60,7 @@ export interface SaveMenuItemNutritionOptions {
 export class NutritionRepository {
   constructor(
     @Inject(DB_CONNECTION)
-    private readonly db: NodePgDatabase<typeof schema>,
+    private readonly db: NodePgDatabase,
     private readonly searchIndex: AiSearchIndexRepository,
   ) {}
 

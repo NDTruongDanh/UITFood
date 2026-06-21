@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import {
   OllamaAiProvider,
   type AiChatMessage,
-} from '@/module/ai/ollama-ai.provider';
+} from '@/lib/ai/ollama-ai.provider';
 import {
   AI_SEARCH_DEFAULT_BUDGET_MAX_VND,
   AI_SEARCH_DEFAULT_HIGH_PROTEIN_MIN_G,

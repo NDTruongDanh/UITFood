@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import {
   LOCAL_OLLAMA_BASE_URL,
   OllamaAiProvider,
-} from '@/module/ai/ollama-ai.provider';
+} from '@/lib/ai/ollama-ai.provider';
 
 export interface AiSearchEmbeddingConfig {
   baseURL: string;

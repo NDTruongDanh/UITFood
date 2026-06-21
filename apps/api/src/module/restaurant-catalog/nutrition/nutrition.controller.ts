@@ -16,7 +16,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { Roles, Session, type UserSession } from '@thallesp/nestjs-better-auth';
-import { hasRole } from '@/module/auth/role.util';
+import { hasRole } from '@/shared/security/role.util';
 import { NutritionService } from './nutrition.service';
 import { AnalyzeRecipeDto } from './dto/analyze-recipe.dto';
 import { CalculateNutritionDto } from './dto/calculate-nutrition.dto';

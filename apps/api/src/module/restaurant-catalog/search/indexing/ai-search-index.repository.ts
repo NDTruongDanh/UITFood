@@ -2,8 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { and, count, eq, sql, type SQL } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { DB_CONNECTION } from '@/drizzle/drizzle.constants';
-import * as schema from '@/drizzle/schema';
-import { menuItemNutrition } from '@/module/nutrition/domain/nutrition.schema';
+import { menuItemNutrition } from '@/module/restaurant-catalog/nutrition/domain/nutrition.schema';
 import { menuCategories, menuItems } from '../../menu/menu.schema';
 import { restaurants } from '../../restaurant/restaurant.schema';
 import {
@@ -21,7 +20,7 @@ import {
 } from './ai-search-embedding.service';
 
 type SearchIndexDb = Pick<
-  NodePgDatabase<typeof schema>,
+  NodePgDatabase,
   'select' | 'insert' | 'update' | 'delete' | 'execute'
 >;
 
@@ -77,7 +76,7 @@ interface EmbeddingJobInput {
 export class AiSearchIndexRepository {
   constructor(
     @Inject(DB_CONNECTION)
-    private readonly db: NodePgDatabase<typeof schema>,
+    private readonly db: NodePgDatabase,
     @Inject(AiSearchEmbeddingService)
     private readonly embeddings: AiSearchEmbeddingService,
   ) {}

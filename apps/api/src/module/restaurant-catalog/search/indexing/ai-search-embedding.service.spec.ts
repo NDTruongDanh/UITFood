@@ -1,5 +1,5 @@
 import type { ConfigService } from '@nestjs/config';
-import type { OllamaAiProvider } from '@/module/ai/ollama-ai.provider';
+import type { OllamaAiProvider } from '@/lib/ai/ollama-ai.provider';
 import { AiSearchEmbeddingService } from './ai-search-embedding.service';
 
 describe('AiSearchEmbeddingService', () => {

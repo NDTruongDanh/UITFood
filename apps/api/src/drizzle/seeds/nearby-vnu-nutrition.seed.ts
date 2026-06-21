@@ -9,7 +9,7 @@ import type {
   NutritionAmount,
   NutritionUnit,
   PreparationState,
-} from '../../module/nutrition/types/nutrition.types';
+} from '../../module/restaurant-catalog/nutrition/types/nutrition.types';
 
 /**
  * Nearby VNU nutrition seed.

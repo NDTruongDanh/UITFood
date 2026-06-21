@@ -1,6 +1,6 @@
 import { ServiceUnavailableException } from '@nestjs/common';
 import type { ConfigService } from '@nestjs/config';
-import { OllamaAiProvider } from '@/module/ai/ollama-ai.provider';
+import { OllamaAiProvider } from '@/lib/ai/ollama-ai.provider';
 import { AiRecipeExtractionService } from './ai-recipe-extraction.service';
 
 type OllamaConfigKey = 'OLLAMA_BASE_URL' | 'OLLAMA_MODEL' | 'OLLAMA_API_KEY';

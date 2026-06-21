@@ -2,7 +2,6 @@ import { Inject, Injectable } from '@nestjs/common';
 import { and, asc, eq, ne, or, sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { DB_CONNECTION } from '@/drizzle/drizzle.constants';
-import * as schema from '@/drizzle/schema';
 import {
   dietaryTags,
   type DietaryTag,
@@ -14,7 +13,7 @@ import {
 export class DietaryTagsRepository {
   constructor(
     @Inject(DB_CONNECTION)
-    private readonly db: NodePgDatabase<typeof schema>,
+    private readonly db: NodePgDatabase,
   ) {}
 
   async findAll(): Promise<DietaryTag[]> {

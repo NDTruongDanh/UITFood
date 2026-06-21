@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { AiModule } from '@/module/ai/ai.module';
+import { AiModule } from '@/lib/ai/ai.module';
 import { AiSearchController } from './ai/ai-search.controller';
 import { AiSearchIntentService } from './ai/ai-search-intent.service';
 import { AiSearchRankingService } from './ai/ai-search-ranking.service';

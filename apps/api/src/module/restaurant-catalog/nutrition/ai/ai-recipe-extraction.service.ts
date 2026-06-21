@@ -3,7 +3,7 @@ import {
   Logger,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import { OllamaAiProvider } from '@/module/ai/ollama-ai.provider';
+import { OllamaAiProvider } from '@/lib/ai/ollama-ai.provider';
 import {
   extractedRecipeSchema,
   type AiExtractedRecipe,

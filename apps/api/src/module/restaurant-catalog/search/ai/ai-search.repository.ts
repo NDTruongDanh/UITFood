@@ -2,8 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { and, eq, or, SQL, sql } from 'drizzle-orm';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { DB_CONNECTION } from '@/drizzle/drizzle.constants';
-import * as schema from '@/drizzle/schema';
-import { menuItemNutrition } from '@/module/nutrition/domain/nutrition.schema';
+import { menuItemNutrition } from '@/module/restaurant-catalog/nutrition/domain/nutrition.schema';
 import {
   menuCategories,
   menuItems,
@@ -26,9 +25,7 @@ const TRIGRAM_MIN_SIMILARITY = 0.08;
 
 @Injectable()
 export class AiSearchRepository {
-  constructor(
-    @Inject(DB_CONNECTION) private readonly db: NodePgDatabase<typeof schema>,
-  ) {}
+  constructor(@Inject(DB_CONNECTION) private readonly db: NodePgDatabase) {}
 
   async findItems(
     filters: AiSearchRepositoryFilters,

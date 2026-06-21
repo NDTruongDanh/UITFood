@@ -6,4 +6,4 @@ export {
   resolveOllamaRuntimeConfig,
   type OllamaEndpoint,
   type OllamaRuntimeConfig,
-} from '@/module/ai/ollama-ai.provider';
+} from '@/lib/ai/ollama-ai.provider';
