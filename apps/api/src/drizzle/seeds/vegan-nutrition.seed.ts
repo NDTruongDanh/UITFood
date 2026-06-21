@@ -349,7 +349,7 @@ const restaurantsData: RestaurantSeed[] = [
         description:
           'Tofu, cooked mushrooms, lettuce, cucumber, carrots, and soy sauce over white rice.',
         price: 65000,
-        tags: ['vegan', 'healthy', 'rice-bowl'],
+        tags: ['vegan', 'vegetarian'],
         imageUrl: seedImages.veganBuddhaBowl.secureUrl,
         servings: 1,
         ingredients: [
@@ -386,7 +386,7 @@ const restaurantsData: RestaurantSeed[] = [
         description:
           'Crispy baguette with marinated firm tofu, cucumber, carrots, and soy sauce.',
         price: 45000,
-        tags: ['vegan', 'banh-mi', 'sandwich'],
+        tags: ['vegan', 'vegetarian'],
         imageUrl: seedImages.veganBanhMi.secureUrl,
         servings: 1,
         ingredients: [
@@ -408,7 +408,7 @@ const restaurantsData: RestaurantSeed[] = [
         description:
           'Fresh rolls with tofu, lettuce, and cucumber over rice vermicelli.',
         price: 55000,
-        tags: ['vegan', 'vermicelli', 'fresh'],
+        tags: ['vegan', 'vegetarian'],
         imageUrl: seedImages.veganSpringRolls.secureUrl,
         servings: 1,
         ingredients: [
@@ -448,7 +448,7 @@ const restaurantsData: RestaurantSeed[] = [
         description:
           'Grilled chicken breast with steamed white rice, cucumber, and carrots.',
         price: 60000,
-        tags: ['chicken', 'rice', 'protein'],
+        tags: [],
         imageUrl: seedImages.chickenRice.secureUrl,
         servings: 1,
         ingredients: [
@@ -477,7 +477,7 @@ const restaurantsData: RestaurantSeed[] = [
         description:
           'Grilled pork chop over vermicelli with lettuce and cucumber.',
         price: 65000,
-        tags: ['pork', 'vermicelli', 'meat'],
+        tags: [],
         imageUrl: seedImages.grilledPorkVermicelli.secureUrl,
         servings: 1,
         ingredients: [
@@ -506,7 +506,7 @@ const restaurantsData: RestaurantSeed[] = [
         description:
           'Vegan pho with rich mushroom broth, cooked mushrooms, and tofu.',
         price: 55000,
-        tags: ['vegan', 'pho', 'soup'],
+        tags: ['vegan', 'vegetarian'],
         imageUrl: seedImages.veganMushroomPho.secureUrl,
         servings: 1,
         ingredients: [

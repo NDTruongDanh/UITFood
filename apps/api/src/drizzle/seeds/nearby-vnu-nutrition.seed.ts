@@ -621,7 +621,7 @@ const restaurantsData: RestaurantSeed[] = [
         description:
           'Grilled chicken breast, steamed rice, greens, herbs, and light fish sauce.',
         price: 68000,
-        tags: ['high-protein', 'rice-bowl', 'chicken'],
+        tags: [],
         imageUrl: seedImages.chickenRiceBowl.secureUrl,
         servings: 1,
         ingredients: [
@@ -666,7 +666,7 @@ const restaurantsData: RestaurantSeed[] = [
         description:
           'Firm tofu, brown rice, lettuce, tomato, cucumber, sesame oil, and soy dressing.',
         price: 62000,
-        tags: ['vegetarian', 'fiber', 'tofu'],
+        tags: ['vegetarian', 'vegan'],
         imageUrl: seedImages.tofuBrownRiceBowl.secureUrl,
         servings: 1,
         ingredients: [
@@ -690,7 +690,7 @@ const restaurantsData: RestaurantSeed[] = [
         description:
           'Rice vermicelli with shrimp, lettuce, cucumber, carrot, herbs, peanuts, and fish sauce.',
         price: 72000,
-        tags: ['seafood', 'noodle-salad', 'fresh'],
+        tags: ['pescatarian'],
         imageUrl: seedImages.shrimpVermicelliSalad.secureUrl,
         servings: 1,
         ingredients: [
@@ -743,7 +743,7 @@ const restaurantsData: RestaurantSeed[] = [
         description:
           'Lean grilled beef with rice noodles, herbs, lettuce, and cucumber.',
         price: 79000,
-        tags: ['high-protein', 'beef', 'noodle-bowl'],
+        tags: [],
         imageUrl: seedImages.beefPhoProteinBowl.secureUrl,
         servings: 1,
         ingredients: [
@@ -805,7 +805,7 @@ const restaurantsData: RestaurantSeed[] = [
         description:
           'Grilled pork chop over white rice with cucumber, tomato, and honey fish sauce glaze.',
         price: 76000,
-        tags: ['pork', 'rice-plate', 'grill'],
+        tags: [],
         imageUrl: seedImages.honeyPorkChopRice.secureUrl,
         servings: 1,
         ingredients: [
@@ -835,7 +835,7 @@ const restaurantsData: RestaurantSeed[] = [
         description:
           'Vietnamese baguette filled with grilled chicken, carrot, cucumber, herbs, and sauce.',
         price: 54000,
-        tags: ['banh-mi', 'chicken', 'sandwich'],
+        tags: [],
         imageUrl: seedImages.grilledChickenBanhMi.secureUrl,
         servings: 1,
         ingredients: [
@@ -872,7 +872,7 @@ const restaurantsData: RestaurantSeed[] = [
         description:
           'Grilled lean beef skewers with vermicelli, greens, peanuts, and fish sauce.',
         price: 82000,
-        tags: ['beef', 'vermicelli', 'high-protein'],
+        tags: [],
         imageUrl: seedImages.beefSkewerVermicelli.secureUrl,
         servings: 1,
         ingredients: [
@@ -916,7 +916,7 @@ const restaurantsData: RestaurantSeed[] = [
         description:
           'Grilled salmon served with brown rice, lettuce, cucumber, tomato, and sesame soy sauce.',
         price: 98000,
-        tags: ['salmon', 'omega-3', 'rice-plate'],
+        tags: ['pescatarian'],
         imageUrl: seedImages.salmonRicePlate.secureUrl,
         servings: 1,
         ingredients: [
@@ -967,7 +967,7 @@ const restaurantsData: RestaurantSeed[] = [
         description:
           'Whole wheat toast with boiled egg, avocado, tomato, and olive oil.',
         price: 59000,
-        tags: ['breakfast', 'toast', 'healthy-fat'],
+        tags: ['vegetarian'],
         imageUrl: seedImages.eggAvocadoToast.secureUrl,
         servings: 1,
         ingredients: [
@@ -996,7 +996,7 @@ const restaurantsData: RestaurantSeed[] = [
         description:
           'Brown rice salad with tuna, lettuce, cucumber, tomato, carrot, and light soy dressing.',
         price: 69000,
-        tags: ['tuna', 'salad', 'protein'],
+        tags: ['pescatarian'],
         imageUrl: seedImages.tunaBrownRiceSalad.secureUrl,
         servings: 1,
         ingredients: [
@@ -1027,7 +1027,7 @@ const restaurantsData: RestaurantSeed[] = [
         description:
           'Plain Greek yogurt with banana, mango, granola, and honey.',
         price: 56000,
-        tags: ['breakfast', 'yogurt', 'fruit'],
+        tags: ['vegetarian'],
         imageUrl: seedImages.yogurtFruitGranola.secureUrl,
         servings: 1,
         ingredients: [
@@ -1049,7 +1049,7 @@ const restaurantsData: RestaurantSeed[] = [
         description:
           'Rice porridge with grilled chicken breast, egg, herbs, and fish sauce.',
         price: 52000,
-        tags: ['porridge', 'chicken', 'comfort-food'],
+        tags: [],
         imageUrl: seedImages.chickenPorridgeBowl.secureUrl,
         servings: 1,
         ingredients: [
