@@ -128,7 +128,7 @@ export class AiSearchService {
         branchLimit,
       });
 
-      let [itemBranches, restaurantBranches] = await Promise.all([
+      const [initialItemBranches, restaurantBranches] = await Promise.all([
         Promise.all(
           branchFilters.map((filters) => this.findItemsForBranch(filters)),
         ),
@@ -138,6 +138,7 @@ export class AiSearchService {
             .map((filters) => this.findRestaurantsForBranch(filters)),
         ),
       ]);
+      let itemBranches = initialItemBranches;
       let effectiveIntent = intent;
 
       if (this.shouldRelaxDefaultBudgetForItems(intent, query, itemBranches)) {

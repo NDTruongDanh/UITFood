@@ -17,9 +17,7 @@ export const aiSearchItemRankingStats = pgTable(
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
   (table) => [
-    index('ai_search_item_ranking_stats_restaurant_idx').on(
-      table.restaurantId,
-    ),
+    index('ai_search_item_ranking_stats_restaurant_idx').on(table.restaurantId),
     index('ai_search_item_ranking_stats_updated_idx').on(table.updatedAt),
   ],
 );
@@ -40,9 +38,7 @@ export const aiSearchRestaurantRankingStats = pgTable(
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
   (table) => [
-    index('ai_search_restaurant_ranking_stats_updated_idx').on(
-      table.updatedAt,
-    ),
+    index('ai_search_restaurant_ranking_stats_updated_idx').on(table.updatedAt),
   ],
 );
 

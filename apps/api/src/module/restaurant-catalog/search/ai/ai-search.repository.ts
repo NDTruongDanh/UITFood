@@ -88,8 +88,10 @@ export class AiSearchRepository {
           aiSearchItemRankingStats.deliveredOrderCount30d,
         popularityDeliveredOrderCount90d:
           aiSearchItemRankingStats.deliveredOrderCount90d,
-        popularityOrderedQuantity30d: aiSearchItemRankingStats.orderedQuantity30d,
-        popularityOrderedQuantity90d: aiSearchItemRankingStats.orderedQuantity90d,
+        popularityOrderedQuantity30d:
+          aiSearchItemRankingStats.orderedQuantity30d,
+        popularityOrderedQuantity90d:
+          aiSearchItemRankingStats.orderedQuantity90d,
         popularityLastOrderedAt: aiSearchItemRankingStats.lastOrderedAt,
         popularityUpdatedAt: aiSearchItemRankingStats.updatedAt,
       })

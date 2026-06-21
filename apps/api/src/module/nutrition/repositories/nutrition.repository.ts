@@ -456,7 +456,7 @@ export class NutritionRepository {
                 options.analysisSessionId,
               ),
             );
-          
+
           if (options.ingredients.length > 0) {
             await tx
               .insert(nutritionAnalysisIngredients)

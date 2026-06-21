@@ -16,9 +16,7 @@ export class AiSearchRankingStatsService {
     @Inject(DB_CONNECTION) private readonly db: NodePgDatabase<typeof schema>,
   ) {}
 
-  async refresh(
-    now = new Date(),
-  ): Promise<AiSearchRankingStatsRefreshResult> {
+  async refresh(now = new Date()): Promise<AiSearchRankingStatsRefreshResult> {
     const window30dStart = daysBefore(now, 30);
     const window90dStart = daysBefore(now, 90);
 

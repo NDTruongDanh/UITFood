@@ -56,7 +56,10 @@ export class AiSearchRankingService {
       outputCount: ranked.length,
       diversitySuppressedCount:
         config.v2Enabled && intent.sort === 'relevance'
-          ? Math.max(0, items.length - countFirstPassDiverseItems(ranked, config))
+          ? Math.max(
+              0,
+              items.length - countFirstPassDiverseItems(ranked, config),
+            )
           : 0,
       latencyMs: Date.now() - startedAt,
     });
@@ -441,7 +444,10 @@ export class AiSearchRankingService {
         Number(a.restaurant.averageRating ?? 0) ||
       Number(b.restaurant.reviewCount ?? 0) -
         Number(a.restaurant.reviewCount ?? 0) ||
-      compareNullableNumbers(a.restaurant.distanceKm, b.restaurant.distanceKm) ||
+      compareNullableNumbers(
+        a.restaurant.distanceKm,
+        b.restaurant.distanceKm,
+      ) ||
       a.id.localeCompare(b.id)
     );
   }
@@ -478,7 +484,10 @@ export class AiSearchRankingService {
   private buildItemMatchReasons(
     item: AiSearchItemCandidate,
     intent: AiSearchIntent,
-    scores: Pick<AiSearchRankingBreakdown, 'popularityScore' | 'freshnessScore'>,
+    scores: Pick<
+      AiSearchRankingBreakdown,
+      'popularityScore' | 'freshnessScore'
+    >,
   ): string[] {
     const reasons: string[] = [];
     const protein = item.nutrition?.protein;
@@ -606,7 +615,10 @@ export function parseAiSearchRankingWeights(
 function resolveRankingConfig(): RankingConfig {
   return {
     v2Enabled: parseBoolean(process.env.AI_SEARCH_RANKING_V2_ENABLED, false),
-    diversityEnabled: parseBoolean(process.env.AI_SEARCH_DIVERSITY_ENABLED, true),
+    diversityEnabled: parseBoolean(
+      process.env.AI_SEARCH_DIVERSITY_ENABLED,
+      true,
+    ),
     maxItemsPerRestaurant: parsePositiveInteger(
       process.env.AI_SEARCH_MAX_ITEMS_PER_RESTAURANT,
       DEFAULT_MAX_ITEMS_PER_RESTAURANT,
@@ -698,10 +710,8 @@ export function scorePopularity(
   }
 
   const score =
-    0.7 *
-      (Math.log1p(popularity.deliveredOrderCount30d) / Math.log1p(50)) +
-    0.3 *
-      (Math.log1p(popularity.deliveredOrderCount90d) / Math.log1p(150));
+    0.7 * (Math.log1p(popularity.deliveredOrderCount30d) / Math.log1p(50)) +
+    0.3 * (Math.log1p(popularity.deliveredOrderCount90d) / Math.log1p(150));
 
   return Math.min(AI_SEARCH_POPULARITY_MAX_SCORE, clamp01(score));
 }
@@ -820,7 +830,10 @@ function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value));
 }
 
-function parseBoolean(value: string | undefined, defaultValue: boolean): boolean {
+function parseBoolean(
+  value: string | undefined,
+  defaultValue: boolean,
+): boolean {
   if (value === undefined || value.trim() === '') return defaultValue;
   return ['1', 'true', 'yes'].includes(value.trim().toLowerCase());
 }

@@ -313,9 +313,7 @@ export class OllamaAiProvider {
       }
 
       throw new AiProviderRequestError(
-        error instanceof Error
-          ? error.message
-          : 'Ollama embed request failed.',
+        error instanceof Error ? error.message : 'Ollama embed request failed.',
         {
           cause: error,
         },
