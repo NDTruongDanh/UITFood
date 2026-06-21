@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Calculator, Plus, Save, Sparkles, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -177,16 +177,12 @@ export function NutritionAssistantCard({
       );
     });
 
-  useEffect(() => {
-    if (!latestAnalysis) return;
-    if (
-      analysis &&
-      analysis.analysisSessionId !== latestAnalysis.analysisSessionId
-    ) {
-      return;
-    }
-    if (hydratedAnalysisSessionId === latestAnalysis.analysisSessionId) return;
-
+  if (
+    latestAnalysis &&
+    hydratedAnalysisSessionId !== latestAnalysis.analysisSessionId &&
+    (!analysis ||
+      analysis.analysisSessionId === latestAnalysis.analysisSessionId)
+  ) {
     setRecipeText(latestAnalysis.recipeText);
     setAnalysis(latestAnalysis);
     setIngredients(normalizeReviewIngredients(latestAnalysis.ingredients));
@@ -194,11 +190,7 @@ export function NutritionAssistantCard({
     setCalculation(null);
     setSaveMessage(null);
     setHydratedAnalysisSessionId(latestAnalysis.analysisSessionId);
-  }, [
-    analysis,
-    hydratedAnalysisSessionId,
-    latestAnalysis,
-  ]);
+  }
 
   const handleAnalyze = async () => {
     setSaveMessage(null);
@@ -382,9 +374,7 @@ export function NutritionAssistantCard({
                 aria-describedby={
                   servingsValidationMessage ? 'servings-error' : undefined
                 }
-                onChange={(event) =>
-                  updateServingsInput(event.target.value)
-                }
+                onChange={(event) => updateServingsInput(event.target.value)}
               />
               {servingsValidationMessage && (
                 <p
