@@ -11,7 +11,7 @@ import {
   useMenuCategoryItemCount,
 } from '@/features/menu/hooks/useMenu';
 import {
-  useDeleteMenuItem,
+  useToggleSoldOut,
   useUpdateMenuItem,
   useCreateCategory,
   useDeleteCategory,
@@ -71,7 +71,7 @@ export function MenuManagementPage() {
   });
   const { data: categories = [] } = useMenuCategories(restaurantId);
 
-  const deleteItem = useDeleteMenuItem(restaurantId ?? '');
+  const toggleSoldOut = useToggleSoldOut(restaurantId ?? '');
   const updateItem = useUpdateMenuItem(restaurantId ?? '');
   const createCategory = useCreateCategory(restaurantId ?? '');
   const deleteCategory = useDeleteCategory(restaurantId ?? '');
@@ -209,26 +209,17 @@ export function MenuManagementPage() {
     });
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('Delete this menu item?')) {
-      deleteItem.mutate(id, {
-        onSuccess: () => {
-          if (allItems.length === 1 && currentPage > 1) {
-            setCurrentPage((page) => page - 1);
-          }
-        },
-      });
-    }
-  };
-
   const handleToggleAvailability = (
     id: string,
     currentStatus: MenuItem['status'],
   ) => {
-    if (currentStatus === 'out_of_stock') return;
     const nextStatus =
-      currentStatus === 'available' ? 'unavailable' : 'available';
+      currentStatus === 'unavailable' ? 'available' : 'unavailable';
     updateItem.mutate({ id, dto: { status: nextStatus } });
+  };
+
+  const handleToggleSoldOut = (id: string) => {
+    toggleSoldOut.mutate(id);
   };
 
   const handleEdit = (item: MenuItem) => {
@@ -474,8 +465,26 @@ export function MenuManagementPage() {
                   key={item.id}
                   item={item}
                   onEdit={handleEdit}
-                  onDelete={handleDelete}
                   onToggleAvailability={handleToggleAvailability}
+                  onToggleSoldOut={handleToggleSoldOut}
+                  isStatusUpdating={
+                    (updateItem.isPending &&
+                      updateItem.variables?.id === item.id) ||
+                    (toggleSoldOut.isPending &&
+                      toggleSoldOut.variables === item.id)
+                  }
+                  isSoldOutUpdating={
+                    toggleSoldOut.isPending &&
+                    toggleSoldOut.variables === item.id
+                  }
+                  statusError={
+                    toggleSoldOut.isError && toggleSoldOut.variables === item.id
+                      ? 'Could not update the stock status. Try again.'
+                      : updateItem.isError &&
+                          updateItem.variables?.id === item.id
+                        ? 'Could not update customer visibility. Try again.'
+                        : undefined
+                  }
                 />
               ))}
               {!itemsLoading && totalItems > 0 && (
@@ -591,9 +600,7 @@ export function MenuManagementPage() {
       >
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>
-              Delete “{categoryToDelete?.name}”?
-            </DialogTitle>
+            <DialogTitle>Delete “{categoryToDelete?.name}”?</DialogTitle>
             <DialogDescription>
               {categoryItemCountLoading
                 ? 'Checking the category contents…'
@@ -618,16 +625,13 @@ export function MenuManagementPage() {
               type="button"
               variant="destructive"
               onClick={handleConfirmDeleteCategory}
-              disabled={
-                deleteCategory.isPending || categoryItemCountLoading
-              }
+              disabled={deleteCategory.isPending || categoryItemCountLoading}
             >
               {deleteCategory.isPending ? 'Deleting…' : 'Delete category'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
     </>
   );
 }

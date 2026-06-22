@@ -1,28 +1,39 @@
 import type { MenuItem } from '@/features/menu/types';
-import { Edit2, Trash2 } from 'lucide-react';
+import { Edit2, Loader2, PackageCheck, PackageX } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 
 interface MenuItemCardProps {
   item: MenuItem;
   onEdit?: (item: MenuItem) => void;
-  onDelete?: (id: string) => void;
   onToggleAvailability?: (
     id: string,
     currentStatus: MenuItem['status'],
   ) => void;
+  onToggleSoldOut?: (id: string) => void;
+  isStatusUpdating?: boolean;
+  isSoldOutUpdating?: boolean;
+  statusError?: string;
 }
 
 export function MenuItemCard({
   item,
   onEdit,
-  onDelete,
   onToggleAvailability,
+  onToggleSoldOut,
+  isStatusUpdating = false,
+  isSoldOutUpdating = false,
+  statusError,
 }: MenuItemCardProps) {
   const isAvailable = item.status === 'available';
   const isSoldOut = item.status === 'out_of_stock';
+  const isVisible = item.status !== 'unavailable';
 
   const handleToggle = () => {
     onToggleAvailability?.(item.id, item.status);
+  };
+
+  const handleToggleSoldOut = () => {
+    onToggleSoldOut?.(item.id);
   };
 
   return (
@@ -95,37 +106,80 @@ export function MenuItemCard({
 
             <div className="flex gap-2">
               <button
+                type="button"
                 onClick={() => onEdit?.(item)}
                 className="p-2 bg-surface-container-high rounded-xl text-on-surface hover:bg-primary-fixed transition-colors"
+                aria-label={`Edit ${item.name}`}
               >
                 <Edit2 className="w-5 h-5" />
               </button>
               <button
-                onClick={() => onDelete?.(item.id)}
-                className="p-2 bg-surface-container-high rounded-xl text-error hover:bg-error-container transition-colors"
+                type="button"
+                onClick={handleToggleSoldOut}
+                disabled={!isVisible || isStatusUpdating}
+                className={`rounded-xl p-2 transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                  isSoldOut
+                    ? 'bg-primary-fixed text-primary hover:bg-primary-200'
+                    : 'bg-surface-container-high text-error hover:bg-error-container'
+                }`}
+                aria-label={
+                  isSoldOut
+                    ? `Mark ${item.name} as back in stock`
+                    : `Mark ${item.name} as sold out`
+                }
+                title={
+                  !isVisible
+                    ? 'Show this item before changing its stock status'
+                    : isSoldOut
+                      ? 'Mark back in stock'
+                      : 'Mark as sold out'
+                }
               >
-                <Trash2 className="w-5 h-5" />
+                {isSoldOutUpdating ? (
+                  <Loader2
+                    className="h-5 w-5 animate-spin"
+                    aria-hidden="true"
+                  />
+                ) : isSoldOut ? (
+                  <PackageCheck className="h-5 w-5" aria-hidden="true" />
+                ) : (
+                  <PackageX className="h-5 w-5" aria-hidden="true" />
+                )}
               </button>
             </div>
           </div>
         </div>
 
-        {/* Toggle Block */}
-        <div className="md:border-l md:border-outline-variant/20 md:pl-6 flex md:flex-col justify-between md:justify-center gap-4">
-          <label className="inline-flex items-center cursor-pointer">
-            <span className="mr-3 text-xs font-bold text-outline uppercase tracking-wider">
-              Availability
-            </span>
-            <div className="relative">
-              <input
-                type="checkbox"
-                className="sr-only peer"
-                checked={isAvailable}
-                onChange={handleToggle}
-              />
-              <div className="w-11 h-6 bg-surface-container-highest rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-            </div>
-          </label>
+        {/* Customer-facing status controls */}
+        <div className="md:min-w-56 md:border-l md:border-outline-variant/20 md:pl-6 flex flex-col justify-center gap-3">
+          <div className="flex items-center justify-between gap-4">
+            <p className="text-xs font-bold text-on-surface uppercase tracking-wider">
+              Customer visibility
+            </p>
+            <label
+              className={`inline-flex items-center ${isStatusUpdating ? 'cursor-wait opacity-60' : 'cursor-pointer'}`}
+            >
+              <span className="sr-only">
+                {isVisible ? `Hide ${item.name}` : `Show ${item.name}`}
+              </span>
+              <div className="relative">
+                <input
+                  type="checkbox"
+                  className="sr-only peer"
+                  checked={isVisible}
+                  onChange={handleToggle}
+                  disabled={isStatusUpdating}
+                />
+                <div className="w-11 h-6 bg-surface-container-highest rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+              </div>
+            </label>
+          </div>
+
+          {statusError ? (
+            <p className="text-xs font-medium text-error" role="alert">
+              {statusError}
+            </p>
+          ) : null}
         </div>
       </CardContent>
     </Card>
