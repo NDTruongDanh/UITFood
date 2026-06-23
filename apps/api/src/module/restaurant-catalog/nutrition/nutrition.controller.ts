@@ -70,6 +70,23 @@ export class NutritionController {
     );
   }
 
+  @Post('manual-session')
+  @ApiOperation({
+    summary: 'Start nutrition review with manually entered ingredients',
+  })
+  @ApiParam({ name: 'menuItemId', format: 'uuid' })
+  @ApiOkResponse({ description: 'Empty ingredient review session created' })
+  startManualSession(
+    @Param('menuItemId', ParseUUIDPipe) menuItemId: string,
+    @Session() session: UserSession,
+  ) {
+    return this.service.startManualIngredientSession(
+      menuItemId,
+      session.user.id,
+      hasRole(session.user.role, 'admin'),
+    );
+  }
+
   @Post('calculate')
   @ApiOperation({
     summary: 'Calculate nutrition from restaurant-confirmed ingredients',

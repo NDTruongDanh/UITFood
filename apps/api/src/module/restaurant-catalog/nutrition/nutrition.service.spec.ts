@@ -711,14 +711,78 @@ describe('NutritionService', () => {
     expect(repo.saveMenuItemNutrition).not.toHaveBeenCalled();
   });
 
+  it('starts an empty manual ingredient session without AI extraction', async () => {
+    const repo = {
+      createSession: jest.fn().mockResolvedValue(
+        makeSession({
+          inputType: 'manual',
+          status: 'NEEDS_REVIEW',
+          aiExtractedJson: {
+            recipeName: null,
+            servings: 1,
+            ingredients: [],
+            warnings: [],
+          },
+        }),
+      ),
+    };
+    const aiExtraction = { extractRecipe: jest.fn() };
+    const service = makeService({ repo, aiExtraction });
+
+    const result = await service.startManualIngredientSession(
+      menuItemId,
+      'admin-user',
+      true,
+    );
+
+    expect(aiExtraction.extractRecipe).not.toHaveBeenCalled();
+    expect(repo.createSession).toHaveBeenCalledWith({
+      menuItemId,
+      restaurantId,
+      inputType: 'manual',
+      rawRecipeText: '',
+      aiExtractedJson: {
+        recipeName: null,
+        servings: 1,
+        ingredients: [],
+        warnings: [],
+      },
+      status: 'NEEDS_REVIEW',
+    });
+    expect(result).toMatchObject({
+      analysisSessionId,
+      servings: 1,
+      ingredients: [],
+      status: 'NEEDS_REVIEW',
+    });
+  });
+
+  it('rejects saving before the ingredient calculation has completed', async () => {
+    const repo = {
+      findSessionById: jest.fn().mockResolvedValue(makeSession()),
+      listIngredientsBySessionId: jest.fn(),
+      saveMenuItemNutrition: jest.fn(),
+    };
+    const service = makeService({ repo });
+
+    await expect(
+      service.saveMenuItemNutrition(menuItemId, 'admin-user', true, {
+        analysisSessionId,
+        verifiedByRestaurant: true,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(repo.listIngredientsBySessionId).not.toHaveBeenCalled();
+    expect(repo.saveMenuItemNutrition).not.toHaveBeenCalled();
+  });
+
   it('saves verified nutrition and marks the analysis session saved', async () => {
     const savedNutrition = {
       menuItemId,
       servings: 2,
-      calories: 300,
-      protein: 20,
-      carbs: 40,
-      fat: 8,
+      calories: 120,
+      protein: 22.5,
+      carbs: 0,
+      fat: 2.6,
       fiber: null,
       sugar: null,
       sodium: null,
@@ -728,7 +792,26 @@ describe('NutritionService', () => {
       updatedAt: new Date(),
     };
     const repo = {
-      findSessionById: jest.fn().mockResolvedValue(makeSession()),
+      findSessionById: jest.fn().mockResolvedValue(
+        makeSession({
+          status: 'CALCULATED',
+          aiExtractedJson: {
+            recipeName: 'Chicken',
+            servings: 2,
+            ingredients: [],
+            warnings: [],
+          },
+        }),
+      ),
+      listIngredientsBySessionId: jest.fn().mockResolvedValue([
+        {
+          correctedName: 'uc ga',
+          extractedName: 'uc ga',
+          quantityGram: 200,
+          matchedNutritionFoodId: 'food-1',
+        },
+      ]),
+      findNutritionFoodById: jest.fn().mockResolvedValue(makeFood()),
       saveMenuItemNutrition: jest.fn().mockResolvedValue(savedNutrition),
     };
     const service = makeService({ repo });
@@ -739,21 +822,7 @@ describe('NutritionService', () => {
       true,
       {
         analysisSessionId,
-        servings: 2,
         verifiedByRestaurant: true,
-        nutrition: {
-          calories: 300,
-          protein: 20,
-          carbs: 40,
-          fat: 8,
-        },
-        ingredients: [
-          {
-            name: 'uc ga',
-            quantityGram: 100,
-            matchedFoodId: 'food-1',
-          },
-        ],
       },
     );
 
@@ -761,37 +830,82 @@ describe('NutritionService', () => {
       {
         menuItemId,
         servings: 2,
-        calories: 300,
-        protein: 20,
-        carbs: 40,
-        fat: 8,
+        calories: 120,
+        protein: 22.5,
+        carbs: 0,
+        fat: 2.6,
         fiber: null,
         sugar: null,
         sodium: null,
+        source: 'AI_ESTIMATED',
         verifiedByRestaurant: true,
       },
       {
         analysisSessionId,
-        ingredients: [
-          expect.objectContaining({
-            analysisSessionId,
-            extractedName: 'uc ga',
-            correctedName: 'uc ga',
-            quantity: 100,
-            quantityGram: 100,
-            unit: 'g',
-            matchedNutritionFoodId: 'food-1',
-          }),
-        ],
       },
     );
     expect(result).toMatchObject({
       servings: 2,
-      calories: 300,
-      protein: 20,
-      carbs: 40,
-      fat: 8,
+      calories: 120,
+      protein: 22.5,
+      carbs: 0,
+      fat: 2.6,
       verifiedByRestaurant: true,
     });
+  });
+
+  it('marks nutrition calculated from manual ingredients with the manual source', async () => {
+    const savedNutrition = {
+      menuItemId,
+      servings: 1,
+      calories: 120,
+      protein: 22.5,
+      carbs: 0,
+      fat: 2.6,
+      fiber: null,
+      sugar: null,
+      sodium: null,
+      source: 'MANUALLY_ENTERED',
+      verifiedByRestaurant: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    const repo = {
+      findSessionById: jest
+        .fn()
+        .mockResolvedValue(
+          makeSession({
+            inputType: 'manual',
+            status: 'CALCULATED',
+            aiExtractedJson: {
+              recipeName: null,
+              servings: 1,
+              ingredients: [],
+              warnings: [],
+            },
+          }),
+        ),
+      listIngredientsBySessionId: jest.fn().mockResolvedValue([
+        {
+          correctedName: 'uc ga',
+          extractedName: 'uc ga',
+          quantityGram: 100,
+          matchedNutritionFoodId: 'food-1',
+        },
+      ]),
+      findNutritionFoodById: jest.fn().mockResolvedValue(makeFood()),
+      saveMenuItemNutrition: jest.fn().mockResolvedValue(savedNutrition),
+    };
+    const service = makeService({ repo });
+
+    await service.saveMenuItemNutrition(menuItemId, 'admin-user', true, {
+      analysisSessionId,
+      verifiedByRestaurant: true,
+    });
+
+    expect(repo.saveMenuItemNutrition).toHaveBeenCalledWith(
+      expect.objectContaining({ source: 'MANUALLY_ENTERED' }),
+      expect.any(Object),
+    );
   });
 });
