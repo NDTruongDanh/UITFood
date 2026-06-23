@@ -2,7 +2,13 @@ import { AiSearchIntentService } from './ai-search-intent.service';
 import { AiSearchRankingService } from './ai-search-ranking.service';
 import { AiSearchService } from './ai-search.service';
 import type {
+  AiSearchVerificationResult,
+  AiSearchVerificationService,
+} from './ai-search-verification.service';
+import type {
+  AiSearchIntent,
   AiSearchItemCandidate,
+  AiSearchItemResult,
   AiSearchRepositoryFilters,
   AiSearchRestaurantCandidate,
 } from './ai-search.types';
@@ -93,13 +99,25 @@ describe('AiSearchService', () => {
     candidates: AiSearchItemCandidate[],
     embedding: number[] | null = null,
     ranking: AiSearchRankingService = new AiSearchRankingService(),
+    verificationOverrides: Partial<{
+      requiresVerification: (intent: AiSearchIntent) => boolean;
+      getBatchSize: () => number;
+      verifyCandidates: (
+        query: string,
+        intent: AiSearchIntent,
+        items: AiSearchItemResult[],
+      ) => Promise<AiSearchVerificationResult>;
+    }> = {},
   ) {
     const repo = {
       findItems: jest.fn(async (filters: AiSearchRepositoryFilters) =>
         candidates
           .filter((item) => {
             const maxPrice = filters.intent.price.maxPriceVnd;
+            const minPrice = filters.intent.price.minPriceVnd;
             const proteinMin = filters.intent.nutrition.proteinMinG;
+            const caloriesMax = filters.intent.nutrition.caloriesMax;
+            const fatMax = filters.intent.nutrition.fatMaxG;
             const itemKinds = filters.intent.itemKinds;
             const needsNutrition =
               Boolean(filters.intent.nutrition.lowerCalorie) ||
@@ -109,11 +127,16 @@ describe('AiSearchService', () => {
               filters.intent.nutrition.carbsMaxG !== undefined;
             return (
               (maxPrice === undefined || item.price <= maxPrice) &&
+              (minPrice === undefined || item.price >= minPrice) &&
               (itemKinds.length === 0 || itemKinds.includes(item.itemKind)) &&
               (!needsNutrition ||
                 item.nutrition?.verifiedByRestaurant === true) &&
               (proteinMin === undefined ||
-                Number(item.nutrition?.protein ?? 0) >= proteinMin)
+                Number(item.nutrition?.protein ?? 0) >= proteinMin) &&
+              (caloriesMax === undefined ||
+                Number(item.nutrition?.calories ?? 0) <= caloriesMax) &&
+              (fatMax === undefined ||
+                Number(item.nutrition?.fat ?? 0) <= fatMax)
             );
           })
           .map((item) => ({
@@ -145,6 +168,30 @@ describe('AiSearchService', () => {
         return embedding;
       }),
     };
+    const verification = {
+      requiresVerification: jest.fn(
+        (intent: AiSearchIntent) =>
+          intent.dietaryTags.length > 0 ||
+          intent.excludedTerms.length > 0 ||
+          (intent.semanticConstraints?.length ?? 0) > 0,
+      ),
+      getBatchSize: jest.fn(() => 40),
+      verifyCandidates: jest.fn(
+        (
+          _query: string,
+          _intent: AiSearchIntent,
+          items: AiSearchItemResult[],
+        ) =>
+          Promise.resolve({
+            status: 'success' as const,
+            strict: false,
+            acceptedItemIds: new Set(items.map((item) => item.id)),
+            rejectedItemIds: new Set<string>(),
+            unknownItemIds: new Set<string>(),
+          }),
+      ),
+      ...verificationOverrides,
+    };
 
     return {
       service: new AiSearchService(
@@ -153,11 +200,13 @@ describe('AiSearchService', () => {
         standardSearch as any,
         embeddings as any,
         ranking,
+        verification as unknown as AiSearchVerificationService,
       ),
       repo,
       standardSearch,
       embeddings,
       ranking,
+      verification,
     };
   }
 
@@ -285,10 +334,7 @@ describe('AiSearchService', () => {
 
     const response = await service.search({ query: 'food for weight lost' });
 
-    expect(response.items.map((item) => item.id)).toEqual([
-      'food-lower',
-      'food-higher',
-    ]);
+    expect(response.items.map((item) => item.id)).toEqual(['food-lower']);
     expect(response.items[0].matchReasons).toContain('280 kcal per serving');
     expect(response.appliedFilters).toEqual(
       expect.arrayContaining([
@@ -433,5 +479,66 @@ describe('AiSearchService', () => {
         embeddingVersion: '1',
       }),
     );
+  });
+
+  it('verifies additional batches instead of admitting an unverified tail', async () => {
+    const candidates = Array.from({ length: 60 }, (_, index) =>
+      makeItem({
+        id: `item-${index.toString().padStart(2, '0')}`,
+        name: `Healthy Bowl ${index.toString().padStart(2, '0')}`,
+      }),
+    );
+    let callCount = 0;
+    const verifyCandidates = jest.fn(
+      (
+        _query: string,
+        _intent: AiSearchIntent,
+        items: AiSearchItemResult[],
+      ) => {
+        const accepted = callCount++ === 0 ? items.slice(0, 10) : items;
+        return Promise.resolve({
+          status: 'success' as const,
+          strict: false,
+          acceptedItemIds: new Set(accepted.map((item) => item.id)),
+          rejectedItemIds: new Set<string>(),
+          unknownItemIds: new Set<string>(),
+        });
+      },
+    );
+    const { service } = buildService(candidates, null, undefined, {
+      verifyCandidates,
+    });
+
+    const response = await service.search({
+      query: 'healthy food',
+      limit: 20,
+    });
+
+    expect(verifyCandidates).toHaveBeenCalledTimes(2);
+    expect(response.items).toHaveLength(20);
+  });
+
+  it('fails closed when strict semantic verification fails', async () => {
+    const { service } = buildService(
+      [makeItem({ id: 'possibly-non-vegan', tags: ['vegan'] })],
+      null,
+      undefined,
+      {
+        verifyCandidates: jest.fn(() =>
+          Promise.resolve({
+            status: 'failed' as const,
+            strict: true,
+            acceptedItemIds: new Set<string>(),
+            rejectedItemIds: new Set(['possibly-non-vegan']),
+            unknownItemIds: new Set(['possibly-non-vegan']),
+          }),
+        ),
+      },
+    );
+
+    const response = await service.search({ query: 'vegan food' });
+
+    expect(response.items).toEqual([]);
+    expect(response.restaurants).toEqual([]);
   });
 });

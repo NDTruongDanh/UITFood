@@ -13,6 +13,7 @@ import {
   isGenericFoodSearchQuery,
 } from './ai-search-intent.service';
 import { AiSearchRankingService } from './ai-search-ranking.service';
+import { AiSearchVerificationService } from './ai-search-verification.service';
 import { AiSearchRepository } from './ai-search.repository';
 import {
   AI_SEARCH_DEFAULT_RADIUS_KM,
@@ -23,6 +24,7 @@ import {
   type AiSearchIntent,
   type AiSearchItemKind,
   type AiSearchItemCandidate,
+  type AiSearchItemResult,
   type AiSearchRepositoryFilters,
   type AiSearchResponse,
   type AiSearchRestaurantCandidate,
@@ -56,6 +58,7 @@ export class AiSearchService {
     private readonly standardSearch: SearchService,
     private readonly embeddings: AiSearchEmbeddingService,
     private readonly ranking: AiSearchRankingService,
+    private readonly verification: AiSearchVerificationService,
   ) {}
 
   async search(request: AiSearchRequestDto): Promise<AiSearchResponse> {
@@ -191,8 +194,26 @@ export class AiSearchService {
         { radiusKm },
       );
 
-      const items = rankedItems.slice(offset, offset + limit);
-      const restaurants = rankedRestaurants.slice(offset, offset + limit);
+      const requiresSemanticVerification =
+        this.verification.requiresVerification(effectiveIntent);
+      const verifiedItems = await this.verifyRankedItems(
+        query,
+        effectiveIntent,
+        rankedItems,
+        offset + limit,
+        new Set(rankedRestaurants.map((restaurant) => restaurant.id)),
+      );
+      const verifiedRestaurantIds = new Set(
+        verifiedItems.map((item) => item.restaurant.id),
+      );
+      const verifiedRestaurants = requiresSemanticVerification
+        ? rankedRestaurants.filter((restaurant) =>
+            verifiedRestaurantIds.has(restaurant.id),
+          )
+        : rankedRestaurants;
+
+      const items = verifiedItems.slice(offset, offset + limit);
+      const restaurants = verifiedRestaurants.slice(offset, offset + limit);
       const response: AiSearchResponse = {
         mode: 'ai',
         query,
@@ -205,8 +226,8 @@ export class AiSearchService {
         restaurants,
         items,
         total: {
-          restaurants: rankedRestaurants.length,
-          items: rankedItems.length,
+          restaurants: verifiedRestaurants.length,
+          items: verifiedItems.length,
         },
         followUps: this.buildFollowUps(effectiveIntent, query, request),
         fallback: null,
@@ -226,6 +247,57 @@ export class AiSearchService {
         startedAt,
       );
     }
+  }
+
+  private async verifyRankedItems(
+    query: string,
+    intent: AiSearchIntent,
+    rankedItems: AiSearchItemResult[],
+    requiredResultCount: number,
+    candidateRestaurantIds: Set<string>,
+  ): Promise<AiSearchItemResult[]> {
+    if (!this.verification.requiresVerification(intent)) return rankedItems;
+
+    const verifiedItems: AiSearchItemResult[] = [];
+    const verifiedRestaurantIds = new Set<string>();
+    const requiredRestaurantCount = Math.min(
+      requiredResultCount,
+      candidateRestaurantIds.size,
+    );
+    const batchSize = this.verification.getBatchSize();
+
+    for (let start = 0; start < rankedItems.length; start += batchSize) {
+      const batch = rankedItems.slice(start, start + batchSize);
+      const result = await this.verification.verifyCandidates(
+        query,
+        intent,
+        batch,
+      );
+
+      if (result.status === 'skipped') return rankedItems;
+
+      for (const item of batch) {
+        if (!result.acceptedItemIds.has(item.id)) continue;
+        verifiedItems.push(item);
+        if (candidateRestaurantIds.has(item.restaurant.id)) {
+          verifiedRestaurantIds.add(item.restaurant.id);
+        }
+      }
+
+      if (result.status === 'failed') {
+        if (result.strict) return [];
+        return [...verifiedItems, ...rankedItems.slice(start + batch.length)];
+      }
+
+      if (
+        verifiedItems.length >= requiredResultCount &&
+        verifiedRestaurantIds.size >= requiredRestaurantCount
+      ) {
+        break;
+      }
+    }
+
+    return verifiedItems;
   }
 
   private shouldFallbackToClassicFoodName(
@@ -507,6 +579,22 @@ export class AiSearchService {
       });
     }
 
+    if (intent.dietaryTags.length > 0) {
+      filters.push({
+        key: 'dietaryTags',
+        label: `Dietary tags: ${intent.dietaryTags.join(', ')}`,
+        source: 'ai_inferred',
+      });
+    }
+
+    if (intent.excludedTerms.length > 0) {
+      filters.push({
+        key: 'excludedTerms',
+        label: `Excluding: ${intent.excludedTerms.join(', ')}`,
+        source: 'ai_inferred',
+      });
+    }
+
     if (intent.nutrition.lowerCalorie) {
       filters.push({
         key: 'lowerCalorie',
@@ -522,11 +610,32 @@ export class AiSearchService {
         source: 'ai_inferred',
       });
     }
+    if (intent.nutrition.caloriesMax !== undefined) {
+      filters.push({
+        key: 'caloriesMax',
+        label: `Calories <= ${intent.nutrition.caloriesMax} kcal`,
+        source: 'ai_inferred',
+      });
+    }
+    if (intent.nutrition.fatMaxG !== undefined) {
+      filters.push({
+        key: 'fatMaxG',
+        label: `Fat <= ${intent.nutrition.fatMaxG}g`,
+        source: 'ai_inferred',
+      });
+    }
     if (intent.price.maxPriceVnd !== undefined) {
       filters.push({
         key: 'maxPriceVnd',
         label: `Price <= ${intent.price.maxPriceVnd} VND`,
         source: intent.price.budgetIntent ? 'system_default' : 'ai_inferred',
+      });
+    }
+    if (intent.price.minPriceVnd !== undefined) {
+      filters.push({
+        key: 'minPriceVnd',
+        label: `Price >= ${intent.price.minPriceVnd} VND`,
+        source: 'ai_inferred',
       });
     }
     if (intent.rating.minAverageRating !== undefined) {
@@ -721,7 +830,7 @@ function relaxDefaultBudgetIntent(intent: AiSearchIntent): AiSearchIntent {
 }
 
 function hasExplicitPriceConstraint(query: string): boolean {
-  const normalized = normalizeSearchText(query);
+  const normalized = query.toLowerCase();
   return (
     /\b(?:under|below|less than|max|maximum|duoi)\s*\d[\d.,]*\s*(k|nghin|ngan|vnd)?\b/.test(
       normalized,

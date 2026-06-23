@@ -62,6 +62,7 @@ export interface AiSearchIntent {
   cuisineTerms: string[];
   dietaryTags: string[];
   excludedTerms: string[];
+  semanticConstraints?: string[];
   nutrition: {
     highProtein?: boolean;
     lowerCalorie?: boolean;

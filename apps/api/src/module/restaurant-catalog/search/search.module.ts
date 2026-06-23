@@ -5,6 +5,7 @@ import { AiSearchIntentService } from './ai/ai-search-intent.service';
 import { AiSearchRankingService } from './ai/ai-search-ranking.service';
 import { AiSearchRankingStatsService } from './ai/ai-search-ranking-stats.service';
 import { AiSearchRankingStatsWorker } from './ai/ai-search-ranking-stats.worker';
+import { AiSearchVerificationService } from './ai/ai-search-verification.service';
 import { AiSearchRepository } from './ai/ai-search.repository';
 import { AiSearchService } from './ai/ai-search.service';
 import { SearchController } from './standard/search.controller';
@@ -25,6 +26,7 @@ import { AiSearchIndexModule } from './indexing/ai-search-index.module';
     AiSearchRankingService,
     AiSearchRankingStatsService,
     AiSearchRankingStatsWorker,
+    AiSearchVerificationService,
   ],
 })
 export class SearchModule {}
