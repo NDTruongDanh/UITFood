@@ -4,6 +4,7 @@ import { DatabaseModule } from '@/drizzle/drizzle.module';
 import { OrderingContractsModule } from '@/module/ordering/ordering-contracts.module';
 import { CatalogContractsModule } from '@/module/restaurant-catalog/catalog-contracts.module';
 import { SubmitReviewHandler } from './commands/submit-review.handler';
+import { AdminReviewController } from './controllers/admin-review.controller';
 import { ReviewController } from './controllers/review.controller';
 import { ReviewRepository } from './repositories/review.repository';
 import { ReviewService } from './services/review.service';
@@ -23,7 +24,7 @@ import { ReviewService } from './services/review.service';
     OrderingContractsModule,
     CatalogContractsModule,
   ],
-  controllers: [ReviewController],
+  controllers: [ReviewController, AdminReviewController],
   providers: [ReviewService, ReviewRepository, SubmitReviewHandler],
   exports: [],
 })

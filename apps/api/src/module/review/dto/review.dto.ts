@@ -155,3 +155,56 @@ export class PublicReviewListResponseDto {
   @ApiProperty()
   limit!: number;
 }
+
+// ---------------------------------------------------------------------------
+// Admin listing DTO — GET /admin/restaurants/:id/reviews
+// ---------------------------------------------------------------------------
+
+export class AdminReviewItemDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+
+  @ApiProperty({ format: 'uuid' })
+  orderId!: string;
+
+  @ApiProperty({ format: 'uuid' })
+  customerId!: string;
+
+  @ApiProperty({ format: 'uuid' })
+  restaurantId!: string;
+
+  @ApiProperty()
+  stars!: number;
+
+  @ApiPropertyOptional()
+  comment?: string | null;
+
+  @ApiPropertyOptional({ type: [String] })
+  tags?: string[] | null;
+
+  @ApiProperty({ enum: ['visible', 'flagged', 'hidden'] })
+  moderationStatus!: ReviewModerationStatus;
+
+  @ApiPropertyOptional()
+  moderationReason?: string | null;
+
+  @ApiProperty()
+  createdAt!: string;
+}
+
+export class AdminReviewListResponseDto {
+  @ApiProperty({ type: [AdminReviewItemDto] })
+  data!: AdminReviewItemDto[];
+
+  @ApiProperty()
+  total!: number;
+
+  @ApiProperty()
+  averageRating!: number;
+
+  @ApiProperty({
+    description: 'Count of reviews per star level (1-5).',
+    example: { 1: 0, 2: 1, 3: 5, 4: 10, 5: 34 },
+  })
+  ratingDistribution!: Record<number, number>;
+}
