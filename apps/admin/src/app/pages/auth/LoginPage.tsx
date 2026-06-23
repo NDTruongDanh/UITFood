@@ -71,7 +71,6 @@ export function LoginPage() {
                 id="email"
                 type="email"
                 autoComplete="email"
-                placeholder="admin@soli.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required

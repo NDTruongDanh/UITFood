@@ -871,20 +871,18 @@ describe('NutritionService', () => {
       updatedAt: new Date(),
     };
     const repo = {
-      findSessionById: jest
-        .fn()
-        .mockResolvedValue(
-          makeSession({
-            inputType: 'manual',
-            status: 'CALCULATED',
-            aiExtractedJson: {
-              recipeName: null,
-              servings: 1,
-              ingredients: [],
-              warnings: [],
-            },
-          }),
-        ),
+      findSessionById: jest.fn().mockResolvedValue(
+        makeSession({
+          inputType: 'manual',
+          status: 'CALCULATED',
+          aiExtractedJson: {
+            recipeName: null,
+            servings: 1,
+            ingredients: [],
+            warnings: [],
+          },
+        }),
+      ),
       listIngredientsBySessionId: jest.fn().mockResolvedValue([
         {
           correctedName: 'uc ga',
