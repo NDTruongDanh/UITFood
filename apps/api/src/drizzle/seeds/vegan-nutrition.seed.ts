@@ -950,7 +950,10 @@ function nutritionFood(
 function item(
   index: number,
   name: string,
-  details: Omit<MenuItemSeed, 'id' | 'analysisSessionId' | 'name' | 'itemKind'> & {
+  details: Omit<
+    MenuItemSeed,
+    'id' | 'analysisSessionId' | 'name' | 'itemKind'
+  > & {
     itemKind?: 'food' | 'beverage' | 'mixed';
   },
 ): MenuItemSeed {
