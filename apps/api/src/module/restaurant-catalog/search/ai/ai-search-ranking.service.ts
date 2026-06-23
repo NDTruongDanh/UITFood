@@ -598,10 +598,14 @@ export class AiSearchRankingService {
 export function parseAiSearchRankingWeights(
   raw: string | undefined,
 ): AiSearchRankingWeights {
-  const parsed =
+  const parsed: unknown =
     raw === undefined || raw.trim() === ''
       ? AI_SEARCH_DEFAULT_RANKING_WEIGHTS
       : JSON.parse(raw);
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    throw new Error('AI search ranking weights must be an object.');
+  }
+  const parsedWeights = parsed as Record<string, unknown>;
   const keys = Object.keys(
     AI_SEARCH_DEFAULT_RANKING_WEIGHTS,
   ) as AiSearchRankingWeightKey[];
@@ -609,7 +613,7 @@ export function parseAiSearchRankingWeights(
   let total = 0;
 
   for (const key of keys) {
-    const value = Number(parsed[key]);
+    const value = Number(parsedWeights[key]);
     if (!Number.isFinite(value) || value < 0) {
       throw new Error(`Invalid AI search ranking weight: ${key}`);
     }

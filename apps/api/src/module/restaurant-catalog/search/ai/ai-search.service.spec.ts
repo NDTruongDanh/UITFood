@@ -1,3 +1,5 @@
+import type { AiSearchEmbeddingService } from '../indexing/ai-search-embedding.service';
+import type { SearchService } from '../standard/search.service';
 import { AiSearchIntentService } from './ai-search-intent.service';
 import { AiSearchRankingService } from './ai-search-ranking.service';
 import { AiSearchService } from './ai-search.service';
@@ -5,6 +7,7 @@ import type {
   AiSearchVerificationResult,
   AiSearchVerificationService,
 } from './ai-search-verification.service';
+import type { AiSearchRepository } from './ai-search.repository';
 import type {
   AiSearchIntent,
   AiSearchItemCandidate,
@@ -110,48 +113,52 @@ describe('AiSearchService', () => {
     }> = {},
   ) {
     const repo = {
-      findItems: jest.fn(async (filters: AiSearchRepositoryFilters) =>
-        candidates
-          .filter((item) => {
-            const maxPrice = filters.intent.price.maxPriceVnd;
-            const minPrice = filters.intent.price.minPriceVnd;
-            const proteinMin = filters.intent.nutrition.proteinMinG;
-            const caloriesMax = filters.intent.nutrition.caloriesMax;
-            const fatMax = filters.intent.nutrition.fatMaxG;
-            const itemKinds = filters.intent.itemKinds;
-            const needsNutrition =
-              Boolean(filters.intent.nutrition.lowerCalorie) ||
-              proteinMin !== undefined ||
-              filters.intent.nutrition.caloriesMax !== undefined ||
-              filters.intent.nutrition.fatMaxG !== undefined ||
-              filters.intent.nutrition.carbsMaxG !== undefined;
-            return (
-              (maxPrice === undefined || item.price <= maxPrice) &&
-              (minPrice === undefined || item.price >= minPrice) &&
-              (itemKinds.length === 0 || itemKinds.includes(item.itemKind)) &&
-              (!needsNutrition ||
-                item.nutrition?.verifiedByRestaurant === true) &&
-              (proteinMin === undefined ||
-                Number(item.nutrition?.protein ?? 0) >= proteinMin) &&
-              (caloriesMax === undefined ||
-                Number(item.nutrition?.calories ?? 0) <= caloriesMax) &&
-              (fatMax === undefined ||
-                Number(item.nutrition?.fat ?? 0) <= fatMax)
-            );
-          })
-          .map((item) => ({
-            ...item,
-            retrievalBranches: [filters.branch],
-          })),
+      findItems: jest.fn((filters: AiSearchRepositoryFilters) =>
+        Promise.resolve(
+          candidates
+            .filter((item) => {
+              const maxPrice = filters.intent.price.maxPriceVnd;
+              const minPrice = filters.intent.price.minPriceVnd;
+              const proteinMin = filters.intent.nutrition.proteinMinG;
+              const caloriesMax = filters.intent.nutrition.caloriesMax;
+              const fatMax = filters.intent.nutrition.fatMaxG;
+              const itemKinds = filters.intent.itemKinds;
+              const needsNutrition =
+                Boolean(filters.intent.nutrition.lowerCalorie) ||
+                proteinMin !== undefined ||
+                filters.intent.nutrition.caloriesMax !== undefined ||
+                filters.intent.nutrition.fatMaxG !== undefined ||
+                filters.intent.nutrition.carbsMaxG !== undefined;
+              return (
+                (maxPrice === undefined || item.price <= maxPrice) &&
+                (minPrice === undefined || item.price >= minPrice) &&
+                (itemKinds.length === 0 || itemKinds.includes(item.itemKind)) &&
+                (!needsNutrition ||
+                  item.nutrition?.verifiedByRestaurant === true) &&
+                (proteinMin === undefined ||
+                  Number(item.nutrition?.protein ?? 0) >= proteinMin) &&
+                (caloriesMax === undefined ||
+                  Number(item.nutrition?.calories ?? 0) <= caloriesMax) &&
+                (fatMax === undefined ||
+                  Number(item.nutrition?.fat ?? 0) <= fatMax)
+              );
+            })
+            .map((item) => ({
+              ...item,
+              retrievalBranches: [filters.branch],
+            })),
+        ),
       ),
-      findRestaurants: jest.fn(async () => [makeRestaurant({})]),
+      findRestaurants: jest.fn(() => Promise.resolve([makeRestaurant({})])),
     };
     const standardSearch = {
-      search: jest.fn(async () => ({
-        restaurants: [],
-        items: [],
-        total: { restaurants: 0, items: 0 },
-      })),
+      search: jest.fn(() =>
+        Promise.resolve({
+          restaurants: [],
+          items: [],
+          total: { restaurants: 0, items: 0 },
+        }),
+      ),
     };
     const embeddings = {
       getConfig: jest.fn(() => ({
@@ -163,10 +170,11 @@ describe('AiSearchService', () => {
         batchSize: 20,
         rateLimitPerMinute: 60,
       })),
-      embedSearchDocument: jest.fn(async () => {
-        if (!embedding) throw new Error('embeddings unavailable');
-        return embedding;
-      }),
+      embedSearchDocument: jest.fn(() =>
+        embedding
+          ? Promise.resolve(embedding)
+          : Promise.reject(new Error('embeddings unavailable')),
+      ),
     };
     const verification = {
       requiresVerification: jest.fn(
@@ -195,10 +203,10 @@ describe('AiSearchService', () => {
 
     return {
       service: new AiSearchService(
-        repo as any,
+        repo as unknown as AiSearchRepository,
         new AiSearchIntentService(),
-        standardSearch as any,
-        embeddings as any,
+        standardSearch as unknown as SearchService,
+        embeddings as unknown as AiSearchEmbeddingService,
         ranking,
         verification as unknown as AiSearchVerificationService,
       ),

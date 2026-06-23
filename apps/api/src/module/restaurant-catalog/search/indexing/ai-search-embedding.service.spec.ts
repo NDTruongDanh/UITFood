@@ -44,9 +44,9 @@ describe('AiSearchEmbeddingService', () => {
 
   it('propagates provider timeout failures', async () => {
     const provider = {
-      embed: jest.fn(async () => {
-        throw new Error('Ollama embed request timed out.');
-      }),
+      embed: jest.fn(() =>
+        Promise.reject(new Error('Ollama embed request timed out.')),
+      ),
     } as unknown as jest.Mocked<OllamaAiProvider>;
     const service = new AiSearchEmbeddingService(provider, buildConfig({}));
 
@@ -58,10 +58,12 @@ describe('AiSearchEmbeddingService', () => {
 
 function buildProvider(embedding: number[]): jest.Mocked<OllamaAiProvider> {
   return {
-    embed: jest.fn(async () => ({
-      embeddings: [embedding],
-      model: 'embeddinggemma',
-    })),
+    embed: jest.fn(() =>
+      Promise.resolve({
+        embeddings: [embedding],
+        model: 'embeddinggemma',
+      }),
+    ),
   } as unknown as jest.Mocked<OllamaAiProvider>;
 }
 
