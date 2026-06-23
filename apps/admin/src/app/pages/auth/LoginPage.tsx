@@ -55,7 +55,7 @@ export function LoginPage() {
           </div>
           <div>
             <h1 className="text-2xl font-extrabold text-on-surface font-headline">
-              SoLi Admin
+              UITFood Admin
             </h1>
             <p className="text-sm text-on-surface-variant mt-1">
               Sign in to manage the platform
@@ -97,11 +97,7 @@ export function LoginPage() {
               </div>
             )}
 
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={isSigningIn}
-            >
+            <Button type="submit" className="w-full" disabled={isSigningIn}>
               {isSigningIn ? 'Signing in…' : 'Sign in'}
             </Button>
           </form>
