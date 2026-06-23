@@ -50,9 +50,7 @@ describe('AiSearchIntentService', () => {
     expect(intent.foodTerms).toEqual(
       expect.arrayContaining(['spicy', 'noodle']),
     );
-    expect(intent.dietaryTags).toEqual(
-      expect.arrayContaining(['spicy', 'noodle']),
-    );
+    expect(intent.dietaryTags).toEqual([]);
   });
 
   it('treats generic food queries as valid browse intent', () => {
@@ -65,17 +63,18 @@ describe('AiSearchIntentService', () => {
     expect(intent.itemKinds).toEqual(['food']);
   });
 
-  it.each(['food for weight loss', 'food for weight lost', 'food to lose weight'])(
-    'treats %s as food-only lower-calorie intent',
-    (query) => {
-      const intent = service.parseIntent(query);
+  it.each([
+    'food for weight loss',
+    'food for weight lost',
+    'food to lose weight',
+  ])('treats %s as food-only lower-calorie intent', (query) => {
+    const intent = service.parseIntent(query);
 
-      expect(intent.itemKinds).toEqual(['food']);
-      expect(intent.nutrition.lowerCalorie).toBe(true);
-      expect(intent.nutrition.caloriesMax).toBeUndefined();
-      expect(intent.sort).toBe('calories_asc');
-    },
-  );
+    expect(intent.itemKinds).toEqual(['food']);
+    expect(intent.nutrition.lowerCalorie).toBe(true);
+    expect(intent.nutrition.caloriesMax).toBe(500);
+    expect(intent.sort).toBe('calories_asc');
+  });
 
   it('supports Vietnamese lower-calorie intent', () => {
     const intent = service.parseIntent('món ăn giảm cân');
@@ -104,6 +103,29 @@ describe('AiSearchIntentService', () => {
     expect(intent.nutrition.lowerCalorie).toBe(true);
     expect(intent.price.maxPriceVnd).toBeUndefined();
     expect(intent.sort).toBe('calories_asc');
+  });
+
+  it('separates exclusions from positive dietary tags', () => {
+    const intent = service.parseIntent('no seafood please');
+    const multiword = service.parseIntent('food without fish sauce');
+
+    expect(intent.excludedTerms).toEqual(['seafood']);
+    expect(intent.dietaryTags).not.toContain('seafood');
+    expect(intent.foodTerms).not.toContain('seafood');
+    expect(intent.semanticConstraints).toContain('no seafood please');
+    expect(multiword.excludedTerms).toEqual(['fish sauce']);
+  });
+
+  it('parses explicit price ranges, rating thresholds, and low-fat defaults', () => {
+    const range = service.parseIntent('food from 30000 to 60000');
+    const rating = service.parseIntent('restaurants rated 4.5 or higher');
+    const lowFat = service.parseIntent('low fat meal');
+
+    expect(range.price).toEqual(
+      expect.objectContaining({ minPriceVnd: 30_000, maxPriceVnd: 60_000 }),
+    );
+    expect(rating.rating.minAverageRating).toBe(4.5);
+    expect(lowFat.nutrition.fatMaxG).toBe(15);
   });
 
   it('marks bare food names for standard search fallback', () => {

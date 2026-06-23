@@ -281,6 +281,29 @@ export class AiSearchRepository {
       conditions.push(inArray(menuItems.itemKind, intent.itemKinds));
     }
 
+    if (intent.dietaryTags.length > 0) {
+      intent.dietaryTags.forEach((tag) => {
+        conditions.push(
+          sql`${tag} = ANY(COALESCE(${menuItems.tags}, ARRAY[]::text[]))`,
+        );
+      });
+    }
+
+    if (intent.excludedTerms.length > 0) {
+      intent.excludedTerms.forEach((term) => {
+        const pattern = `%${term}%`;
+        conditions.push(
+          sql`NOT (${term} = ANY(COALESCE(${menuItems.tags}, ARRAY[]::text[])))`,
+        );
+        conditions.push(
+          sql`unaccent(COALESCE(${menuItems.name}, '')) NOT ILIKE unaccent(${pattern})`,
+        );
+        conditions.push(
+          sql`unaccent(COALESCE(${menuItems.description}, '')) NOT ILIKE unaccent(${pattern})`,
+        );
+      });
+    }
+
     if (hasNutritionIntent(intent)) {
       conditions.push(eq(menuItemNutrition.verifiedByRestaurant, true));
     }
@@ -330,6 +353,8 @@ export class AiSearchRepository {
     const { intent } = filters;
     const hasItemEligibility =
       intent.itemKinds.length > 0 ||
+      intent.dietaryTags.length > 0 ||
+      intent.excludedTerms.length > 0 ||
       intent.price.maxPriceVnd !== undefined ||
       intent.price.minPriceVnd !== undefined ||
       hasNutritionIntent(intent);
@@ -348,6 +373,27 @@ export class AiSearchRepository {
         )})`,
       );
     }
+    if (intent.dietaryTags.length > 0) {
+      for (const tag of intent.dietaryTags) {
+        itemConditions.push(
+          sql`${tag} = ANY(COALESCE(eligible_item.tags, ARRAY[]::text[]))`,
+        );
+      }
+    }
+    if (intent.excludedTerms.length > 0) {
+      for (const term of intent.excludedTerms) {
+        const pattern = `%${term}%`;
+        itemConditions.push(
+          sql`NOT (${term} = ANY(COALESCE(eligible_item.tags, ARRAY[]::text[])))`,
+        );
+        itemConditions.push(
+          sql`unaccent(COALESCE(eligible_item.name, '')) NOT ILIKE unaccent(${pattern})`,
+        );
+        itemConditions.push(
+          sql`unaccent(COALESCE(eligible_item.description, '')) NOT ILIKE unaccent(${pattern})`,
+        );
+      }
+    }
     if (intent.price.maxPriceVnd !== undefined) {
       itemConditions.push(
         sql`eligible_item.price <= ${intent.price.maxPriceVnd}`,
@@ -359,7 +405,9 @@ export class AiSearchRepository {
       );
     }
     if (hasNutritionIntent(intent)) {
-      itemConditions.push(sql`eligible_nutrition.verified_by_restaurant = true`);
+      itemConditions.push(
+        sql`eligible_nutrition.verified_by_restaurant = true`,
+      );
     }
     if (intent.nutrition.proteinMinG !== undefined) {
       itemConditions.push(

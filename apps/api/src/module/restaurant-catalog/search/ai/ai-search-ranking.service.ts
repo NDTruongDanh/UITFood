@@ -411,10 +411,7 @@ export class AiSearchRankingService {
   ): number {
     if (intent.sort === 'calories_asc') {
       return (
-        compareNullableNumbers(
-          a.nutrition?.calories,
-          b.nutrition?.calories,
-        ) ||
+        compareNullableNumbers(a.nutrition?.calories, b.nutrition?.calories) ||
         b.score - a.score ||
         a.id.localeCompare(b.id)
       );

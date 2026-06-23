@@ -9,6 +9,10 @@ export const aiSearchIntentSchema = z
     cuisineTerms: z.array(z.string().min(1).max(80)).max(10),
     dietaryTags: z.array(z.string().min(1).max(80)).max(20),
     excludedTerms: z.array(z.string().min(1).max(80)).max(20),
+    semanticConstraints: z
+      .array(z.string().min(1).max(160))
+      .max(10)
+      .default([]),
     nutrition: z
       .object({
         highProtein: z.boolean().optional(),
