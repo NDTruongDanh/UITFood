@@ -65,6 +65,7 @@ type MenuItemSeed = {
   name: string;
   description: string;
   price: number;
+  itemKind: 'food' | 'beverage' | 'mixed';
   tags: string[];
   imageUrl: string;
   servings: number;
@@ -1403,6 +1404,7 @@ async function seedMenuItem(
     name: menuItem.name,
     description: menuItem.description,
     price: menuItem.price,
+    itemKind: menuItem.itemKind,
     status: 'available',
     tags: menuItem.tags,
     imageUrl: menuItem.imageUrl,
@@ -1505,12 +1507,15 @@ function nutritionFood(
 function item(
   index: number,
   name: string,
-  details: Omit<MenuItemSeed, 'id' | 'analysisSessionId' | 'name'>,
+  details: Omit<MenuItemSeed, 'id' | 'analysisSessionId' | 'name' | 'itemKind'> & {
+    itemKind?: 'food' | 'beverage' | 'mixed';
+  },
 ): MenuItemSeed {
   return {
     id: seedId(6, index),
     analysisSessionId: seedId(7, index),
     name,
+    itemKind: details.itemKind ?? 'food',
     ...details,
   };
 }

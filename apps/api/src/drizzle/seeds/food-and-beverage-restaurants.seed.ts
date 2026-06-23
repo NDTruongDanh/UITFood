@@ -11,19 +11,6 @@ import type {
   PreparationState,
 } from '../../module/restaurant-catalog/nutrition/types/nutrition.types';
 
-/**
- * Vegan nutrition seed.
- *
- * Adds two restaurants near:
- *   latitude: 10.8928
- *   longitude: 106.7915
- *
- * 1. Green Leaf Vegan (100% vegan)
- * 2. Harmony Eats (Mixed vegan and normal food)
- *
- * Each restaurant has its own restaurant-owner account and 3 menu items.
- */
-
 type SeedImage = {
   publicId: string;
   secureUrl: string;
@@ -105,181 +92,140 @@ const image = (
 });
 
 const seedImages = {
-  greenLeafLogo: image(
-    'vegan-nutrition/restaurants/green-leaf-logo',
-    'photo-1498837167922-ddd27525d352',
+  cafeLogo: image(
+    'food-and-beverage-restaurants/restaurants/cafe-logo',
+    'photo-1554118811-1e0d58224f24',
     512,
     512,
   ),
-  greenLeafCover: image(
-    'vegan-nutrition/restaurants/green-leaf-cover',
-    'photo-1512621776951-a57141f2eefd',
+  cafeCover: image(
+    'food-and-beverage-restaurants/restaurants/cafe-cover',
+    'photo-1497935586351-b67a49e012bf',
   ),
-  harmonyEatsLogo: image(
-    'vegan-nutrition/restaurants/harmony-eats-logo',
-    'photo-1504674900247-0877df9cc836',
-    512,
-    512,
+  croissant: image(
+    'food-and-beverage-restaurants/menu/croissant',
+    'photo-1555507036-ab1f4038808a',
   ),
-  harmonyEatsCover: image(
-    'vegan-nutrition/restaurants/harmony-eats-cover',
-    'photo-1546069901-ba9599a7e63c',
+  clubSandwich: image(
+    'food-and-beverage-restaurants/menu/club-sandwich',
+    'photo-1528735602780-2552fd46c7af',
   ),
-  veganBuddhaBowl: image(
-    'vegan-nutrition/menu/vegan-buddha-bowl',
-    'photo-1512621776951-a57141f2eefd',
+  icedLatte: image(
+    'food-and-beverage-restaurants/menu/iced-latte',
+    'photo-1517701550927-30cf4ba1dba5',
   ),
-  veganBanhMi: image(
-    'vegan-nutrition/menu/vegan-banh-mi',
-    'photo-1509722747041-616f39b57569',
-  ),
-  veganSpringRolls: image(
-    'vegan-nutrition/menu/vegan-spring-rolls',
-    'photo-1559847844-5315695dadae',
-  ),
-  chickenRice: image(
-    'vegan-nutrition/menu/chicken-rice',
-    'photo-1562967916-eb82221dfb92',
-  ),
-  grilledPorkVermicelli: image(
-    'vegan-nutrition/menu/grilled-pork-vermicelli',
-    'photo-1544025162-d76694265947',
-  ),
-  veganMushroomPho: image(
-    'vegan-nutrition/menu/vegan-mushroom-pho',
-    'photo-1582878826629-29b7ad1cdc43',
+  matchaLatte: image(
+    'food-and-beverage-restaurants/menu/matcha-latte',
+    'photo-1515823662972-da6a2e4d3002',
   ),
 } satisfies Record<string, SeedImage>;
 
-const veganNutritionImages = Object.values(seedImages);
+const foodAndBeverageImages = Object.values(seedImages);
 
 function seedId(group: number, index: number): string {
-  return `570000${group.toString().padStart(2, '0')}-0000-4000-8000-${index
+  return `580000${group.toString().padStart(2, '0')}-0000-4000-8000-${index
     .toString()
     .padStart(12, '0')}`;
 }
 
-const veganNutritionOwners = [
+const foodAndBeverageOwners = [
   {
     id: seedId(1, 1),
     accountId: seedId(2, 1),
-    name: 'Green Leaf Vegan Owner',
-    email: 'green-leaf-owner@soli.dev',
+    name: 'Study Cafe Owner',
+    email: 'study-cafe-owner@soli.dev',
     password: 'password1234',
-    restaurantName: 'Green Leaf Vegan',
-  },
-  {
-    id: seedId(1, 2),
-    accountId: seedId(2, 2),
-    name: 'Harmony Eats Owner',
-    email: 'harmony-eats-owner@soli.dev',
-    password: 'password1234',
-    restaurantName: 'Harmony Eats',
+    restaurantName: 'Study Cafe & Bistro',
   },
 ];
 
 const nutritionFoodSeeds: NutritionFoodSeed[] = [
-  nutritionFood('whiteRiceCooked', 'com trang nau chin', 'cooked white rice', {
-    aliases: ['white rice', 'steamed rice', 'com trang'],
-    category: 'grain',
+  nutritionFood('espresso', 'ca phe espresso', 'espresso', {
+    aliases: ['espresso'],
+    category: 'beverage',
     state: 'cooked',
-    calories100g: 130,
-    protein100g: 2.7,
-    carbs100g: 28.2,
-    fat100g: 0.3,
-    fiber100g: 0.4,
-    sugar100g: 0.1,
-    sodium100g: 1,
-  }),
-  nutritionFood(
-    'riceVermicelliCooked',
-    'bun tuoi nau chin',
-    'cooked rice vermicelli',
-    {
-      aliases: ['rice vermicelli', 'bun tuoi', 'rice noodles'],
-      category: 'grain',
-      state: 'cooked',
-      calories100g: 110,
-      protein100g: 1.7,
-      carbs100g: 25.7,
-      fat100g: 0.2,
-      fiber100g: 0.5,
-      sugar100g: 0.1,
-      sodium100g: 10,
-    },
-  ),
-  nutritionFood(
-    'vietnameseBaguette',
-    'banh mi viet nam',
-    'Vietnamese baguette',
-    {
-      aliases: ['baguette', 'banh mi bread'],
-      category: 'grain',
-      state: 'cooked',
-      calories100g: 270,
-      protein100g: 8.5,
-      carbs100g: 55,
-      fat100g: 1.5,
-      fiber100g: 2.5,
-      sugar100g: 3.8,
-      sodium100g: 540,
-    },
-  ),
-  nutritionFood('tofuFirm', 'dau hu', 'firm tofu', {
-    aliases: ['tofu', 'dau phu'],
-    category: 'protein',
-    state: 'cooked',
-    calories100g: 144,
-    protein100g: 17.3,
-    carbs100g: 2.8,
-    fat100g: 8.7,
-    fiber100g: 2.3,
-    sugar100g: 0.6,
-    sodium100g: 14,
-  }),
-  nutritionFood('mushroomCooked', 'nam nau chin', 'cooked mushroom', {
-    aliases: ['mushroom', 'nam'],
-    category: 'vegetable',
-    state: 'cooked',
-    calories100g: 22,
-    protein100g: 3.1,
-    carbs100g: 3.3,
-    fat100g: 0.3,
-    fiber100g: 1,
-    sugar100g: 1.5,
-    sodium100g: 5,
-  }),
-  nutritionFood(
-    'chickenBreastGrilled',
-    'uc ga nuong',
-    'grilled chicken breast',
-    {
-      aliases: ['chicken breast', 'grilled chicken', 'uc ga'],
-      category: 'protein',
-      state: 'grilled',
-      calories100g: 165,
-      protein100g: 31,
-      carbs100g: 0,
-      fat100g: 3.6,
-      fiber100g: 0,
-      sugar100g: 0,
-      sodium100g: 74,
-    },
-  ),
-  nutritionFood('porkChopGrilled', 'suon heo nuong', 'grilled pork chop', {
-    aliases: ['pork chop', 'grilled pork chop', 'suon nuong'],
-    category: 'protein',
-    state: 'grilled',
-    calories100g: 231,
-    protein100g: 25,
-    carbs100g: 0,
-    fat100g: 14,
+    calories100g: 9,
+    protein100g: 0.1,
+    carbs100g: 1.7,
+    fat100g: 0.2,
     fiber100g: 0,
     sugar100g: 0,
-    sodium100g: 76,
+    sodium100g: 14,
+  }),
+  nutritionFood('milkWhole', 'sua tuoi nguyen kem', 'whole milk', {
+    aliases: ['milk', 'sua tuoi'],
+    category: 'dairy',
+    state: 'unknown',
+    calories100g: 61,
+    protein100g: 3.2,
+    carbs100g: 4.8,
+    fat100g: 3.3,
+    fiber100g: 0,
+    sugar100g: 4.8,
+    sodium100g: 43,
+  }),
+  nutritionFood('matchaPowder', 'bot matcha', 'matcha powder', {
+    aliases: ['matcha'],
+    category: 'beverage',
+    state: 'unknown',
+    calories100g: 276,
+    protein100g: 28,
+    carbs100g: 38,
+    fat100g: 0,
+    fiber100g: 28,
+    sugar100g: 0,
+    sodium100g: 0,
+  }),
+  nutritionFood('croissant', 'banh sung bo', 'croissant', {
+    aliases: ['croissant'],
+    category: 'grain',
+    state: 'cooked',
+    calories100g: 406,
+    protein100g: 8.2,
+    carbs100g: 45.8,
+    fat100g: 21,
+    fiber100g: 2.6,
+    sugar100g: 11.3,
+    sodium100g: 467,
+  }),
+  nutritionFood('breadWhite', 'banh mi trang', 'white bread', {
+    aliases: ['sandwich bread', 'banh mi'],
+    category: 'grain',
+    state: 'cooked',
+    calories100g: 266,
+    protein100g: 8.8,
+    carbs100g: 50.6,
+    fat100g: 3.3,
+    fiber100g: 2.7,
+    sugar100g: 5.7,
+    sodium100g: 491,
+  }),
+  nutritionFood('ham', 'thit nguoi', 'ham', {
+    aliases: ['sliced ham'],
+    category: 'protein',
+    state: 'cooked',
+    calories100g: 145,
+    protein100g: 17,
+    carbs100g: 1.5,
+    fat100g: 8,
+    fiber100g: 0,
+    sugar100g: 0,
+    sodium100g: 1200,
+  }),
+  nutritionFood('cheeseCheddar', 'pho mai cheddar', 'cheddar cheese', {
+    aliases: ['cheese', 'pho mai'],
+    category: 'dairy',
+    state: 'unknown',
+    calories100g: 402,
+    protein100g: 25,
+    carbs100g: 1.3,
+    fat100g: 33,
+    fiber100g: 0,
+    sugar100g: 0.5,
+    sodium100g: 621,
   }),
   nutritionFood('lettuce', 'xa lach', 'lettuce', {
-    aliases: ['green lettuce', 'salad greens'],
+    aliases: ['green lettuce'],
     category: 'vegetable',
     state: 'raw',
     calories100g: 15,
@@ -290,258 +236,111 @@ const nutritionFoodSeeds: NutritionFoodSeed[] = [
     sugar100g: 0.8,
     sodium100g: 28,
   }),
-  nutritionFood('cucumber', 'dua leo', 'cucumber', {
-    aliases: ['cucumber slices'],
-    category: 'vegetable',
-    state: 'raw',
-    calories100g: 15,
-    protein100g: 0.7,
-    carbs100g: 3.6,
-    fat100g: 0.1,
-    fiber100g: 0.5,
-    sugar100g: 1.7,
-    sodium100g: 2,
-  }),
-  nutritionFood('carrotRaw', 'ca rot song', 'raw carrot', {
-    aliases: ['carrot', 'shredded carrot'],
-    category: 'vegetable',
-    state: 'raw',
-    calories100g: 41,
-    protein100g: 0.9,
-    carbs100g: 9.6,
-    fat100g: 0.2,
-    fiber100g: 2.8,
-    sugar100g: 4.7,
-    sodium100g: 69,
-  }),
-  nutritionFood('soySauce', 'nuoc tuong', 'soy sauce', {
-    aliases: ['soy sauce'],
-    category: 'sauce',
+  nutritionFood('sugarWhite', 'duong trang', 'white sugar', {
+    aliases: ['sugar', 'duong'],
+    category: 'sweetener',
     state: 'unknown',
-    calories100g: 53,
-    protein100g: 8.1,
-    carbs100g: 4.9,
-    fat100g: 0.6,
-    fiber100g: 0.8,
-    sugar100g: 0.4,
-    sodium100g: 5493,
+    calories100g: 387,
+    protein100g: 0,
+    carbs100g: 100,
+    fat100g: 0,
+    fiber100g: 0,
+    sugar100g: 100,
+    sodium100g: 1,
   }),
 ];
 
 const restaurantsData: RestaurantSeed[] = [
   {
     id: seedId(3, 1),
-    ownerId: veganNutritionOwners[0].id,
+    ownerId: foodAndBeverageOwners[0].id,
     categoryId: seedId(4, 1),
     zoneId: seedId(5, 1),
-    name: 'Green Leaf Vegan',
-    description: '100% plant-based healthy meals near VNU.',
-    address:
-      'Internal Road, VNU-HCM University Village, Linh Trung, Thu Duc, HCMC',
-    phone: '0905602001',
-    cuisineType: 'Vegan',
-    logoUrl: seedImages.greenLeafLogo.secureUrl,
-    coverImageUrl: seedImages.greenLeafCover.secureUrl,
-    latitude: TARGET_LATITUDE + 0.0001,
-    longitude: TARGET_LONGITUDE - 0.00015,
-    categoryName: 'Vegan Delights',
+    name: 'Study Cafe & Bistro',
+    description:
+      'Perfect place for students to study with coffee and light meals.',
+    address: 'Central Library, VNU-HCM University Village',
+    phone: '0905601201',
+    cuisineType: 'Cafe & Bistro',
+    logoUrl: seedImages.cafeLogo.secureUrl,
+    coverImageUrl: seedImages.cafeCover.secureUrl,
+    latitude: TARGET_LATITUDE + 0.0003,
+    longitude: TARGET_LONGITUDE + 0.0002,
+    categoryName: 'Drinks & Snacks',
     items: [
-      item(1, 'Vegan Buddha Bowl', {
-        description:
-          'Tofu, cooked mushrooms, lettuce, cucumber, carrots, and soy sauce over white rice.',
-        price: 65000,
-        tags: ['vegan', 'vegetarian'],
-        imageUrl: seedImages.veganBuddhaBowl.secureUrl,
+      item(1, 'Iced Caffe Latte', {
+        description: 'Espresso mixed with cold milk and ice.',
+        price: 45000,
+        itemKind: 'beverage',
+        tags: [],
+        imageUrl: seedImages.icedLatte.secureUrl,
         servings: 1,
         ingredients: [
-          ingredient('tofuFirm', 'firm tofu', 100, 'g', 'cooked', 'main'),
+          ingredient('espresso', 'espresso', 60, 'g', 'cooked', 'main'),
+          ingredient('milkWhole', 'whole milk', 150, 'g', 'unknown', 'main'),
+          ingredient('sugarWhite', 'white sugar', 10, 'g', 'unknown', 'sauce'),
+        ],
+      }),
+      item(2, 'Iced Matcha Latte', {
+        description: 'Premium matcha with cold milk and ice.',
+        price: 50000,
+        itemKind: 'beverage',
+        tags: [],
+        imageUrl: seedImages.matchaLatte.secureUrl,
+        servings: 1,
+        ingredients: [
           ingredient(
-            'mushroomCooked',
-            'cooked mushroom',
-            50,
-            'g',
-            'cooked',
-            'main',
-          ),
-          ingredient(
-            'whiteRiceCooked',
-            'cooked white rice',
-            150,
-            'g',
-            'cooked',
-            'main',
-          ),
-          ingredient('lettuce', 'lettuce', 40, 'g', 'raw', 'main'),
-          ingredient('carrotRaw', 'shredded carrot', 30, 'g', 'raw', 'main'),
-          ingredient(
-            'soySauce',
-            'soy sauce dressing',
-            15,
+            'matchaPowder',
+            'matcha powder',
+            5,
             'g',
             'unknown',
-            'sauce',
+            'main',
           ),
+          ingredient('milkWhole', 'whole milk', 180, 'g', 'unknown', 'main'),
+          ingredient('sugarWhite', 'white sugar', 15, 'g', 'unknown', 'sauce'),
         ],
       }),
-      item(2, 'Vegan Tofu Banh Mi', {
-        description:
-          'Crispy baguette with marinated firm tofu, cucumber, carrots, and soy sauce.',
-        price: 45000,
-        tags: ['vegan', 'vegetarian'],
-        imageUrl: seedImages.veganBanhMi.secureUrl,
+      item(3, 'Butter Croissant', {
+        description: 'Flaky and buttery French croissant.',
+        price: 35000,
+        itemKind: 'food',
+        tags: ['vegetarian'],
+        imageUrl: seedImages.croissant.secureUrl,
         servings: 1,
         ingredients: [
-          ingredient(
-            'vietnameseBaguette',
-            'Vietnamese baguette',
-            95,
-            'g',
-            'cooked',
-            'main',
-          ),
-          ingredient('tofuFirm', 'firm tofu', 80, 'g', 'cooked', 'main'),
-          ingredient('cucumber', 'cucumber', 30, 'g', 'raw', 'main'),
-          ingredient('carrotRaw', 'shredded carrot', 20, 'g', 'raw', 'main'),
-          ingredient('soySauce', 'soy sauce', 10, 'g', 'unknown', 'sauce'),
+          ingredient('croissant', 'croissant', 80, 'g', 'cooked', 'main'),
         ],
       }),
-      item(3, 'Vegan Spring Rolls with Vermicelli', {
-        description:
-          'Fresh rolls with tofu, lettuce, and cucumber over rice vermicelli.',
-        price: 55000,
-        tags: ['vegan', 'vegetarian'],
-        imageUrl: seedImages.veganSpringRolls.secureUrl,
-        servings: 1,
-        ingredients: [
-          ingredient('tofuFirm', 'firm tofu', 100, 'g', 'cooked', 'main'),
-          ingredient(
-            'riceVermicelliCooked',
-            'cooked rice vermicelli',
-            150,
-            'g',
-            'cooked',
-            'main',
-          ),
-          ingredient('lettuce', 'lettuce', 50, 'g', 'raw', 'main'),
-          ingredient('cucumber', 'cucumber', 40, 'g', 'raw', 'main'),
-          ingredient('soySauce', 'soy sauce', 15, 'g', 'unknown', 'sauce'),
-        ],
-      }),
-    ],
-  },
-  {
-    id: seedId(3, 2),
-    ownerId: veganNutritionOwners[1].id,
-    categoryId: seedId(4, 2),
-    zoneId: seedId(5, 2),
-    name: 'Harmony Eats',
-    description: 'A mix of delicious traditional and plant-based dishes.',
-    address: 'KTX Area A, VNU-HCM University Village, Di An, Binh Duong',
-    phone: '0905602002',
-    cuisineType: 'Mixed',
-    logoUrl: seedImages.harmonyEatsLogo.secureUrl,
-    coverImageUrl: seedImages.harmonyEatsCover.secureUrl,
-    latitude: TARGET_LATITUDE - 0.0002,
-    longitude: TARGET_LONGITUDE + 0.00025,
-    categoryName: 'Mixed Menu',
-    items: [
-      item(4, 'Chicken Rice', {
-        description:
-          'Grilled chicken breast with steamed white rice, cucumber, and carrots.',
-        price: 60000,
-        tags: [],
-        imageUrl: seedImages.chickenRice.secureUrl,
-        servings: 1,
-        ingredients: [
-          ingredient(
-            'chickenBreastGrilled',
-            'grilled chicken breast',
-            150,
-            'g',
-            'grilled',
-            'main',
-          ),
-          ingredient(
-            'whiteRiceCooked',
-            'cooked white rice',
-            180,
-            'g',
-            'cooked',
-            'main',
-          ),
-          ingredient('cucumber', 'cucumber', 40, 'g', 'raw', 'main'),
-          ingredient('carrotRaw', 'shredded carrot', 30, 'g', 'raw', 'main'),
-          ingredient('soySauce', 'soy sauce', 10, 'g', 'unknown', 'sauce'),
-        ],
-      }),
-      item(5, 'Grilled Pork Vermicelli', {
-        description:
-          'Grilled pork chop over vermicelli with lettuce and cucumber.',
+      item(4, 'Ham & Cheese Club Sandwich', {
+        description: 'Classic sandwich with ham, cheddar, and fresh lettuce.',
         price: 65000,
+        itemKind: 'food',
         tags: [],
-        imageUrl: seedImages.grilledPorkVermicelli.secureUrl,
+        imageUrl: seedImages.clubSandwich.secureUrl,
         servings: 1,
         ingredients: [
+          ingredient('breadWhite', 'white bread', 100, 'g', 'cooked', 'main'),
+          ingredient('ham', 'sliced ham', 50, 'g', 'cooked', 'main'),
           ingredient(
-            'porkChopGrilled',
-            'grilled pork chop',
-            140,
+            'cheeseCheddar',
+            'cheddar cheese',
+            30,
             'g',
-            'grilled',
+            'unknown',
             'main',
           ),
-          ingredient(
-            'riceVermicelliCooked',
-            'cooked rice vermicelli',
-            160,
-            'g',
-            'cooked',
-            'main',
-          ),
-          ingredient('lettuce', 'lettuce', 45, 'g', 'raw', 'main'),
-          ingredient('cucumber', 'cucumber', 40, 'g', 'raw', 'main'),
-          ingredient('soySauce', 'soy sauce', 15, 'g', 'unknown', 'sauce'),
-        ],
-      }),
-      item(6, 'Vegan Mushroom Pho', {
-        description:
-          'Vegan pho with rich mushroom broth, cooked mushrooms, and tofu.',
-        price: 55000,
-        tags: ['vegan', 'vegetarian'],
-        imageUrl: seedImages.veganMushroomPho.secureUrl,
-        servings: 1,
-        ingredients: [
-          ingredient(
-            'mushroomCooked',
-            'cooked mushroom',
-            80,
-            'g',
-            'cooked',
-            'main',
-          ),
-          ingredient('tofuFirm', 'firm tofu', 70, 'g', 'cooked', 'main'),
-          ingredient(
-            'riceVermicelliCooked',
-            'cooked rice noodles',
-            150,
-            'g',
-            'cooked',
-            'main',
-          ),
-          ingredient('lettuce', 'lettuce', 30, 'g', 'raw', 'main'),
-          ingredient('soySauce', 'soy sauce', 12, 'g', 'unknown', 'sauce'),
+          ingredient('lettuce', 'lettuce', 20, 'g', 'raw', 'main'),
         ],
       }),
     ],
   },
 ];
 
-const restaurantSeedNames = restaurantsData.map(
-  (restaurant) => restaurant.name,
-);
+const restaurantSeedNames = restaurantsData.map((r) => r.name);
 
 async function main() {
-  console.log('Starting vegan nutrition seeding...');
+  console.log('Starting food & beverage restaurants seeding...');
 
   await cleanupExistingSeedData();
   await seedOwnerAccounts();
@@ -560,14 +359,14 @@ async function main() {
     }
   }
 
-  console.log('Vegan nutrition seeding completed.');
+  console.log('Food & beverage restaurants seeding completed.');
   process.exit(0);
 }
 
 async function cleanupExistingSeedData() {
-  console.log('Cleaning up existing vegan nutrition seed data...');
+  console.log('Cleaning up existing food & beverage seed data...');
 
-  const ownerIds = veganNutritionOwners.map((owner) => owner.id);
+  const ownerIds = foodAndBeverageOwners.map((owner) => owner.id);
   const existingRestaurants = await db
     .select({ id: schema.restaurants.id })
     .from(schema.restaurants)
@@ -579,9 +378,7 @@ async function cleanupExistingSeedData() {
     );
 
   if (existingRestaurants.length > 0) {
-    const restaurantIds = existingRestaurants.map(
-      (restaurant) => restaurant.id,
-    );
+    const restaurantIds = existingRestaurants.map((r) => r.id);
 
     await db
       .delete(schema.orderingMenuItemSnapshots)
@@ -621,17 +418,15 @@ async function cleanupExistingSeedData() {
   await db.delete(schema.images).where(
     inArray(
       schema.images.publicId,
-      veganNutritionImages.map((asset) => asset.publicId),
+      foodAndBeverageImages.map((asset) => asset.publicId),
     ),
   );
 }
 
 async function seedOwnerAccounts() {
   const now = new Date();
-
-  for (const owner of veganNutritionOwners) {
+  for (const owner of foodAndBeverageOwners) {
     const passwordHash = await hashPassword(owner.password);
-
     await db.insert(schema.user).values({
       id: owner.id,
       name: owner.name,
@@ -650,16 +445,13 @@ async function seedOwnerAccounts() {
       createdAt: now,
       updatedAt: now,
     });
-
-    console.log(
-      `Seeded owner account: ${owner.email} / ${owner.password} for ${owner.restaurantName}`,
-    );
+    console.log(`Seeded owner account: ${owner.email}`);
   }
 }
 
 async function seedImageRecords() {
-  await db.insert(schema.images).values(veganNutritionImages);
-  console.log(`Seeded ${veganNutritionImages.length} image records.`);
+  await db.insert(schema.images).values(foodAndBeverageImages);
+  console.log(`Seeded ${foodAndBeverageImages.length} image records.`);
 }
 
 async function seedNutritionFoodDatabase(): Promise<Map<string, string>> {
@@ -669,7 +461,7 @@ async function seedNutritionFoodDatabase(): Promise<Map<string, string>> {
       nutritionFoodSeeds.map((food) => ({
         nameVi: food.nameVi,
         nameEn: food.nameEn,
-        source: 'VEGAN_NUTRITION_SEED',
+        source: 'FOOD_AND_BEVERAGE_RESTAURANTS_SEED',
         sourceFoodId: nutritionFoodSourceId(food.key),
         aliases: buildAliases(food.nameVi, [food.nameEn, ...food.aliases]),
         category: food.category,
@@ -708,7 +500,7 @@ async function seedNutritionFoodDatabase(): Promise<Map<string, string>> {
 
   const foodIdsByKey = new Map<string, string>();
   for (const row of rows) {
-    const key = row.sourceFoodId?.replace('vegan-nutrition:', '');
+    const key = row.sourceFoodId?.replace('food-and-beverage-restaurants:', '');
     if (key) foodIdsByKey.set(key, row.id);
   }
 
@@ -724,7 +516,6 @@ async function seedNutritionFoodLocalizations(
   const localizationRows = nutritionFoodSeeds.flatMap((food) => {
     const nutritionFoodId = foodIdsByKey.get(food.key);
     if (!nutritionFoodId) return [];
-
     return [
       {
         nutritionFoodId,
@@ -801,12 +592,12 @@ async function seedDeliveryZone(restaurant: RestaurantSeed) {
   const zone = {
     id: restaurant.zoneId,
     restaurantId: restaurant.id,
-    name: `${restaurant.name} Delivery Zone`,
-    radiusKm: 5,
-    baseFee: 15000,
-    perKmRate: 4000,
-    avgSpeedKmh: 30,
-    prepTimeMinutes: 15,
+    name: 'VNU-HCM University Village delivery zone',
+    radiusKm: 4,
+    baseFee: 10000,
+    perKmRate: 3500,
+    avgSpeedKmh: 25,
+    prepTimeMinutes: 10,
     bufferMinutes: 5,
     isActive: true,
   };
@@ -939,18 +730,16 @@ function nutritionFood(
   nameEn: string,
   details: Omit<NutritionFoodSeed, 'key' | 'nameVi' | 'nameEn'>,
 ): NutritionFoodSeed {
-  return {
-    key,
-    nameVi,
-    nameEn,
-    ...details,
-  };
+  return { key, nameVi, nameEn, ...details };
 }
 
 function item(
   index: number,
   name: string,
-  details: Omit<MenuItemSeed, 'id' | 'analysisSessionId' | 'name' | 'itemKind'> & {
+  details: Omit<
+    MenuItemSeed,
+    'id' | 'analysisSessionId' | 'name' | 'itemKind'
+  > & {
     itemKind?: 'food' | 'beverage' | 'mixed';
   },
 ): MenuItemSeed {
@@ -990,7 +779,7 @@ function nutritionFoodByKey(key: string): NutritionFoodSeed {
 }
 
 function nutritionFoodSourceId(key: string): string {
-  return `vegan-nutrition:${key}`;
+  return `food-and-beverage-restaurants:${key}`;
 }
 
 function requireFoodId(foodIdsByKey: Map<string, string>, key: string): string {
@@ -1013,7 +802,6 @@ function calculateNutrition(menuItem: MenuItemSeed): NutritionAmount {
   for (const ingredientSeed of menuItem.ingredients) {
     const food = nutritionFoodByKey(ingredientSeed.foodKey);
     const factor = ingredientSeed.quantityGram / 100;
-
     total.calories += food.calories100g * factor;
     total.protein += food.protein100g * factor;
     total.carbs += food.carbs100g * factor;
@@ -1092,16 +880,14 @@ function buildIngredientRawText(ingredientSeed: RecipeIngredientSeed): string {
 
 function buildAliases(name: string, aliases: readonly string[]): string[] {
   const values = new Set<string>();
-
   for (const value of [name, ...aliases]) {
     const cleaned = value.trim().toLowerCase().replace(/\s+/g, ' ');
     if (cleaned.length >= 2) values.add(cleaned);
   }
-
   return Array.from(values).slice(0, 16);
 }
 
 main().catch((error) => {
-  console.error('Vegan nutrition seed failed:', error);
+  console.error('Food & Beverage restaurants seed failed:', error);
   process.exit(1);
 });
