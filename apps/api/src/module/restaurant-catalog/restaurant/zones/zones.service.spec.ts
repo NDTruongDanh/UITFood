@@ -32,7 +32,8 @@ import { ZonesService } from './zones.service';
 import type { ZonesRepository } from './zones.repository';
 import { RestaurantService } from '../restaurant.service';
 import { GeoService } from '@/lib/geo/geo.service';
-import { EventBus } from '@nestjs/cqrs';
+import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import type { OutboxWriter } from '@/messaging/outbox/outbox.writer';
 import type { DeliveryZone, Restaurant } from '../restaurant.schema';
 
 // ---------------------------------------------------------------------------
@@ -96,18 +97,20 @@ function buildService(opts?: {
     calculateDistanceKm: jest.fn().mockReturnValue(distanceKm),
   };
 
-  const eventBus = {
-    publish: jest.fn(),
+  const outbox = { write: jest.fn().mockResolvedValue(undefined) };
+  const db = {
+    transaction: jest.fn(async (cb: (tx: object) => Promise<unknown>) => cb({})),
   };
 
   const service = new ZonesService(
     repo as unknown as ZonesRepository,
     restaurantService as unknown as RestaurantService,
     geo as unknown as GeoService,
-    eventBus as unknown as EventBus,
+    db as unknown as NodePgDatabase,
+    outbox as unknown as OutboxWriter,
   );
 
-  return { service, repo, restaurantService, geo };
+  return { service, repo, restaurantService, geo, outbox };
 }
 
 const CUSTOMER_COORDS = { latitude: 10.78, longitude: 106.71 };

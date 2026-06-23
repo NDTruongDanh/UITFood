@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { CqrsModule } from '@nestjs/cqrs';
 import { DatabaseModule } from '@/drizzle/drizzle.module';
+import { OutboxModule } from '@/messaging/outbox/outbox.module';
 import { RestaurantSnapshotRepository } from '../acl/repositories/restaurant-snapshot.repository';
 
 // Controllers
@@ -43,7 +44,13 @@ import { PromotionModule } from '@/module/promotion/promotion.module';
  * Phase: 5
  */
 @Module({
-  imports: [CqrsModule, DatabaseModule, PaymentModule, PromotionModule],
+  imports: [
+    CqrsModule,
+    DatabaseModule,
+    OutboxModule,
+    PaymentModule,
+    PromotionModule,
+  ],
   controllers: [OrderLifecycleController, PaymentCancellationController],
   providers: [
     // Command handler — core state machine logic

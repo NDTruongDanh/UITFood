@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { CqrsModule } from '@nestjs/cqrs';
 import { DatabaseModule } from '@/drizzle/drizzle.module';
+import { OutboxModule } from '@/messaging/outbox/outbox.module';
 import { PlaceOrderHandler } from './commands/place-order.handler';
 import { AppSettingsService } from '../common/app-settings.service';
 import { MenuItemSnapshotRepository } from '../acl/repositories/menu-item-snapshot.repository';
@@ -32,6 +33,7 @@ import { GeoModule } from '@/lib/geo/geo.module';
   imports: [
     CqrsModule,
     DatabaseModule,
+    OutboxModule,
     PaymentModule,
     PromotionModule,
     RedisModule,

@@ -5,14 +5,19 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { EventBus } from '@nestjs/cqrs';
+import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import {
+  createEnvelope,
+  CATALOG_RESTAURANT_CHANGED_V1,
+} from '@uitfood/contracts';
+import { DB_CONNECTION } from '@/drizzle/drizzle.constants';
+import { OutboxWriter } from '@/messaging/outbox/outbox.writer';
 import {
   RestaurantRepository,
   type PaginatedResult,
 } from './restaurant.repository';
 import { CreateRestaurantDto, UpdateRestaurantDto } from './dto/restaurant.dto';
 import type { Restaurant } from '@/module/restaurant-catalog/restaurant/restaurant.schema';
-import { RestaurantUpdatedEvent } from '@/shared/events/restaurant-updated.event';
 import {
   IMAGE_MANAGEMENT_PORT,
   type IImageManagementPort,
@@ -35,12 +40,35 @@ const MAX_PAGE_SIZE = 100;
 export class RestaurantService implements IRestaurantAccessPort {
   constructor(
     private readonly repo: RestaurantRepository,
-    private readonly eventBus: EventBus,
+    @Inject(DB_CONNECTION) private readonly db: NodePgDatabase,
+    private readonly outbox: OutboxWriter,
     @Inject(IMAGE_MANAGEMENT_PORT)
     private readonly imageService: IImageManagementPort,
     @Inject(USER_DIRECTORY_PORT)
     private readonly userDirectory: IUserDirectoryPort,
   ) {}
+
+  /** Builds the catalog.restaurant.changed.v1 envelope from a restaurant row. */
+  private restaurantEnvelope(restaurant: Restaurant, overrides?: Partial<{ isOpen: boolean; isApproved: boolean }>) {
+    return createEnvelope({
+      eventType: CATALOG_RESTAURANT_CHANGED_V1.eventType,
+      eventVersion: CATALOG_RESTAURANT_CHANGED_V1.eventVersion,
+      aggregateId: restaurant.id,
+      aggregateVersion: 0,
+      producer: 'monolith',
+      payload: {
+        restaurantId: restaurant.id,
+        name: restaurant.name,
+        isOpen: overrides?.isOpen ?? restaurant.isOpen ?? false,
+        isApproved: overrides?.isApproved ?? restaurant.isApproved ?? false,
+        address: restaurant.address,
+        ownerId: restaurant.ownerId,
+        latitude: restaurant.latitude ?? null,
+        longitude: restaurant.longitude ?? null,
+        cuisineType: restaurant.cuisineType ?? null,
+      },
+    });
+  }
 
   async findAll(
     offset?: number,
@@ -78,9 +106,11 @@ export class RestaurantService implements IRestaurantAccessPort {
   }
 
   async create(ownerId: string, dto: CreateRestaurantDto): Promise<Restaurant> {
-    const restaurant = await this.repo.create(ownerId, dto);
-    this.publishRestaurantEvent(restaurant);
-    return restaurant;
+    return this.db.transaction(async (tx) => {
+      const restaurant = await this.repo.create(ownerId, dto, tx);
+      await this.outbox.write(tx, this.restaurantEnvelope(restaurant));
+      return restaurant;
+    });
   }
 
   async update(
@@ -93,12 +123,14 @@ export class RestaurantService implements IRestaurantAccessPort {
     if (!isAdmin && restaurant.ownerId !== requesterId) {
       throw new ForbiddenException('You do not own this restaurant');
     }
-    const updated = await this.repo.update(id, dto);
-    // Defensive guard: repo.update() returns undefined if the row was deleted
-    // between the findOne() check above and this write (rare race condition).
-    if (!updated) throw new NotFoundException(`Restaurant ${id} not found`);
-    this.publishRestaurantEvent(updated);
-    return updated;
+    return this.db.transaction(async (tx) => {
+      const updated = await this.repo.update(id, dto, tx);
+      // Defensive guard: undefined if the row was deleted between findOne() and
+      // this write (rare race). Throwing rolls back the (empty) transaction.
+      if (!updated) throw new NotFoundException(`Restaurant ${id} not found`);
+      await this.outbox.write(tx, this.restaurantEnvelope(updated));
+      return updated;
+    });
   }
 
   async updateLogoImage(
@@ -121,37 +153,32 @@ export class RestaurantService implements IRestaurantAccessPort {
 
   async remove(id: string): Promise<void> {
     const restaurant = await this.findOne(id);
-    await this.repo.remove(id);
-    // Invalidate the Ordering BC snapshot by publishing with isOpen/isApproved=false.
-    // Without this event the snapshot row persists with the old values indefinitely.
-    this.eventBus.publish(
-      new RestaurantUpdatedEvent(
-        restaurant.id,
-        restaurant.name,
-        false, // isOpen — treat as closed after deletion
-        false, // isApproved — treat as not approved after deletion
-        restaurant.address,
-        restaurant.ownerId,
-        restaurant.latitude ?? null,
-        restaurant.longitude ?? null,
-        restaurant.cuisineType ?? null,
-      ),
-    );
+    await this.db.transaction(async (tx) => {
+      await this.repo.remove(id, tx);
+      // Invalidate the Ordering snapshot: publish with isOpen/isApproved=false.
+      await this.outbox.write(
+        tx,
+        this.restaurantEnvelope(restaurant, {
+          isOpen: false,
+          isApproved: false,
+        }),
+      );
+    });
   }
 
   async setApproved(id: string, isApproved: boolean): Promise<Restaurant> {
-    const updated = await this.repo.update(id, { isApproved });
-    if (!updated) {
-      throw new NotFoundException(`Restaurant ${id} not found`);
-    }
+    const updated = await this.db.transaction(async (tx) => {
+      const row = await this.repo.update(id, { isApproved }, tx);
+      if (!row) throw new NotFoundException(`Restaurant ${id} not found`);
+      await this.outbox.write(tx, this.restaurantEnvelope(row));
+      return row;
+    });
     // When approving, promote the owner's role to 'restaurant' so they gain
-    // access to restaurant-scoped features immediately without re-logging in.
-    // IMPORTANT: only promote 'user' → 'restaurant'. Admins must not be demoted
-    // (admins can own restaurants), and existing 'restaurant' owners stay put.
+    // access to restaurant-scoped features immediately. Done AFTER commit — it
+    // is an external identity call, not part of the catalog write.
     if (isApproved) {
       await this.userDirectory.promoteToRestaurant(updated.ownerId);
     }
-    this.publishRestaurantEvent(updated);
     return updated;
   }
 
@@ -184,27 +211,6 @@ export class RestaurantService implements IRestaurantAccessPort {
   // Private helpers
   // ---------------------------------------------------------------------------
 
-  /**
-   * Publishes a RestaurantUpdatedEvent using the current DB state of the restaurant.
-   * Centralising this here ensures the event is always emitted after any mutation
-   * that changes the restaurant's observable state (create, update, approve, etc.).
-   */
-  private publishRestaurantEvent(restaurant: Restaurant): void {
-    this.eventBus.publish(
-      new RestaurantUpdatedEvent(
-        restaurant.id,
-        restaurant.name,
-        restaurant.isOpen ?? false,
-        restaurant.isApproved ?? false,
-        restaurant.address,
-        restaurant.ownerId,
-        restaurant.latitude ?? null,
-        restaurant.longitude ?? null,
-        restaurant.cuisineType ?? null,
-      ),
-    );
-  }
-
   private async attachImage(
     id: string,
     requesterId: string,
@@ -218,11 +224,15 @@ export class RestaurantService implements IRestaurantAccessPort {
     }
 
     await this.imageService.create(dto);
-    const updated = await this.repo.update(id, {
-      [targetField]: dto.secureUrl,
-    } satisfies UpdateRestaurantDto);
-    if (!updated) throw new NotFoundException(`Restaurant ${id} not found`);
-    this.publishRestaurantEvent(updated);
-    return updated;
+    return this.db.transaction(async (tx) => {
+      const updated = await this.repo.update(
+        id,
+        { [targetField]: dto.secureUrl } satisfies UpdateRestaurantDto,
+        tx,
+      );
+      if (!updated) throw new NotFoundException(`Restaurant ${id} not found`);
+      await this.outbox.write(tx, this.restaurantEnvelope(updated));
+      return updated;
+    });
   }
 }

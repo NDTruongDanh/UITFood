@@ -1,11 +1,17 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { CommandHandler, ICommandHandler, EventBus } from '@nestjs/cqrs';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
+import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import {
+  createEnvelope,
+  PAYMENT_CONFIRMED_V1,
+  PAYMENT_FAILED_V1,
+  ORDER_CANCELLED_AFTER_PAYMENT_V1,
+} from '@uitfood/contracts';
+import { DB_CONNECTION } from '@/drizzle/drizzle.constants';
+import { OutboxWriter } from '@/messaging/outbox/outbox.writer';
 import { ProcessIpnCommand } from './process-ipn.command';
 import { VNPayService } from '../services/vnpay.service';
 import { PaymentTransactionRepository } from '../repositories/payment-transaction.repository';
-import { PaymentConfirmedEvent } from '@/shared/events/payment-confirmed.event';
-import { PaymentFailedEvent } from '@/shared/events/payment-failed.event';
-import { OrderCancelledAfterPaymentEvent } from '@/shared/events/order-cancelled-after-payment.event';
 import type { PaymentTransaction } from '../domain/payment-transaction.schema';
 import { runObserved } from '@/observability/trace';
 import { recordPaymentFailure } from '@/observability/domain-metrics';
@@ -72,9 +78,10 @@ export class ProcessIpnHandler implements ICommandHandler<ProcessIpnCommand> {
   private readonly logger = new Logger(ProcessIpnHandler.name);
 
   constructor(
+    @Inject(DB_CONNECTION) private readonly db: NodePgDatabase,
     private readonly vnpayService: VNPayService,
     private readonly txnRepo: PaymentTransactionRepository,
-    private readonly eventBus: EventBus,
+    private readonly outbox: OutboxWriter,
   ) {}
 
   async execute(command: ProcessIpnCommand): Promise<IpnResponse> {
@@ -179,19 +186,17 @@ export class ProcessIpnHandler implements ICommandHandler<ProcessIpnCommand> {
           );
 
           if (txn.status !== 'failed') {
-            // Only publish if this handler won the optimistic lock - prevents duplicate events
-            // when VNPay retries concurrently and two handlers race on the same transaction.
-            const mismatchFailed = await this.markFailed(
+            // markFailedAndRecord atomically fails the txn AND records the outbox
+            // PaymentFailed event; only the handler that wins the optimistic lock
+            // writes the event, preventing duplicates on concurrent VNPay retries.
+            const mismatchFailed = await this.markFailedAndRecord(
               txn,
               command.query,
               providerTxnId,
+              `IPN amount mismatch: expected ${txn.amount}, got ${ipnAmount}`,
             );
             if (mismatchFailed) {
               recordPaymentFailure({ reason: 'amount_mismatch' });
-              this.publishPaymentFailed(
-                txn,
-                `IPN amount mismatch: expected ${txn.amount}, got ${ipnAmount}`,
-              );
             }
           }
 
@@ -256,27 +261,48 @@ export class ProcessIpnHandler implements ICommandHandler<ProcessIpnCommand> {
   ): Promise<IpnResponse> {
     const now = new Date();
 
-    const updated = await this.txnRepo.updateStatus(
-      txn.id,
-      'completed',
-      txn.version,
-      {
-        // Normalize empty string to null — VNPay omits vnp_TransactionNo in rare edge
-        // cases. Storing '' would trigger the UNIQUE constraint on the second retry.
-        providerTxnId: providerTxnId || null,
-        vnpResponseCode: rawQuery['vnp_ResponseCode'] ?? null,
-        // Spread rawQuery to create a plain Object.prototype object.
-        // Express/qs parses query strings with Object.create(null) (null-prototype)
-        // which causes Drizzle's is() helper to crash on Object.getPrototypeOf().
-        rawIpnPayload: { ...rawQuery },
-        ipnReceivedAt: now,
-        paidAt: now,
-      },
-    );
+    // Atomic: mark completed AND record the PaymentConfirmed outbox event.
+    const updated = await this.db.transaction(async (tx) => {
+      const u = await this.txnRepo.updateStatus(
+        txn.id,
+        'completed',
+        txn.version,
+        {
+          // Normalize empty string to null — VNPay omits vnp_TransactionNo in rare
+          // edge cases. Storing '' would trip the UNIQUE constraint on a retry.
+          providerTxnId: providerTxnId || null,
+          vnpResponseCode: rawQuery['vnp_ResponseCode'] ?? null,
+          rawIpnPayload: { ...rawQuery },
+          ipnReceivedAt: now,
+          paidAt: now,
+        },
+        tx,
+      );
+      if (!u) return null;
+
+      await this.outbox.write(
+        tx,
+        createEnvelope({
+          eventType: PAYMENT_CONFIRMED_V1.eventType,
+          eventVersion: PAYMENT_CONFIRMED_V1.eventVersion,
+          aggregateId: txn.orderId,
+          aggregateVersion: u.version,
+          producer: 'monolith',
+          payload: {
+            orderId: txn.orderId,
+            customerId: txn.customerId,
+            provider: 'vnpay',
+            amount: paidAmount,
+            providerTxnId: providerTxnId || '',
+            confirmedAt: now.toISOString(),
+          },
+        }),
+      );
+      return u;
+    });
 
     if (!updated) {
       // Optimistic lock lost — a concurrent IPN handler already processed this.
-      // Re-read to confirm terminal state before deciding on the response.
       this.logger.warn(
         `IPN success: optimistic lock lost for txn=${txn.id} ` +
           `(concurrent processing). Re-reading for terminal check.`,
@@ -290,7 +316,6 @@ export class ProcessIpnHandler implements ICommandHandler<ProcessIpnCommand> {
         return { RspCode: IPN_RSP_SUCCESS, Message: 'Confirmed' };
       }
 
-      // Could not determine outcome — return unknown error so VNPay retries.
       return {
         RspCode: IPN_RSP_UNKNOWN_ERROR,
         Message: 'Concurrent processing conflict',
@@ -300,17 +325,6 @@ export class ProcessIpnHandler implements ICommandHandler<ProcessIpnCommand> {
     this.logger.log(
       `Payment CONFIRMED: txn=${txn.id} order=${txn.orderId} ` +
         `amount=${paidAmount} providerTxnId=${providerTxnId}`,
-    );
-
-    // Publish AFTER the DB write — Ordering's handler needs consistent DB state.
-    this.eventBus.publish(
-      new PaymentConfirmedEvent(
-        txn.orderId,
-        txn.customerId,
-        'vnpay',
-        paidAmount,
-        now,
-      ),
     );
 
     return { RspCode: IPN_RSP_SUCCESS, Message: 'Confirmed' };
@@ -329,18 +343,43 @@ export class ProcessIpnHandler implements ICommandHandler<ProcessIpnCommand> {
   ): Promise<IpnResponse> {
     const now = new Date();
 
-    const updated = await this.txnRepo.updateStatus(
-      txn.id,
-      'completed',
-      txn.version,
-      {
-        providerTxnId: providerTxnId || null,
-        vnpResponseCode: rawQuery['vnp_ResponseCode'] ?? null,
-        rawIpnPayload: { ...rawQuery },
-        ipnReceivedAt: now,
-        paidAt: now,
-      },
-    );
+    // Atomic: mark completed AND record the refund-trigger outbox event.
+    const updated = await this.db.transaction(async (tx) => {
+      const u = await this.txnRepo.updateStatus(
+        txn.id,
+        'completed',
+        txn.version,
+        {
+          providerTxnId: providerTxnId || null,
+          vnpResponseCode: rawQuery['vnp_ResponseCode'] ?? null,
+          rawIpnPayload: { ...rawQuery },
+          ipnReceivedAt: now,
+          paidAt: now,
+        },
+        tx,
+      );
+      if (!u) return null;
+
+      await this.outbox.write(
+        tx,
+        createEnvelope({
+          eventType: ORDER_CANCELLED_AFTER_PAYMENT_V1.eventType,
+          eventVersion: ORDER_CANCELLED_AFTER_PAYMENT_V1.eventVersion,
+          aggregateId: txn.orderId,
+          aggregateVersion: u.version,
+          producer: 'monolith',
+          payload: {
+            orderId: txn.orderId,
+            customerId: txn.customerId,
+            paymentMethod: 'vnpay',
+            paidAmount,
+            cancelledByRole: 'system',
+            cancelledAt: now.toISOString(),
+          },
+        }),
+      );
+      return u;
+    });
 
     if (!updated) {
       this.logger.warn(
@@ -365,17 +404,6 @@ export class ProcessIpnHandler implements ICommandHandler<ProcessIpnCommand> {
       `Late VNPay payment received after failure: txn=${txn.id} order=${txn.orderId} amount=${paidAmount}. Queuing refund.`,
     );
 
-    this.eventBus.publish(
-      new OrderCancelledAfterPaymentEvent(
-        txn.orderId,
-        txn.customerId,
-        'vnpay',
-        paidAmount,
-        now,
-        'system',
-      ),
-    );
-
     return {
       RspCode: IPN_RSP_SUCCESS,
       Message: 'Late paid transaction queued for refund',
@@ -396,15 +424,18 @@ export class ProcessIpnHandler implements ICommandHandler<ProcessIpnCommand> {
     providerTxnId: string,
     responseCode: string,
   ): Promise<IpnResponse> {
-    // Only publish the event if THIS handler won the optimistic lock.
-    // A concurrent IPN retry may have already marked the transaction failed
-    // and published the event — publishing again would dispatch a second
-    // T-03 cancel command, which would fail silently but is wasteful.
-    const failed = await this.markFailed(txn, rawQuery, providerTxnId);
+    // Only record the event if THIS handler won the optimistic lock. A concurrent
+    // IPN retry may have already failed the txn and recorded the event; recording
+    // again would dispatch a second T-03 cancel, which is wasteful.
+    const reason = `VNPay declined payment — responseCode=${responseCode}`;
+    const failed = await this.markFailedAndRecord(
+      txn,
+      rawQuery,
+      providerTxnId,
+      reason,
+    );
     if (failed) {
       recordPaymentFailure({ reason: 'declined', responseCode });
-      const reason = `VNPay declined payment — responseCode=${responseCode}`;
-      this.publishPaymentFailed(txn, reason);
       this.logger.log(
         `Payment FAILED: txn=${txn.id} order=${txn.orderId} ` +
           `responseCode=${responseCode}`,
@@ -422,57 +453,66 @@ export class ProcessIpnHandler implements ICommandHandler<ProcessIpnCommand> {
   // ---------------------------------------------------------------------------
 
   /**
-   * Writes the 'failed' terminal state to the DB with optimistic locking.
+   * Atomically writes the 'failed' terminal state AND records the PaymentFailed
+   * outbox event in one transaction (optimistic locking).
    *
-   * Returns true  — this handler won the lock; caller MUST publish PaymentFailedEvent.
+   * `reason` MUST be non-empty — the downstream T-03 transition requires a note.
+   *
+   * Returns true  — this handler won the lock; the event was recorded.
    * Returns false — another concurrent handler already resolved the transaction;
-   *                 caller MUST NOT publish to avoid duplicate events.
+   *                 no event recorded (prevents duplicates).
    */
-  private async markFailed(
+  private async markFailedAndRecord(
     txn: PaymentTransaction,
     rawQuery: Record<string, string>,
     providerTxnId: string,
+    reason: string,
   ): Promise<boolean> {
     const now = new Date();
 
-    const updated = await this.txnRepo.updateStatus(
-      txn.id,
-      'failed',
-      txn.version,
-      {
-        providerTxnId: providerTxnId || null,
-        vnpResponseCode: rawQuery['vnp_ResponseCode'] ?? null,
-        rawIpnPayload: { ...rawQuery },
-        ipnReceivedAt: now,
-      },
-    );
+    const updated = await this.db.transaction(async (tx) => {
+      const u = await this.txnRepo.updateStatus(
+        txn.id,
+        'failed',
+        txn.version,
+        {
+          providerTxnId: providerTxnId || null,
+          vnpResponseCode: rawQuery['vnp_ResponseCode'] ?? null,
+          rawIpnPayload: { ...rawQuery },
+          ipnReceivedAt: now,
+        },
+        tx,
+      );
+      if (!u) return null;
+
+      await this.outbox.write(
+        tx,
+        createEnvelope({
+          eventType: PAYMENT_FAILED_V1.eventType,
+          eventVersion: PAYMENT_FAILED_V1.eventVersion,
+          aggregateId: txn.orderId,
+          aggregateVersion: u.version,
+          producer: 'monolith',
+          payload: {
+            orderId: txn.orderId,
+            customerId: txn.customerId,
+            provider: 'vnpay',
+            reason,
+            failedAt: now.toISOString(),
+          },
+        }),
+      );
+      return u;
+    });
 
     if (!updated) {
       this.logger.warn(
-        `markFailed: optimistic lock lost for txn=${txn.id} — another process resolved it first.`,
+        `markFailedAndRecord: optimistic lock lost for txn=${txn.id} — another process resolved it first.`,
       );
       return false;
     }
 
     return true;
-  }
-
-  /**
-   * Publishes PaymentFailedEvent to the CQRS EventBus.
-   * The `reason` string MUST be non-empty — PaymentFailedEventHandler forwards
-   * it as the `note` in TransitionOrderCommand (T-03 requires `requireNote: true`).
-   * An empty string would cause the order cancellation to fail silently.
-   */
-  private publishPaymentFailed(txn: PaymentTransaction, reason: string): void {
-    this.eventBus.publish(
-      new PaymentFailedEvent(
-        txn.orderId,
-        txn.customerId,
-        'vnpay',
-        reason,
-        new Date(),
-      ),
-    );
   }
 
   /**

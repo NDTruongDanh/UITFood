@@ -7,6 +7,7 @@ import {
 } from '@/module/restaurant-catalog/restaurant/restaurant.schema';
 import { CreateRestaurantDto, UpdateRestaurantDto } from './dto/restaurant.dto';
 import { DB_CONNECTION } from '@/drizzle/drizzle.constants';
+import type { DrizzleExecutor } from '@/messaging/drizzle-executor';
 import { AiSearchIndexRepository } from '@/module/restaurant-catalog/search/indexing/ai-search-index.repository';
 import type { UnitOfWorkContext } from '@/shared/ports/unit-of-work-context';
 
@@ -82,15 +83,20 @@ export class RestaurantRepository {
     return result[0] ?? null;
   }
 
-  async create(ownerId: string, dto: CreateRestaurantDto): Promise<Restaurant> {
-    return this.db.transaction(async (tx) => {
+  async create(
+    ownerId: string,
+    dto: CreateRestaurantDto,
+    executor?: DrizzleExecutor,
+  ): Promise<Restaurant> {
+    const run = async (tx: DrizzleExecutor) => {
       const [row] = await tx
         .insert(restaurants)
         .values({ ...dto, ownerId })
         .returning();
       await this.searchIndex.refreshRestaurantSearchMetadata(row.id, tx);
       return row;
-    });
+    };
+    return executor ? run(executor) : this.db.transaction(run);
   }
 
   /**
@@ -100,8 +106,9 @@ export class RestaurantRepository {
   async update(
     id: string,
     dto: UpdateRestaurantDto,
+    executor?: DrizzleExecutor,
   ): Promise<Restaurant | undefined> {
-    return this.db.transaction(async (tx) => {
+    const run = async (tx: DrizzleExecutor) => {
       const [row] = await tx
         .update(restaurants)
         .set({ ...dto, updatedAt: new Date() })
@@ -112,7 +119,8 @@ export class RestaurantRepository {
         await this.searchIndex.refreshMenuItemsForRestaurant(row.id, tx);
       }
       return row;
-    });
+    };
+    return executor ? run(executor) : this.db.transaction(run);
   }
 
   async incrementRating(
@@ -132,7 +140,10 @@ export class RestaurantRepository {
       })
       .where(eq(restaurants.id, restaurantId));
   }
-  async remove(id: string): Promise<void> {
-    await this.db.delete(restaurants).where(eq(restaurants.id, id));
+  async remove(
+    id: string,
+    executor: DrizzleExecutor = this.db,
+  ): Promise<void> {
+    await executor.delete(restaurants).where(eq(restaurants.id, id));
   }
 }

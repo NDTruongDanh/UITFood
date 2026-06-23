@@ -1,9 +1,13 @@
 import {
   BadRequestException,
   ForbiddenException,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import { DB_CONNECTION } from '@/drizzle/drizzle.constants';
+import type { DrizzleExecutor } from '@/messaging/drizzle-executor';
 import {
   ModifierGroupRepository,
   ModifierOptionRepository,
@@ -32,6 +36,7 @@ export class ModifiersService {
     private readonly menuRepo: MenuRepository,
     private readonly restaurantService: RestaurantService,
     private readonly menuService: MenuService,
+    @Inject(DB_CONNECTION) private readonly db: NodePgDatabase,
   ) {}
 
   // -------------------------------------------------------------------------
@@ -101,9 +106,11 @@ export class ModifiersService {
   ): Promise<ModifierGroup> {
     await this.assertMenuItemOwnership(menuItemId, requesterId, isAdmin);
     this.validateMinMax(dto.minSelections ?? 0, dto.maxSelections ?? 1);
-    const group = await this.groupRepo.create(menuItemId, dto);
-    await this.publishMenuItemEvent(menuItemId);
-    return group;
+    return this.db.transaction(async (tx) => {
+      const group = await this.groupRepo.create(menuItemId, dto, tx);
+      await this.writeMenuItemOutbox(tx, menuItemId);
+      return group;
+    });
   }
 
   async updateGroup(
@@ -119,9 +126,11 @@ export class ModifiersService {
     const resolvedMin = dto.minSelections ?? existing.minSelections;
     const resolvedMax = dto.maxSelections ?? existing.maxSelections;
     this.validateMinMax(resolvedMin, resolvedMax);
-    const group = await this.groupRepo.update(groupId, dto);
-    await this.publishMenuItemEvent(menuItemId);
-    return group;
+    return this.db.transaction(async (tx) => {
+      const group = await this.groupRepo.update(groupId, dto, tx);
+      await this.writeMenuItemOutbox(tx, menuItemId);
+      return group;
+    });
   }
 
   async removeGroup(
@@ -132,8 +141,10 @@ export class ModifiersService {
   ): Promise<void> {
     await this.findGroup(groupId, menuItemId); // existence check
     await this.assertMenuItemOwnership(menuItemId, requesterId, isAdmin);
-    await this.groupRepo.remove(groupId);
-    await this.publishMenuItemEvent(menuItemId);
+    await this.db.transaction(async (tx) => {
+      await this.groupRepo.remove(groupId, tx);
+      await this.writeMenuItemOutbox(tx, menuItemId);
+    });
   }
 
   // -------------------------------------------------------------------------
@@ -149,9 +160,11 @@ export class ModifiersService {
   ): Promise<ModifierOption> {
     await this.findGroup(groupId, menuItemId); // group belongs to item
     await this.assertMenuItemOwnership(menuItemId, requesterId, isAdmin);
-    const option = await this.optionRepo.create(groupId, dto);
-    await this.publishMenuItemEvent(menuItemId);
-    return option;
+    return this.db.transaction(async (tx) => {
+      const option = await this.optionRepo.create(groupId, dto, tx);
+      await this.writeMenuItemOutbox(tx, menuItemId);
+      return option;
+    });
   }
 
   async updateOption(
@@ -165,9 +178,11 @@ export class ModifiersService {
     await this.findOption(optionId, groupId); // existence check
     await this.findGroup(groupId, menuItemId); // group belongs to item
     await this.assertMenuItemOwnership(menuItemId, requesterId, isAdmin);
-    const option = await this.optionRepo.update(optionId, dto);
-    await this.publishMenuItemEvent(menuItemId);
-    return option;
+    return this.db.transaction(async (tx) => {
+      const option = await this.optionRepo.update(optionId, dto, tx);
+      await this.writeMenuItemOutbox(tx, menuItemId);
+      return option;
+    });
   }
 
   async removeOption(
@@ -180,16 +195,21 @@ export class ModifiersService {
     await this.findOption(optionId, groupId); // existence check
     await this.findGroup(groupId, menuItemId); // group belongs to item
     await this.assertMenuItemOwnership(menuItemId, requesterId, isAdmin);
-    await this.optionRepo.remove(optionId);
-    await this.publishMenuItemEvent(menuItemId);
+    await this.db.transaction(async (tx) => {
+      await this.optionRepo.remove(optionId, tx);
+      await this.writeMenuItemOutbox(tx, menuItemId);
+    });
   }
 
   // -------------------------------------------------------------------------
   // Private helpers
   // -------------------------------------------------------------------------
 
-  private async requireMenuItem(menuItemId: string) {
-    const item = await this.menuRepo.findById(menuItemId);
+  private async requireMenuItem(
+    menuItemId: string,
+    executor?: DrizzleExecutor,
+  ) {
+    const item = await this.menuRepo.findById(menuItemId, executor);
     if (!item) throw new NotFoundException(`Menu item ${menuItemId} not found`);
     return item;
   }
@@ -220,13 +240,17 @@ export class ModifiersService {
   }
 
   /**
-   * Re-fetches the full menu item + all groups+options and publishes
-   * MenuItemUpdatedEvent so the Ordering snapshot stays in sync.
-   * Fix I-1: modifier mutations now publish events.
+   * Re-fetches the full menu item + all groups+options WITHIN the caller's
+   * transaction (so it sees the just-written modifier change) and records a
+   * catalog.menu-item.changed.v1 outbox event. Atomic with the modifier write.
+   * Fix I-1: modifier mutations now produce events durably.
    */
-  private async publishMenuItemEvent(menuItemId: string): Promise<void> {
-    const item = await this.requireMenuItem(menuItemId);
-    const modifiers = await this.buildGroupsWithOptions(menuItemId);
+  private async writeMenuItemOutbox(
+    tx: DrizzleExecutor,
+    menuItemId: string,
+  ): Promise<void> {
+    const item = await this.requireMenuItem(menuItemId, tx);
+    const modifiers = await this.buildGroupsWithOptions(menuItemId, tx);
     const snapshot: MenuItemModifierSnapshot[] = modifiers.map((g) => ({
       groupId: g.id,
       groupName: g.name,
@@ -240,20 +264,24 @@ export class ModifiersService {
         isAvailable: o.isAvailable,
       })),
     }));
-    this.menuService.publishMenuItemEvent(item, snapshot);
+    await this.menuService.writeMenuItemOutbox(tx, item, snapshot);
   }
 
   /**
    * Fetches all groups + options for a menu item in 2 DB round-trips (was N+1).
-   * Groups are fetched first; then all options are fetched in a single inArray
-   * query and grouped in memory by groupId.
+   * Runs on the provided executor (a transaction during outbox writes) so it
+   * reflects uncommitted modifier changes.
    */
   private async buildGroupsWithOptions(
     menuItemId: string,
+    executor?: DrizzleExecutor,
   ): Promise<ModifierGroupResponseDto[]> {
-    const groups = await this.groupRepo.findByMenuItem(menuItemId);
+    const groups = await this.groupRepo.findByMenuItem(menuItemId, executor);
     if (groups.length === 0) return [];
-    const allOptions = await this.optionRepo.findAllByMenuItem(menuItemId);
+    const allOptions = await this.optionRepo.findAllByMenuItem(
+      menuItemId,
+      executor,
+    );
     const optionsByGroupId = new Map<string, ModifierOption[]>();
     for (const option of allOptions) {
       const list = optionsByGroupId.get(option.groupId) ?? [];

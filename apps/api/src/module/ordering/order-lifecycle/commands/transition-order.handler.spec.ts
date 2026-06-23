@@ -33,7 +33,7 @@ import * as schema from '@/drizzle/schema';
 import type { OrderRepository } from '../repositories/order.repository';
 import type { OrderLifecycleService } from '../services/order-lifecycle.service';
 import type { RestaurantSnapshotRepository } from '../../acl/repositories/restaurant-snapshot.repository';
-import type { EventBus } from '@nestjs/cqrs';
+import type { OutboxWriter } from '@/messaging/outbox/outbox.writer';
 
 type Mocked<T> = { [K in keyof T]: jest.Mock };
 
@@ -91,13 +91,13 @@ describe('TransitionOrderHandler', () => {
   let orderRepo: Mocked<{ findById: jest.Mock }>;
   let lifecycle: Mocked<{ assertOwnership: jest.Mock }>;
   let snapshotRepo: Mocked<{ findById: jest.Mock }>;
-  let eventBus: { publish: jest.Mock };
+  let outbox: { write: jest.Mock };
 
   beforeEach(() => {
     orderRepo = { findById: jest.fn() };
     lifecycle = { assertOwnership: jest.fn().mockResolvedValue(undefined) };
     snapshotRepo = { findById: jest.fn() };
-    eventBus = { publish: jest.fn() };
+    outbox = { write: jest.fn().mockResolvedValue(undefined) };
   });
 
   function buildHandler(db: unknown): TransitionOrderHandler {
@@ -106,7 +106,7 @@ describe('TransitionOrderHandler', () => {
       orderRepo as unknown as OrderRepository,
       lifecycle as unknown as OrderLifecycleService,
       snapshotRepo as unknown as RestaurantSnapshotRepository,
-      eventBus as unknown as EventBus,
+      outbox as unknown as OutboxWriter,
     );
   }
 
@@ -130,7 +130,7 @@ describe('TransitionOrderHandler', () => {
     );
     expect(result).toBe(order);
     expect(updateSet).not.toHaveBeenCalled();
-    expect(eventBus.publish).not.toHaveBeenCalled();
+    expect(outbox.write).not.toHaveBeenCalled();
   });
 
   it('§3 throws UnprocessableEntity when transition not in TRANSITIONS', async () => {
@@ -225,13 +225,17 @@ describe('TransitionOrderHandler', () => {
         triggeredByRole: 'restaurant',
       }),
     );
-    expect(eventBus.publish).toHaveBeenCalledTimes(1);
-    expect(eventBus.publish).toHaveBeenCalledWith(
+    expect(outbox.write).toHaveBeenCalledTimes(1);
+    const [, envelope] = outbox.write.mock.calls[0] as [
+      unknown,
+      { eventType: string; payload: Record<string, unknown> },
+    ];
+    expect(envelope.payload).toEqual(
       expect.objectContaining({
         orderId: 'ord-1',
         fromStatus: 'pending',
         toStatus: 'confirmed',
-        triggeredByRole: 'restaurant',
+        actorRole: 'restaurant',
       }),
     );
   });
@@ -256,8 +260,8 @@ describe('TransitionOrderHandler', () => {
       ),
     );
 
-    // 2 events: OrderStatusChangedEvent + OrderReadyForPickupEvent
-    expect(eventBus.publish).toHaveBeenCalledTimes(2);
+    // 2 outbox events: order-status-changed + order-ready-for-pickup
+    expect(outbox.write).toHaveBeenCalledTimes(2);
   });
 
   it('§11 T-08 with missing snapshot skips ready event (does not throw)', async () => {
@@ -279,8 +283,8 @@ describe('TransitionOrderHandler', () => {
         ),
       ),
     ).resolves.toBeDefined();
-    // only OrderStatusChangedEvent — ready event skipped
-    expect(eventBus.publish).toHaveBeenCalledTimes(1);
+    // only order-status-changed — ready event skipped
+    expect(outbox.write).toHaveBeenCalledTimes(1);
   });
 
   it('§12 T-05 VNPay cancel publishes OrderCancelledAfterPaymentEvent', async () => {
@@ -301,7 +305,8 @@ describe('TransitionOrderHandler', () => {
       ),
     );
 
-    expect(eventBus.publish).toHaveBeenCalledTimes(2);
+    // 2 outbox events: order-status-changed + order-cancelled-after-payment
+    expect(outbox.write).toHaveBeenCalledTimes(2);
   });
 
   it('§13 T-09 self-assign writes shipperId in update', async () => {

@@ -10,6 +10,7 @@ import {
   type NewModifierOption,
 } from '@/module/restaurant-catalog/menu/menu.schema';
 import { DB_CONNECTION } from '@/drizzle/drizzle.constants';
+import type { DrizzleExecutor } from '@/messaging/drizzle-executor';
 import type {
   CreateModifierGroupDto,
   UpdateModifierGroupDto,
@@ -25,8 +26,11 @@ import type {
 export class ModifierGroupRepository {
   constructor(@Inject(DB_CONNECTION) readonly db: NodePgDatabase) {}
 
-  async findByMenuItem(menuItemId: string): Promise<ModifierGroup[]> {
-    return this.db
+  async findByMenuItem(
+    menuItemId: string,
+    executor: DrizzleExecutor = this.db,
+  ): Promise<ModifierGroup[]> {
+    return executor
       .select()
       .from(modifierGroups)
       .where(eq(modifierGroups.menuItemId, menuItemId))
@@ -45,6 +49,7 @@ export class ModifierGroupRepository {
   async create(
     menuItemId: string,
     dto: CreateModifierGroupDto,
+    executor: DrizzleExecutor = this.db,
   ): Promise<ModifierGroup> {
     const data: NewModifierGroup = {
       menuItemId,
@@ -53,15 +58,19 @@ export class ModifierGroupRepository {
       maxSelections: dto.maxSelections ?? 1,
       displayOrder: dto.displayOrder ?? 0,
     };
-    const [row] = await this.db.insert(modifierGroups).values(data).returning();
+    const [row] = await executor
+      .insert(modifierGroups)
+      .values(data)
+      .returning();
     return row;
   }
 
   async update(
     id: string,
     dto: UpdateModifierGroupDto,
+    executor: DrizzleExecutor = this.db,
   ): Promise<ModifierGroup> {
-    const [row] = await this.db
+    const [row] = await executor
       .update(modifierGroups)
       .set({ ...dto, updatedAt: new Date() })
       .where(eq(modifierGroups.id, id))
@@ -69,8 +78,11 @@ export class ModifierGroupRepository {
     return row;
   }
 
-  async remove(id: string): Promise<void> {
-    await this.db.delete(modifierGroups).where(eq(modifierGroups.id, id));
+  async remove(
+    id: string,
+    executor: DrizzleExecutor = this.db,
+  ): Promise<void> {
+    await executor.delete(modifierGroups).where(eq(modifierGroups.id, id));
   }
 }
 
@@ -102,6 +114,7 @@ export class ModifierOptionRepository {
   async create(
     groupId: string,
     dto: CreateModifierOptionDto,
+    executor: DrizzleExecutor = this.db,
   ): Promise<ModifierOption> {
     const data: NewModifierOption = {
       groupId,
@@ -111,7 +124,7 @@ export class ModifierOptionRepository {
       displayOrder: dto.displayOrder ?? 0,
       isAvailable: dto.isAvailable ?? true,
     };
-    const [row] = await this.db
+    const [row] = await executor
       .insert(modifierOptions)
       .values(data)
       .returning();
@@ -121,8 +134,9 @@ export class ModifierOptionRepository {
   async update(
     id: string,
     dto: UpdateModifierOptionDto,
+    executor: DrizzleExecutor = this.db,
   ): Promise<ModifierOption> {
-    const [row] = await this.db
+    const [row] = await executor
       .update(modifierOptions)
       .set({ ...dto, updatedAt: new Date() })
       .where(eq(modifierOptions.id, id))
@@ -136,21 +150,27 @@ export class ModifierOptionRepository {
    * keeping the return type cleanly typed as ModifierOption[].
    * Called by ModifiersService.buildGroupsWithOptions.
    */
-  async findAllByMenuItem(menuItemId: string): Promise<ModifierOption[]> {
-    const groups = await this.db
+  async findAllByMenuItem(
+    menuItemId: string,
+    executor: DrizzleExecutor = this.db,
+  ): Promise<ModifierOption[]> {
+    const groups = await executor
       .select({ id: modifierGroups.id })
       .from(modifierGroups)
       .where(eq(modifierGroups.menuItemId, menuItemId));
     if (groups.length === 0) return [];
     const groupIds = groups.map((g) => g.id);
-    return this.db
+    return executor
       .select()
       .from(modifierOptions)
       .where(inArray(modifierOptions.groupId, groupIds))
       .orderBy(modifierOptions.displayOrder);
   }
 
-  async remove(id: string): Promise<void> {
-    await this.db.delete(modifierOptions).where(eq(modifierOptions.id, id));
+  async remove(
+    id: string,
+    executor: DrizzleExecutor = this.db,
+  ): Promise<void> {
+    await executor.delete(modifierOptions).where(eq(modifierOptions.id, id));
   }
 }

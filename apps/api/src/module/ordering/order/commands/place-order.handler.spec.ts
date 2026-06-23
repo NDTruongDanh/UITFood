@@ -301,7 +301,7 @@ describe('PlaceOrderHandler', () => {
   describe('idempotency check', () => {
     it('returns cached order when idempotency key has already been processed', async () => {
       const cachedOrder = makePersistedOrder({ id: 'order-cached-1' });
-      const { handler, redis } = buildHandler({
+      const { handler, redis, outbox } = buildHandler({
         redisGetResult: 'order-cached-1',
         persistedOrder: cachedOrder,
       });
@@ -518,14 +518,17 @@ describe('PlaceOrderHandler', () => {
       expect(result.paymentMethod).toBe('cod');
     });
 
-    it('publishes OrderPlacedEvent after successful order creation', async () => {
-      const { handler, eventBus } = buildHandler();
+    it('records an order.placed outbox event after successful order creation', async () => {
+      const { handler, outbox } = buildHandler();
 
       await handler.execute(makeCommand());
 
       expect(outbox.write).toHaveBeenCalledTimes(1);
-      const [event] = eventBus.publish.mock.calls[0] as [OrderPlacedEvent];
-      expect(event.orderId).toBe('order-uuid-1');
+      const [, envelope] = outbox.write.mock.calls[0] as [
+        unknown,
+        { payload: { orderId: string } },
+      ];
+      expect(envelope.payload.orderId).toBe('order-uuid-1');
     });
 
     it('clears the Redis cart after placing the order', async () => {

@@ -5,7 +5,14 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { EventBus } from '@nestjs/cqrs';
+import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import {
+  createEnvelope,
+  CATALOG_MENU_ITEM_CHANGED_V1,
+} from '@uitfood/contracts';
+import { DB_CONNECTION } from '@/drizzle/drizzle.constants';
+import { OutboxWriter } from '@/messaging/outbox/outbox.writer';
+import type { DrizzleExecutor } from '@/messaging/drizzle-executor';
 import {
   MenuRepository,
   type MenuItemDetail,
@@ -23,7 +30,6 @@ import type {
   MenuCategory,
 } from '@/module/restaurant-catalog/menu/menu.schema';
 import { RestaurantService } from '@/module/restaurant-catalog/restaurant/restaurant.service';
-import { MenuItemUpdatedEvent } from '@/shared/events/menu-item-updated.event';
 import {
   IMAGE_MANAGEMENT_PORT,
   type IImageManagementPort,
@@ -49,7 +55,8 @@ export class MenuService {
   constructor(
     private readonly repo: MenuRepository,
     private readonly restaurantService: RestaurantService,
-    private readonly eventBus: EventBus,
+    @Inject(DB_CONNECTION) private readonly db: NodePgDatabase,
+    private readonly outbox: OutboxWriter,
     @Inject(IMAGE_MANAGEMENT_PORT)
     private readonly imageService: IImageManagementPort,
   ) {}
@@ -87,9 +94,11 @@ export class MenuService {
     if (!isAdmin && restaurant.ownerId !== requesterId) {
       throw new ForbiddenException('You do not own this restaurant');
     }
-    const item = await this.repo.create(dto);
-    this.publishMenuItemEvent(item, []);
-    return item;
+    return this.db.transaction(async (tx) => {
+      const item = await this.repo.create(dto, tx);
+      await this.writeMenuItemOutbox(tx, item, []);
+      return item;
+    });
   }
 
   async update(
@@ -99,10 +108,12 @@ export class MenuService {
     dto: UpdateMenuItemDto,
   ): Promise<MenuItem> {
     await this.assertOwnership(id, requesterId, isAdmin);
-    const item = await this.repo.update(id, dto);
-    // null = no modifier data in this event; projector will preserve existing snapshot modifiers
-    this.publishMenuItemEvent(item, null);
-    return item;
+    return this.db.transaction(async (tx) => {
+      const item = await this.repo.update(id, dto, tx);
+      // null = no modifier data; projector preserves existing snapshot modifiers.
+      await this.writeMenuItemOutbox(tx, item, null);
+      return item;
+    });
   }
 
   async updateImage(
@@ -113,9 +124,11 @@ export class MenuService {
   ): Promise<MenuItem> {
     await this.assertOwnership(id, requesterId, isAdmin);
     await this.imageService.create(dto);
-    const item = await this.repo.update(id, { imageUrl: dto.secureUrl });
-    this.publishMenuItemEvent(item, null);
-    return item;
+    return this.db.transaction(async (tx) => {
+      const item = await this.repo.update(id, { imageUrl: dto.secureUrl }, tx);
+      await this.writeMenuItemOutbox(tx, item, null);
+      return item;
+    });
   }
 
   async toggleSoldOut(
@@ -131,10 +144,11 @@ export class MenuService {
     }
     const nextStatus =
       item.status === 'out_of_stock' ? 'available' : 'out_of_stock';
-    const updated = await this.repo.update(id, { status: nextStatus });
-    // null = no modifier data in this event; projector will preserve existing snapshot modifiers
-    this.publishMenuItemEvent(updated, null);
-    return updated;
+    return this.db.transaction(async (tx) => {
+      const updated = await this.repo.update(id, { status: nextStatus }, tx);
+      await this.writeMenuItemOutbox(tx, updated, null);
+      return updated;
+    });
   }
 
   async remove(
@@ -143,18 +157,14 @@ export class MenuService {
     isAdmin: boolean,
   ): Promise<void> {
     const item = await this.assertOwnership(id, requesterId, isAdmin);
-    await this.repo.remove(id);
-    // Publish with 'unavailable' so the Ordering snapshot is invalidated
-    this.eventBus.publish(
-      new MenuItemUpdatedEvent(
-        item.id,
-        item.restaurantId,
-        item.name,
-        item.price,
-        'unavailable',
-        [],
-      ),
-    );
+    await this.db.transaction(async (tx) => {
+      await this.repo.remove(id, tx);
+      // Force 'unavailable' so the Ordering snapshot is invalidated on delete.
+      await this.outbox.write(
+        tx,
+        this.buildMenuItemEnvelope({ ...item, status: 'unavailable' }, []),
+      );
+    });
   }
 
   /**
@@ -233,23 +243,42 @@ export class MenuService {
   // -------------------------------------------------------------------------
 
   /**
-   * Publishes a MenuItemUpdatedEvent with the latest item state + modifier snapshot.
-   * `modifiers` is passed in by the caller (ModifiersService re-fetches them after any change).
+   * Builds the catalog.menu-item.changed.v1 envelope for an item + modifier
+   * snapshot. `modifiers === null` tells the projector to preserve existing
+   * snapshot modifiers; `[]` means no modifier groups.
    */
-  publishMenuItemEvent(
+  buildMenuItemEnvelope(
     item: MenuItem,
     modifiers: MenuItemModifierSnapshot[] | null,
-  ): void {
-    this.eventBus.publish(
-      new MenuItemUpdatedEvent(
-        item.id,
-        item.restaurantId,
-        item.name,
-        item.price,
-        item.status,
+  ) {
+    return createEnvelope({
+      eventType: CATALOG_MENU_ITEM_CHANGED_V1.eventType,
+      eventVersion: CATALOG_MENU_ITEM_CHANGED_V1.eventVersion,
+      aggregateId: item.id,
+      aggregateVersion: 0,
+      producer: 'monolith',
+      payload: {
+        menuItemId: item.id,
+        restaurantId: item.restaurantId,
+        name: item.name,
+        price: item.price,
+        status: item.status,
         modifiers,
-      ),
-    );
+      },
+    });
+  }
+
+  /**
+   * Records a menu-item-changed event in the outbox within the caller's
+   * transaction. Reused by ModifiersService so modifier mutations stay atomic
+   * with the event they produce.
+   */
+  writeMenuItemOutbox(
+    tx: DrizzleExecutor,
+    item: MenuItem,
+    modifiers: MenuItemModifierSnapshot[] | null,
+  ): Promise<void> {
+    return this.outbox.write(tx, this.buildMenuItemEnvelope(item, modifiers));
   }
 
   // -------------------------------------------------------------------------

@@ -1,11 +1,10 @@
-import { EventBus } from '@nestjs/cqrs';
+import { EVENT_NAMES } from '@uitfood/contracts';
 import { ProcessIpnHandler } from './process-ipn.handler';
 import { ProcessIpnCommand } from './process-ipn.command';
 import { VNPayService } from '../services/vnpay.service';
 import { PaymentTransactionRepository } from '../repositories/payment-transaction.repository';
-import { PaymentConfirmedEvent } from '@/shared/events/payment-confirmed.event';
-import { PaymentFailedEvent } from '@/shared/events/payment-failed.event';
-import { OrderCancelledAfterPaymentEvent } from '@/shared/events/order-cancelled-after-payment.event';
+import type { OutboxWriter } from '@/messaging/outbox/outbox.writer';
+import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { PaymentTransaction } from '../domain/payment-transaction.schema';
 
 // ---------------------------------------------------------------------------
@@ -55,6 +54,13 @@ function makeSuccessVerification(
   };
 }
 
+/** Returns the eventTypes recorded to the outbox across all write() calls. */
+function writtenEventTypes(outbox: { write: jest.Mock }): string[] {
+  return outbox.write.mock.calls.map(
+    (c) => (c[1] as { eventType: string }).eventType,
+  );
+}
+
 function buildHandler() {
   const vnpayService = {
     verifyIpn: jest.fn(),
@@ -65,13 +71,24 @@ function buildHandler() {
     updateStatus: jest.fn(),
   } as unknown as PaymentTransactionRepository;
 
-  const eventBus = {
-    publish: jest.fn(),
-  } as unknown as EventBus;
+  const outbox = { write: jest.fn().mockResolvedValue(undefined) };
 
-  const handler = new ProcessIpnHandler(vnpayService, txnRepo, eventBus);
+  // db.transaction(cb) simply runs the callback with a stub tx object; the
+  // repo and outbox are mocked, so the tx's identity is irrelevant.
+  const db = {
+    transaction: jest.fn(
+      async (cb: (tx: object) => Promise<unknown>) => cb({}),
+    ),
+  } as unknown as NodePgDatabase;
 
-  return { handler, vnpayService, txnRepo, eventBus };
+  const handler = new ProcessIpnHandler(
+    db,
+    vnpayService,
+    txnRepo,
+    outbox as unknown as OutboxWriter,
+  );
+
+  return { handler, vnpayService, txnRepo, outbox };
 }
 
 function makeCommand(query: Record<string, string> = {}): ProcessIpnCommand {
@@ -91,9 +108,6 @@ function makeCommand(query: Record<string, string> = {}): ProcessIpnCommand {
 // ---------------------------------------------------------------------------
 
 describe('ProcessIpnHandler', () => {
-  // -------------------------------------------------------------------------
-  // Step 1: Signature verification
-  // -------------------------------------------------------------------------
   describe('invalid signature', () => {
     it('returns RspCode 97 when signature is invalid', async () => {
       const { handler, vnpayService } = buildHandler();
@@ -114,9 +128,6 @@ describe('ProcessIpnHandler', () => {
     });
   });
 
-  // -------------------------------------------------------------------------
-  // Step 2: Transaction lookup
-  // -------------------------------------------------------------------------
   describe('transaction not found', () => {
     it('returns RspCode 01 when txnRef is not in DB', async () => {
       const { handler, vnpayService, txnRepo } = buildHandler();
@@ -131,14 +142,11 @@ describe('ProcessIpnHandler', () => {
     });
   });
 
-  // -------------------------------------------------------------------------
-  // Step 3: Idempotency (terminal state)
-  // -------------------------------------------------------------------------
   describe('idempotency', () => {
     it.each([['completed'], ['refund_pending'], ['refunded']] as const)(
       'returns RspCode 00 immediately when transaction is already %s',
       async (status) => {
-        const { handler, vnpayService, txnRepo, eventBus } = buildHandler();
+        const { handler, vnpayService, txnRepo, outbox } = buildHandler();
         (vnpayService.verifyIpn as jest.Mock).mockReturnValue(
           makeSuccessVerification(),
         );
@@ -148,12 +156,12 @@ describe('ProcessIpnHandler', () => {
 
         expect(result.RspCode).toBe('00');
         expect(txnRepo.updateStatus).not.toHaveBeenCalled();
-        expect(eventBus.publish).not.toHaveBeenCalled();
+        expect(outbox.write).not.toHaveBeenCalled();
       },
     );
 
     it('returns RspCode 00 immediately when transaction is already failed and IPN is unpaid', async () => {
-      const { handler, vnpayService, txnRepo, eventBus } = buildHandler();
+      const { handler, vnpayService, txnRepo, outbox } = buildHandler();
       (vnpayService.verifyIpn as jest.Mock).mockReturnValue(
         makeSuccessVerification({ responsePaid: false }),
       );
@@ -162,26 +170,20 @@ describe('ProcessIpnHandler', () => {
       );
 
       const result = await handler.execute(
-        makeCommand({
-          vnp_ResponseCode: '24',
-          vnp_TransactionStatus: '02',
-        }),
+        makeCommand({ vnp_ResponseCode: '24', vnp_TransactionStatus: '02' }),
       );
 
       expect(result.RspCode).toBe('00');
       expect(txnRepo.updateStatus).not.toHaveBeenCalled();
-      expect(eventBus.publish).not.toHaveBeenCalled();
+      expect(outbox.write).not.toHaveBeenCalled();
     });
   });
 
-  // -------------------------------------------------------------------------
-  // Step 4: Amount validation
-  // -------------------------------------------------------------------------
   describe('amount mismatch', () => {
     it('returns RspCode 04 when IPN amount differs from stored amount', async () => {
       const { handler, vnpayService, txnRepo } = buildHandler();
       (vnpayService.verifyIpn as jest.Mock).mockReturnValue(
-        makeSuccessVerification({ amount: 200000 }), // differs from txn.amount=150000
+        makeSuccessVerification({ amount: 200000 }),
       );
       (txnRepo.findById as jest.Mock).mockResolvedValue(
         makeTxn({ amount: 150000 }),
@@ -195,8 +197,8 @@ describe('ProcessIpnHandler', () => {
       expect(result.RspCode).toBe('04');
     });
 
-    it('publishes PaymentFailedEvent when amount mismatches and lock is won', async () => {
-      const { handler, vnpayService, txnRepo, eventBus } = buildHandler();
+    it('records a payment.failed outbox event when amount mismatches and lock is won', async () => {
+      const { handler, vnpayService, txnRepo, outbox } = buildHandler();
       (vnpayService.verifyIpn as jest.Mock).mockReturnValue(
         makeSuccessVerification({ amount: 200000 }),
       );
@@ -209,13 +211,11 @@ describe('ProcessIpnHandler', () => {
 
       await handler.execute(makeCommand());
 
-      expect(eventBus.publish).toHaveBeenCalledWith(
-        expect.any(PaymentFailedEvent),
-      );
+      expect(writtenEventTypes(outbox)).toContain(EVENT_NAMES.PaymentFailed);
     });
 
-    it('does not publish PaymentFailedEvent when optimistic lock is lost on amount mismatch', async () => {
-      const { handler, vnpayService, txnRepo, eventBus } = buildHandler();
+    it('does not record an event when optimistic lock is lost on amount mismatch', async () => {
+      const { handler, vnpayService, txnRepo, outbox } = buildHandler();
       (vnpayService.verifyIpn as jest.Mock).mockReturnValue(
         makeSuccessVerification({ amount: 200000 }),
       );
@@ -226,13 +226,10 @@ describe('ProcessIpnHandler', () => {
 
       await handler.execute(makeCommand());
 
-      expect(eventBus.publish).not.toHaveBeenCalled();
+      expect(outbox.write).not.toHaveBeenCalled();
     });
   });
 
-  // -------------------------------------------------------------------------
-  // Step 5a: Success path
-  // -------------------------------------------------------------------------
   describe('payment success (responsePaid=true)', () => {
     it('returns RspCode 00 on successful payment', async () => {
       const { handler, vnpayService, txnRepo } = buildHandler();
@@ -249,8 +246,8 @@ describe('ProcessIpnHandler', () => {
       expect(result.RspCode).toBe('00');
     });
 
-    it('publishes PaymentConfirmedEvent after successful update', async () => {
-      const { handler, vnpayService, txnRepo, eventBus } = buildHandler();
+    it('records a payment.confirmed outbox event after successful update', async () => {
+      const { handler, vnpayService, txnRepo, outbox } = buildHandler();
       (vnpayService.verifyIpn as jest.Mock).mockReturnValue(
         makeSuccessVerification(),
       );
@@ -261,13 +258,11 @@ describe('ProcessIpnHandler', () => {
 
       await handler.execute(makeCommand());
 
-      expect(eventBus.publish).toHaveBeenCalledWith(
-        expect.any(PaymentConfirmedEvent),
-      );
+      expect(writtenEventTypes(outbox)).toContain(EVENT_NAMES.PaymentConfirmed);
     });
 
-    it('PaymentConfirmedEvent carries correct orderId and amount', async () => {
-      const { handler, vnpayService, txnRepo, eventBus } = buildHandler();
+    it('payment.confirmed payload carries correct orderId and amount', async () => {
+      const { handler, vnpayService, txnRepo, outbox } = buildHandler();
       (vnpayService.verifyIpn as jest.Mock).mockReturnValue(
         makeSuccessVerification({ amount: 150000 }),
       );
@@ -280,21 +275,20 @@ describe('ProcessIpnHandler', () => {
 
       await handler.execute(makeCommand());
 
-      const published = (
-        (eventBus.publish as jest.Mock).mock.calls[0] as [PaymentConfirmedEvent]
-      )[0];
-      expect(published.orderId).toBe('order-99');
-      expect(published.paidAmount).toBe(150000);
+      const [, envelope] = outbox.write.mock.calls[0] as [
+        unknown,
+        { payload: { orderId: string; amount: number } },
+      ];
+      expect(envelope.payload.orderId).toBe('order-99');
+      expect(envelope.payload.amount).toBe(150000);
     });
 
-    it('calls updateStatus with correct toStatus=completed and current version', async () => {
+    it('calls updateStatus with toStatus=completed, current version, and a tx', async () => {
       const { handler, vnpayService, txnRepo } = buildHandler();
       (vnpayService.verifyIpn as jest.Mock).mockReturnValue(
         makeSuccessVerification(),
       );
-      (txnRepo.findById as jest.Mock).mockResolvedValue(
-        makeTxn({ version: 3 }),
-      );
+      (txnRepo.findById as jest.Mock).mockResolvedValue(makeTxn({ version: 3 }));
       (txnRepo.updateStatus as jest.Mock).mockResolvedValue(
         makeTxn({ status: 'completed', version: 4 }),
       );
@@ -306,6 +300,7 @@ describe('ProcessIpnHandler', () => {
         'completed',
         3,
         expect.any(Object),
+        expect.anything(),
       );
     });
 
@@ -315,8 +310,8 @@ describe('ProcessIpnHandler', () => {
         makeSuccessVerification(),
       );
       (txnRepo.findById as jest.Mock)
-        .mockResolvedValueOnce(makeTxn()) // initial lookup
-        .mockResolvedValueOnce(makeTxn({ status: 'completed' })); // re-read after lock loss
+        .mockResolvedValueOnce(makeTxn())
+        .mockResolvedValueOnce(makeTxn({ status: 'completed' }));
       (txnRepo.updateStatus as jest.Mock).mockResolvedValue(null); // lock lost
 
       const result = await handler.execute(makeCommand());
@@ -324,8 +319,8 @@ describe('ProcessIpnHandler', () => {
       expect(result.RspCode).toBe('00');
     });
 
-    it('queues refund instead of confirming the order when a paid IPN arrives after failure', async () => {
-      const { handler, vnpayService, txnRepo, eventBus } = buildHandler();
+    it('queues refund instead of confirming when a paid IPN arrives after failure', async () => {
+      const { handler, vnpayService, txnRepo, outbox } = buildHandler();
       (vnpayService.verifyIpn as jest.Mock).mockReturnValue(
         makeSuccessVerification({ amount: 150000, responsePaid: true }),
       );
@@ -349,19 +344,14 @@ describe('ProcessIpnHandler', () => {
         'completed',
         0,
         expect.any(Object),
+        expect.anything(),
       );
-      expect(eventBus.publish).toHaveBeenCalledWith(
-        expect.any(OrderCancelledAfterPaymentEvent),
-      );
-      expect(eventBus.publish).not.toHaveBeenCalledWith(
-        expect.any(PaymentConfirmedEvent),
-      );
+      const types = writtenEventTypes(outbox);
+      expect(types).toContain(EVENT_NAMES.OrderingOrderCancelledAfterPayment);
+      expect(types).not.toContain(EVENT_NAMES.PaymentConfirmed);
     });
   });
 
-  // -------------------------------------------------------------------------
-  // Step 5b: Failure path
-  // -------------------------------------------------------------------------
   describe('payment failure (responsePaid=false)', () => {
     it('returns RspCode 00 after processing a declined payment', async () => {
       const { handler, vnpayService, txnRepo } = buildHandler();
@@ -380,8 +370,8 @@ describe('ProcessIpnHandler', () => {
       expect(result.RspCode).toBe('00');
     });
 
-    it('publishes PaymentFailedEvent on declined payment', async () => {
-      const { handler, vnpayService, txnRepo, eventBus } = buildHandler();
+    it('records a payment.failed outbox event on declined payment', async () => {
+      const { handler, vnpayService, txnRepo, outbox } = buildHandler();
       (vnpayService.verifyIpn as jest.Mock).mockReturnValue(
         makeSuccessVerification({ responsePaid: false }),
       );
@@ -392,13 +382,11 @@ describe('ProcessIpnHandler', () => {
 
       await handler.execute(makeCommand({ vnp_ResponseCode: '09' }));
 
-      expect(eventBus.publish).toHaveBeenCalledWith(
-        expect.any(PaymentFailedEvent),
-      );
+      expect(writtenEventTypes(outbox)).toContain(EVENT_NAMES.PaymentFailed);
     });
 
-    it('does not publish PaymentFailedEvent when optimistic lock is lost on failure', async () => {
-      const { handler, vnpayService, txnRepo, eventBus } = buildHandler();
+    it('does not record an event when optimistic lock is lost on failure', async () => {
+      const { handler, vnpayService, txnRepo, outbox } = buildHandler();
       (vnpayService.verifyIpn as jest.Mock).mockReturnValue(
         makeSuccessVerification({ responsePaid: false }),
       );
@@ -407,17 +395,15 @@ describe('ProcessIpnHandler', () => {
 
       await handler.execute(makeCommand());
 
-      expect(eventBus.publish).not.toHaveBeenCalled();
+      expect(outbox.write).not.toHaveBeenCalled();
     });
 
-    it('calls updateStatus with toStatus=failed and current version', async () => {
+    it('calls updateStatus with toStatus=failed, current version, and a tx', async () => {
       const { handler, vnpayService, txnRepo } = buildHandler();
       (vnpayService.verifyIpn as jest.Mock).mockReturnValue(
         makeSuccessVerification({ responsePaid: false }),
       );
-      (txnRepo.findById as jest.Mock).mockResolvedValue(
-        makeTxn({ version: 2 }),
-      );
+      (txnRepo.findById as jest.Mock).mockResolvedValue(makeTxn({ version: 2 }));
       (txnRepo.updateStatus as jest.Mock).mockResolvedValue(
         makeTxn({ status: 'failed' }),
       );
@@ -429,6 +415,7 @@ describe('ProcessIpnHandler', () => {
         'failed',
         2,
         expect.any(Object),
+        expect.anything(),
       );
     });
   });

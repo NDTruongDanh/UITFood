@@ -6,6 +6,7 @@ import {
   type DeliveryZone,
 } from '@/module/restaurant-catalog/restaurant/restaurant.schema';
 import { DB_CONNECTION } from '@/drizzle/drizzle.constants';
+import type { DrizzleExecutor } from '@/messaging/drizzle-executor';
 import type { CreateDeliveryZoneDto, UpdateDeliveryZoneDto } from './zones.dto';
 
 @Injectable()
@@ -52,8 +53,9 @@ export class ZonesRepository {
   async create(
     restaurantId: string,
     dto: CreateDeliveryZoneDto,
+    executor: DrizzleExecutor = this.db,
   ): Promise<DeliveryZone> {
-    const [row] = await this.db
+    const [row] = await executor
       .insert(deliveryZones)
       .values({
         restaurantId,
@@ -69,7 +71,11 @@ export class ZonesRepository {
     return row;
   }
 
-  async update(id: string, dto: UpdateDeliveryZoneDto): Promise<DeliveryZone> {
+  async update(
+    id: string,
+    dto: UpdateDeliveryZoneDto,
+    executor: DrizzleExecutor = this.db,
+  ): Promise<DeliveryZone> {
     // Explicit per-field mapping avoids spreading undefined DTO fields into .set().
     // Drizzle treats undefined as "skip this column" but that is undocumented behaviour;
     // an explicit patch object is safer and self-documenting.
@@ -89,7 +95,7 @@ export class ZonesRepository {
       updatedAt: new Date(),
     };
 
-    const [row] = await this.db
+    const [row] = await executor
       .update(deliveryZones)
       .set(patch)
       .where(eq(deliveryZones.id, id))
@@ -97,7 +103,10 @@ export class ZonesRepository {
     return row;
   }
 
-  async remove(id: string): Promise<void> {
-    await this.db.delete(deliveryZones).where(eq(deliveryZones.id, id));
+  async remove(
+    id: string,
+    executor: DrizzleExecutor = this.db,
+  ): Promise<void> {
+    await executor.delete(deliveryZones).where(eq(deliveryZones.id, id));
   }
 }

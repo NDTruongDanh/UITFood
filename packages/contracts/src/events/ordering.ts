@@ -70,6 +70,8 @@ export const orderStatusChangedV1Payload = z.object({
   restaurantId: z.string().uuid(),
   fromStatus: z.string().nullable(),
   toStatus: z.string(),
+  actorRole: z.string(),
+  note: z.string().nullable(),
   changedAt: z.string(),
 });
 export type OrderStatusChangedV1Payload = z.infer<
@@ -80,4 +82,30 @@ export const ORDER_STATUS_CHANGED_V1 = {
   eventType: EVENT_NAMES.OrderingOrderStatusChanged,
   eventVersion: 1,
   schema: orderStatusChangedV1Payload,
+} as const;
+
+/** ordering.order-ready-for-pickup.v1 */
+export const orderReadyForPickupV1Payload = z.object({
+  orderId: z.string().uuid(),
+  restaurantId: z.string().uuid(),
+  restaurantName: z.string(),
+  restaurantAddress: z.string(),
+  customerId: z.string().uuid(),
+  deliveryAddress: z.object({
+    street: z.string().optional(),
+    district: z.string().optional(),
+    city: z.string().optional(),
+    latitude: z.number().optional(),
+    longitude: z.number().optional(),
+  }),
+  readyAt: z.string(),
+});
+export type OrderReadyForPickupV1Payload = z.infer<
+  typeof orderReadyForPickupV1Payload
+>;
+
+export const ORDER_READY_FOR_PICKUP_V1 = {
+  eventType: EVENT_NAMES.OrderingOrderReadyForPickup,
+  eventVersion: 1,
+  schema: orderReadyForPickupV1Payload,
 } as const;

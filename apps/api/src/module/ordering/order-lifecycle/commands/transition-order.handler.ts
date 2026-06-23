@@ -8,19 +8,23 @@ import {
   UnprocessableEntityException,
   Inject,
 } from '@nestjs/common';
-import { CommandHandler, ICommandHandler, EventBus } from '@nestjs/cqrs';
+import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { and, eq } from 'drizzle-orm';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import {
+  createEnvelope,
+  ORDER_STATUS_CHANGED_V1,
+  ORDER_READY_FOR_PICKUP_V1,
+  ORDER_CANCELLED_AFTER_PAYMENT_V1,
+} from '@uitfood/contracts';
 import { DB_CONNECTION } from '@/drizzle/drizzle.constants';
+import { OutboxWriter } from '@/messaging/outbox/outbox.writer';
 import { orders, orderStatusLogs, type Order } from '../../order/order.schema';
 import { TransitionOrderCommand } from './transition-order.command';
 import { OrderRepository } from '../repositories/order.repository';
 import { OrderLifecycleService } from '../services/order-lifecycle.service';
 import { RestaurantSnapshotRepository } from '../../acl/repositories/restaurant-snapshot.repository';
 import { TRANSITIONS, type TransitionRule } from '../constants/transitions';
-import { OrderStatusChangedEvent } from '@/shared/events/order-status-changed.event';
-import { OrderReadyForPickupEvent } from '@/shared/events/order-ready-for-pickup.event';
-import { OrderCancelledAfterPaymentEvent } from '@/shared/events/order-cancelled-after-payment.event';
 import { runObserved } from '@/observability/trace';
 
 /**
@@ -50,7 +54,7 @@ export class TransitionOrderHandler implements ICommandHandler<TransitionOrderCo
     private readonly orderRepo: OrderRepository,
     private readonly lifecycleService: OrderLifecycleService,
     private readonly restaurantSnapshotRepo: RestaurantSnapshotRepository,
-    private readonly eventBus: EventBus,
+    private readonly outbox: OutboxWriter,
   ) {}
 
   async execute(cmd: TransitionOrderCommand): Promise<Order> {
@@ -148,19 +152,46 @@ export class TransitionOrderHandler implements ICommandHandler<TransitionOrderCo
     }
 
     // -------------------------------------------------------------------------
-    // 8. DB transaction — atomic status update + status log entry
+    // 8a. For T-08, load the restaurant snapshot BEFORE the transaction so the
+    //     ready-for-pickup event payload can be built inside it.
     // -------------------------------------------------------------------------
+    const readySnapshot = rule.triggersReadyForPickup
+      ? await this.restaurantSnapshotRepo.findById(order.restaurantId)
+      : null;
+    if (rule.triggersReadyForPickup && !readySnapshot) {
+      this.logger.warn(
+        `OrderReadyForPickup outbox event skipped for order ${order.id}: ` +
+          `restaurant snapshot ${order.restaurantId} not found.`,
+      );
+    }
+
+    const refundSuppressedForShipper =
+      rule.triggersRefundIfVnpay &&
+      order.paymentMethod === 'vnpay' &&
+      actorRole === 'shipper';
+    if (refundSuppressedForShipper) {
+      this.logger.error(
+        `Unexpected actor role 'shipper' on refund-triggering transition ` +
+          `${order.status}→${toStatus} for order ${orderId}. Refund event suppressed.`,
+      );
+    }
+
+    // -------------------------------------------------------------------------
+    // 8b. DB transaction — atomic status update + status log + outbox events.
+    //     The status change and ALL its domain events commit together, so a
+    //     crash can never leave a transition without its events (and vice versa).
+    // -------------------------------------------------------------------------
+    const now = new Date();
+    const newVersion = order.version + 1;
+
     const updatedOrder = await this.db.transaction(async (tx) => {
-      // Build the update payload
       const setClause: Partial<Order> = {
         status: toStatus,
-        version: order.version + 1,
-        updatedAt: new Date(),
+        version: newVersion,
+        updatedAt: now,
       };
 
       // T-09: record the actor who picked up the order.
-      // Works for both shipper (self-assign) and admin (operational override).
-      // Shipper continuity for T-10/T-11 is enforced in step 5b via shipperId match.
       if (order.status === 'ready_for_pickup' && toStatus === 'picked_up') {
         setClause.shipperId = actorId!;
       }
@@ -178,9 +209,6 @@ export class TransitionOrderHandler implements ICommandHandler<TransitionOrderCo
         );
       }
 
-      // Append audit log entry (atomic with status update).
-      // Default cancellationReason for cancel/refund transitions when the caller
-      // didn't supply one — keeps the analytics donut from over-reporting "other".
       const resolvedReason =
         cancellationReason ??
         (toStatus === 'cancelled' || toStatus === 'refunded' ? 'other' : null);
@@ -195,94 +223,78 @@ export class TransitionOrderHandler implements ICommandHandler<TransitionOrderCo
         cancellationReason: resolvedReason,
       });
 
+      // --- Outbox events (atomic with the transition) ---
+      await this.outbox.write(
+        tx,
+        createEnvelope({
+          eventType: ORDER_STATUS_CHANGED_V1.eventType,
+          eventVersion: ORDER_STATUS_CHANGED_V1.eventVersion,
+          aggregateId: orderId,
+          aggregateVersion: newVersion,
+          producer: 'monolith',
+          payload: {
+            orderId,
+            customerId: order.customerId,
+            restaurantId: order.restaurantId,
+            fromStatus: order.status,
+            toStatus,
+            actorRole,
+            note: note ?? null,
+            changedAt: now.toISOString(),
+          },
+        }),
+      );
+
+      if (rule.triggersReadyForPickup && readySnapshot) {
+        await this.outbox.write(
+          tx,
+          createEnvelope({
+            eventType: ORDER_READY_FOR_PICKUP_V1.eventType,
+            eventVersion: ORDER_READY_FOR_PICKUP_V1.eventVersion,
+            aggregateId: orderId,
+            aggregateVersion: newVersion,
+            producer: 'monolith',
+            payload: {
+              orderId,
+              restaurantId: order.restaurantId,
+              restaurantName: readySnapshot.name,
+              restaurantAddress: readySnapshot.address,
+              customerId: order.customerId,
+              deliveryAddress: order.deliveryAddress,
+              readyAt: now.toISOString(),
+            },
+          }),
+        );
+      }
+
+      if (
+        rule.triggersRefundIfVnpay &&
+        order.paymentMethod === 'vnpay' &&
+        !refundSuppressedForShipper
+      ) {
+        await this.outbox.write(
+          tx,
+          createEnvelope({
+            eventType: ORDER_CANCELLED_AFTER_PAYMENT_V1.eventType,
+            eventVersion: ORDER_CANCELLED_AFTER_PAYMENT_V1.eventVersion,
+            aggregateId: orderId,
+            aggregateVersion: newVersion,
+            producer: 'monolith',
+            payload: {
+              orderId,
+              customerId: order.customerId,
+              paymentMethod: 'vnpay',
+              paidAmount: order.totalAmount,
+              cancelledByRole: actorRole,
+              cancelledAt: now.toISOString(),
+            },
+          }),
+        );
+      }
+
       return result[0];
     });
 
-    // -------------------------------------------------------------------------
-    // 9. Publish domain events AFTER the transaction commits
-    //    If publishing fails after a successful commit: log at ERROR level.
-    //    The DB state is correct; the downstream miss is observable.
-    // -------------------------------------------------------------------------
-    try {
-      this.eventBus.publish(
-        new OrderStatusChangedEvent(
-          orderId,
-          order.customerId,
-          order.restaurantId,
-          order.status,
-          toStatus,
-          actorRole,
-          note,
-        ),
-      );
-
-      if (rule.triggersReadyForPickup) {
-        await this.publishReadyForPickupEvent(order);
-      }
-
-      if (rule.triggersRefundIfVnpay && order.paymentMethod === 'vnpay') {
-        // 'shipper' is never in allowedRoles for any refund-triggering transition.
-        // Guard defensively so type narrowing is explicit rather than a cast.
-        if (actorRole === 'shipper') {
-          this.logger.error(
-            `Unexpected actor role 'shipper' on refund-triggering transition ` +
-              `${order.status}→${toStatus} for order ${orderId}. Refund event suppressed.`,
-          );
-        } else {
-          this.eventBus.publish(
-            new OrderCancelledAfterPaymentEvent(
-              orderId,
-              order.customerId,
-              'vnpay',
-              order.totalAmount,
-              new Date(),
-              actorRole,
-            ),
-          );
-        }
-      }
-    } catch (err) {
-      this.logger.error(
-        `Event publishing failed for order ${orderId} after successful ${order.status}→${toStatus} transition: ${(err as Error).message}`,
-        (err as Error).stack,
-      );
-      // Do NOT rethrow — DB state is correct, event miss is observable.
-    }
-
     return updatedOrder;
-  }
-
-  // ---------------------------------------------------------------------------
-  // Private helpers
-  // ---------------------------------------------------------------------------
-
-  /**
-   * Publish OrderReadyForPickupEvent (T-08).
-   * Loads the restaurant snapshot to populate address and name fields.
-   * Logs a warning and skips the event if the snapshot is missing.
-   */
-  private async publishReadyForPickupEvent(order: Order): Promise<void> {
-    const snapshot = await this.restaurantSnapshotRepo.findById(
-      order.restaurantId,
-    );
-
-    if (!snapshot) {
-      this.logger.warn(
-        `OrderReadyForPickupEvent skipped for order ${order.id}: ` +
-          `restaurant snapshot ${order.restaurantId} not found.`,
-      );
-      return;
-    }
-
-    this.eventBus.publish(
-      new OrderReadyForPickupEvent(
-        order.id,
-        order.restaurantId,
-        snapshot.name,
-        snapshot.address,
-        order.customerId,
-        order.deliveryAddress,
-      ),
-    );
   }
 }

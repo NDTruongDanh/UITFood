@@ -1,14 +1,15 @@
 import { Module } from '@nestjs/common';
+import { CqrsModule } from '@nestjs/cqrs';
 import { DatabaseModule } from '@/drizzle/drizzle.module';
 import { OrderingContractsModule } from '@/module/ordering/ordering-contracts.module';
 import { CatalogContractsModule } from '@/module/restaurant-catalog/catalog-contracts.module';
 import { RabbitMqPublisher } from './rabbitmq/rabbitmq.publisher';
 import { RabbitMqConsumer } from './rabbitmq/rabbitmq.consumer';
-import { OutboxWriter } from './outbox/outbox.writer';
 import { OutboxRelayService } from './outbox/outbox-relay.service';
 import { InboxConsumer } from './inbox/inbox.consumer';
 import { CatalogReviewProjectionConsumer } from './consumers/catalog-review-projection.consumer';
 import { OrderingReviewMarkerConsumer } from './consumers/ordering-review-marker.consumer';
+import { EventBusBridgeConsumer } from './consumers/eventbus-bridge.consumer';
 
 /**
  * MessagingModule — Phase 2 durable-integration infrastructure.
@@ -27,19 +28,19 @@ import { OrderingReviewMarkerConsumer } from './consumers/ordering-review-marker
  */
 @Module({
   imports: [
+    CqrsModule,
     DatabaseModule,
     OrderingContractsModule,
     CatalogContractsModule,
   ],
   providers: [
-    OutboxWriter,
     OutboxRelayService,
     RabbitMqPublisher,
     RabbitMqConsumer,
     InboxConsumer,
     CatalogReviewProjectionConsumer,
     OrderingReviewMarkerConsumer,
+    EventBusBridgeConsumer,
   ],
-  exports: [OutboxWriter],
 })
 export class MessagingModule {}

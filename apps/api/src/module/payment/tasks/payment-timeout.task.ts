@@ -1,8 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { EventBus } from '@nestjs/cqrs';
+import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import { createEnvelope, PAYMENT_FAILED_V1 } from '@uitfood/contracts';
+import { DB_CONNECTION } from '@/drizzle/drizzle.constants';
+import { OutboxWriter } from '@/messaging/outbox/outbox.writer';
 import { PaymentTransactionRepository } from '../repositories/payment-transaction.repository';
-import { PaymentFailedEvent } from '@/shared/events/payment-failed.event';
 import { runObserved } from '@/observability/trace';
 
 /**
@@ -34,8 +36,9 @@ export class PaymentTimeoutTask {
   private readonly logger = new Logger(PaymentTimeoutTask.name);
 
   constructor(
+    @Inject(DB_CONNECTION) private readonly db: NodePgDatabase,
     private readonly txnRepo: PaymentTransactionRepository,
-    private readonly eventBus: EventBus,
+    private readonly outbox: OutboxWriter,
   ) {}
 
   @Cron(CronExpression.EVERY_MINUTE)
@@ -64,21 +67,6 @@ export class PaymentTimeoutTask {
 
         for (const txn of expired) {
           try {
-            const updated = await this.txnRepo.updateStatus(
-              txn.id,
-              'failed',
-              txn.version,
-            );
-
-            if (!updated) {
-              // Optimistic lock lost — another pod or process already resolved this transaction.
-              // Do NOT publish the event; the winning process is responsible for that.
-              this.logger.warn(
-                `PaymentTimeoutTask: optimistic lock lost for txn=${txn.id} — skipping event.`,
-              );
-              continue;
-            }
-
             // Differentiate reason by status so the cancellation note in Ordering
             // reflects the actual failure mode (never redirected vs. abandoned page).
             // T-03 (pending→cancelled) has requireNote: true — reason MUST be non-empty.
@@ -87,16 +75,45 @@ export class PaymentTimeoutTask {
                 ? 'Payment session could not be initialised — VNPay URL generation failed before redirect'
                 : 'Payment session expired — customer did not complete payment within the allowed time';
 
-            // Publish AFTER the DB write commits to ensure consistent state.
-            this.eventBus.publish(
-              new PaymentFailedEvent(
-                txn.orderId,
-                txn.customerId,
-                'vnpay',
-                reason,
-                new Date(),
-              ),
-            );
+            // Atomic: fail the transaction AND record the outbox event together.
+            const now = new Date();
+            const updated = await this.db.transaction(async (tx) => {
+              const u = await this.txnRepo.updateStatus(
+                txn.id,
+                'failed',
+                txn.version,
+                {},
+                tx,
+              );
+              if (!u) return null;
+
+              await this.outbox.write(
+                tx,
+                createEnvelope({
+                  eventType: PAYMENT_FAILED_V1.eventType,
+                  eventVersion: PAYMENT_FAILED_V1.eventVersion,
+                  aggregateId: txn.orderId,
+                  aggregateVersion: u.version,
+                  producer: 'monolith',
+                  payload: {
+                    orderId: txn.orderId,
+                    customerId: txn.customerId,
+                    provider: 'vnpay',
+                    reason,
+                    failedAt: now.toISOString(),
+                  },
+                }),
+              );
+              return u;
+            });
+
+            if (!updated) {
+              // Optimistic lock lost — another pod/process already resolved it.
+              this.logger.warn(
+                `PaymentTimeoutTask: optimistic lock lost for txn=${txn.id} — skipping event.`,
+              );
+              continue;
+            }
 
             this.logger.log(
               `PaymentTimeoutTask: expired txn=${txn.id} order=${txn.orderId} (was ${txn.status}) → failed.`,

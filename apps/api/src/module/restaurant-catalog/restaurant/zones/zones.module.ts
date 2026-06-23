@@ -4,11 +4,12 @@ import { ZonesController } from './zones.controller';
 import { ZonesService } from './zones.service';
 import { ZonesRepository } from './zones.repository';
 import { DatabaseModule } from '@/drizzle/drizzle.module';
+import { OutboxModule } from '@/messaging/outbox/outbox.module';
 import { GeoModule } from '@/lib/geo/geo.module';
 import { RestaurantModule } from '../restaurant.module';
 
 @Module({
-  imports: [CqrsModule, DatabaseModule, RestaurantModule, GeoModule],
+  imports: [CqrsModule, DatabaseModule, OutboxModule, RestaurantModule, GeoModule],
   controllers: [ZonesController],
   providers: [ZonesService, ZonesRepository],
 })

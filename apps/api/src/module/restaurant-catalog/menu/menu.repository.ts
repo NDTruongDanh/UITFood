@@ -15,6 +15,7 @@ import type {
   MenuItemStatusFilter,
 } from './dto/menu.dto';
 import { DB_CONNECTION } from '@/drizzle/drizzle.constants';
+import type { DrizzleExecutor } from '@/messaging/drizzle-executor';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { menuItemNutrition } from '@/module/restaurant-catalog/nutrition/domain/nutrition.schema';
 import { NUTRITION_DISCLAIMER } from '@/module/restaurant-catalog/nutrition/types/nutrition.types';
@@ -107,8 +108,11 @@ export class MenuRepository {
     };
   }
 
-  async findById(id: string): Promise<MenuItemDetail | null> {
-    const result = await this.db
+  async findById(
+    id: string,
+    executor: DrizzleExecutor = this.db,
+  ): Promise<MenuItemDetail | null> {
+    const result = await executor
       .select({
         item: menuItems,
         nutrition: menuItemNutrition,
@@ -146,16 +150,26 @@ export class MenuRepository {
     };
   }
 
-  async create(dto: CreateMenuItemDto): Promise<MenuItem> {
-    return this.db.transaction(async (tx) => {
+  async create(
+    dto: CreateMenuItemDto,
+    executor?: DrizzleExecutor,
+  ): Promise<MenuItem> {
+    const run = async (tx: DrizzleExecutor) => {
       const [row] = await tx.insert(menuItems).values(dto).returning();
       await this.searchIndex.refreshMenuItemSearchMetadata(row.id, tx);
       return row;
-    });
+    };
+    // Join the caller's transaction when provided (atomic with the outbox
+    // write); otherwise open our own so the search-index refresh stays atomic.
+    return executor ? run(executor) : this.db.transaction(run);
   }
 
-  async update(id: string, dto: UpdateMenuItemDto): Promise<MenuItem> {
-    return this.db.transaction(async (tx) => {
+  async update(
+    id: string,
+    dto: UpdateMenuItemDto,
+    executor?: DrizzleExecutor,
+  ): Promise<MenuItem> {
+    const run = async (tx: DrizzleExecutor) => {
       const [row] = await tx
         .update(menuItems)
         .set({ ...dto, updatedAt: new Date() })
@@ -163,11 +177,15 @@ export class MenuRepository {
         .returning();
       await this.searchIndex.refreshMenuItemSearchMetadata(row.id, tx);
       return row;
-    });
+    };
+    return executor ? run(executor) : this.db.transaction(run);
   }
 
-  async remove(id: string): Promise<void> {
-    await this.db.delete(menuItems).where(eq(menuItems.id, id));
+  async remove(
+    id: string,
+    executor: DrizzleExecutor = this.db,
+  ): Promise<void> {
+    await executor.delete(menuItems).where(eq(menuItems.id, id));
   }
 
   // -------------------------------------------------------------------------

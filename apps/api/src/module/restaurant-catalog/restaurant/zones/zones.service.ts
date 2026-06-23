@@ -1,14 +1,20 @@
 import {
   ForbiddenException,
+  Inject,
   Injectable,
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { EventBus } from '@nestjs/cqrs';
+import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import {
+  createEnvelope,
+  CATALOG_DELIVERY_ZONE_CHANGED_V1,
+} from '@uitfood/contracts';
+import { DB_CONNECTION } from '@/drizzle/drizzle.constants';
+import { OutboxWriter } from '@/messaging/outbox/outbox.writer';
 import { ZonesRepository } from './zones.repository';
 import { RestaurantService } from '../restaurant.service';
 import { GeoService, type Coordinates } from '@/lib/geo/geo.service';
-import { DeliveryZoneSnapshotUpdatedEvent } from '@/shared/events/delivery-zone-snapshot-updated.event';
 import { roundToNearest1000 } from '@/shared/validators/vnd-amount.validator';
 import type {
   CreateDeliveryZoneDto,
@@ -24,8 +30,33 @@ export class ZonesService {
     private readonly repo: ZonesRepository,
     private readonly restaurantService: RestaurantService,
     private readonly geo: GeoService,
-    private readonly eventBus: EventBus,
+    @Inject(DB_CONNECTION) private readonly db: NodePgDatabase,
+    private readonly outbox: OutboxWriter,
   ) {}
+
+  /** Builds the catalog.delivery-zone.changed.v1 envelope for a zone mutation. */
+  private zoneEnvelope(zone: DeliveryZone, isDeleted: boolean) {
+    return createEnvelope({
+      eventType: CATALOG_DELIVERY_ZONE_CHANGED_V1.eventType,
+      eventVersion: CATALOG_DELIVERY_ZONE_CHANGED_V1.eventVersion,
+      aggregateId: zone.id,
+      aggregateVersion: 0,
+      producer: 'monolith',
+      payload: {
+        zoneId: zone.id,
+        restaurantId: zone.restaurantId,
+        name: zone.name,
+        radiusKm: zone.radiusKm,
+        baseFee: zone.baseFee,
+        perKmRate: zone.perKmRate,
+        avgSpeedKmh: zone.avgSpeedKmh,
+        prepTimeMinutes: zone.prepTimeMinutes,
+        bufferMinutes: zone.bufferMinutes,
+        isActive: zone.isActive,
+        isDeleted,
+      },
+    });
+  }
 
   async findByRestaurant(restaurantId: string): Promise<DeliveryZone[]> {
     await this.restaurantService.findOne(restaurantId);
@@ -50,24 +81,12 @@ export class ZonesService {
     if (!isAdmin && restaurant.ownerId !== requesterId) {
       throw new ForbiddenException('You do not own this restaurant');
     }
-    const zone = await this.repo.create(restaurantId, dto);
-    // Notify Ordering BC so it can update its delivery-zone snapshot (D3-B).
-    this.eventBus.publish(
-      new DeliveryZoneSnapshotUpdatedEvent(
-        zone.id,
-        zone.restaurantId,
-        zone.name,
-        zone.radiusKm,
-        zone.baseFee,
-        zone.perKmRate,
-        zone.avgSpeedKmh,
-        zone.prepTimeMinutes,
-        zone.bufferMinutes,
-        zone.isActive,
-        false, // not deleted
-      ),
-    );
-    return zone;
+    // Persist the zone AND the snapshot event atomically (transactional outbox).
+    return this.db.transaction(async (tx) => {
+      const zone = await this.repo.create(restaurantId, dto, tx);
+      await this.outbox.write(tx, this.zoneEnvelope(zone, false));
+      return zone;
+    });
   }
 
   async update(
@@ -82,24 +101,11 @@ export class ZonesService {
     if (!isAdmin && restaurant.ownerId !== requesterId) {
       throw new ForbiddenException('You do not own this restaurant');
     }
-    const zone = await this.repo.update(id, dto);
-    // Notify Ordering BC of the updated zone values (D3-B).
-    this.eventBus.publish(
-      new DeliveryZoneSnapshotUpdatedEvent(
-        zone.id,
-        zone.restaurantId,
-        zone.name,
-        zone.radiusKm,
-        zone.baseFee,
-        zone.perKmRate,
-        zone.avgSpeedKmh,
-        zone.prepTimeMinutes,
-        zone.bufferMinutes,
-        zone.isActive,
-        false, // not deleted
-      ),
-    );
-    return zone;
+    return this.db.transaction(async (tx) => {
+      const zone = await this.repo.update(id, dto, tx);
+      await this.outbox.write(tx, this.zoneEnvelope(zone, false));
+      return zone;
+    });
   }
 
   async remove(
@@ -114,23 +120,11 @@ export class ZonesService {
     if (!isAdmin && restaurant.ownerId !== requesterId) {
       throw new ForbiddenException('You do not own this restaurant');
     }
-    await this.repo.remove(id);
-    // Notify Ordering BC to tombstone the snapshot row (D3-B).
-    this.eventBus.publish(
-      new DeliveryZoneSnapshotUpdatedEvent(
-        zone.id,
-        zone.restaurantId,
-        zone.name,
-        zone.radiusKm,
-        zone.baseFee,
-        zone.perKmRate,
-        zone.avgSpeedKmh,
-        zone.prepTimeMinutes,
-        zone.bufferMinutes,
-        zone.isActive,
-        true, // hard-deleted → tombstone
-      ),
-    );
+    await this.db.transaction(async (tx) => {
+      await this.repo.remove(id, tx);
+      // Tombstone event so Ordering marks its snapshot row deleted (D3-B).
+      await this.outbox.write(tx, this.zoneEnvelope(zone, true));
+    });
   }
 
   // ---------------------------------------------------------------------------

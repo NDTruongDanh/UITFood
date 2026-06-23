@@ -22,10 +22,11 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { RestaurantService } from './restaurant.service';
-import { RestaurantUpdatedEvent } from '@/shared/events/restaurant-updated.event';
+import { EVENT_NAMES } from '@uitfood/contracts';
 import type { Restaurant } from './restaurant.schema';
 import { RestaurantRepository } from './restaurant.repository';
-import { EventBus } from '@nestjs/cqrs';
+import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import type { OutboxWriter } from '@/messaging/outbox/outbox.writer';
 import type { CreateRestaurantDto } from './dto/restaurant.dto';
 
 function makeRestaurant(overrides: Partial<Restaurant> = {}): Restaurant {
@@ -64,18 +65,22 @@ function buildService(opts?: {
     incrementRating: jest.fn(),
     ...opts?.repoOverrides,
   };
-  const eventBus = { publish: jest.fn() };
+  const outbox = { write: jest.fn().mockResolvedValue(undefined) };
+  const db = {
+    transaction: jest.fn(async (cb: (tx: object) => Promise<unknown>) => cb({})),
+  };
   const imageService = { create: jest.fn().mockResolvedValue(undefined) };
   const userDirectory = {
     promoteToRestaurant: jest.fn().mockResolvedValue(undefined),
   };
   const service = new RestaurantService(
     repo as unknown as RestaurantRepository,
-    eventBus as unknown as EventBus,
+    db as unknown as NodePgDatabase,
+    outbox as unknown as OutboxWriter,
     imageService,
     userDirectory,
   );
-  return { service, repo, eventBus, imageService, userDirectory };
+  return { service, repo, outbox, imageService, userDirectory };
 }
 
 describe('RestaurantService', () => {
@@ -132,15 +137,17 @@ describe('RestaurantService', () => {
   });
 
   describe('create', () => {
-    it('publishes RestaurantUpdatedEvent', async () => {
-      const { service, repo, eventBus } = buildService();
+    it('records a catalog.restaurant.changed outbox event', async () => {
+      const { service, repo, outbox } = buildService();
       const r = makeRestaurant();
       repo.create.mockResolvedValue(r);
       await service.create('owner-1', {} as unknown as CreateRestaurantDto);
-      expect(eventBus.publish).toHaveBeenCalledTimes(1);
-      expect(
-        (eventBus.publish.mock.calls[0] as [RestaurantUpdatedEvent])[0],
-      ).toBeInstanceOf(RestaurantUpdatedEvent);
+      expect(outbox.write).toHaveBeenCalledTimes(1);
+      const [, envelope] = outbox.write.mock.calls[0] as [
+        unknown,
+        { eventType: string },
+      ];
+      expect(envelope.eventType).toBe(EVENT_NAMES.CatalogRestaurantChanged);
     });
   });
 
@@ -175,16 +182,17 @@ describe('RestaurantService', () => {
   });
 
   describe('remove', () => {
-    it('publishes event with isOpen=false and isApproved=false', async () => {
-      const { service, repo, eventBus } = buildService();
+    it('records a tombstone event with isOpen=false and isApproved=false', async () => {
+      const { service, repo, outbox } = buildService();
       repo.findById.mockResolvedValue(makeRestaurant());
       repo.remove.mockResolvedValue(undefined);
       await service.remove('rest-1');
-      const event = (
-        eventBus.publish.mock.calls[0] as [RestaurantUpdatedEvent]
-      )[0];
-      expect(event.isOpen).toBe(false);
-      expect(event.isApproved).toBe(false);
+      const [, envelope] = outbox.write.mock.calls[0] as [
+        unknown,
+        { payload: { isOpen: boolean; isApproved: boolean } },
+      ];
+      expect(envelope.payload.isOpen).toBe(false);
+      expect(envelope.payload.isApproved).toBe(false);
     });
   });
 
@@ -211,11 +219,11 @@ describe('RestaurantService', () => {
       expect(userDirectory.promoteToRestaurant).not.toHaveBeenCalled();
     });
 
-    it('publishes RestaurantUpdatedEvent', async () => {
-      const { service, repo, eventBus } = buildService();
+    it('records a catalog.restaurant.changed outbox event', async () => {
+      const { service, repo, outbox } = buildService();
       repo.update.mockResolvedValue(makeRestaurant());
       await service.setApproved('rest-1', true);
-      expect(eventBus.publish).toHaveBeenCalledTimes(1);
+      expect(outbox.write).toHaveBeenCalledTimes(1);
     });
   });
 

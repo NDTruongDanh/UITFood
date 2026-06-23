@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { CqrsModule } from '@nestjs/cqrs';
 import { ConfigModule } from '@nestjs/config';
 import { DatabaseModule } from '@/drizzle/drizzle.module';
+import { OutboxModule } from '@/messaging/outbox/outbox.module';
 import { vnpayConfig } from '@/config/vnpay.config';
 import { PAYMENT_INITIATION_PORT } from '@/shared/ports/payment-initiation.port';
 import { VNPayService } from './services/vnpay.service';
@@ -17,7 +18,12 @@ import { OrderCancelledAfterPaymentHandler } from './events/order-cancelled-afte
  * access payment behavior only through PAYMENT_INITIATION_PORT.
  */
 @Module({
-  imports: [CqrsModule, DatabaseModule, ConfigModule.forFeature(vnpayConfig)],
+  imports: [
+    CqrsModule,
+    DatabaseModule,
+    ConfigModule.forFeature(vnpayConfig),
+    OutboxModule,
+  ],
   controllers: [PaymentController],
   providers: [
     VNPayService,

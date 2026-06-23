@@ -4,6 +4,7 @@ import { MenuController } from './menu.controller';
 import { MenuService } from './menu.service';
 import { MenuRepository } from './menu.repository';
 import { DatabaseModule } from '@/drizzle/drizzle.module';
+import { OutboxModule } from '@/messaging/outbox/outbox.module';
 import { RestaurantModule } from '@/module/restaurant-catalog/restaurant/restaurant.module';
 import { ImageModule } from '@/module/image/image.module';
 import { AiSearchIndexModule } from '@/module/restaurant-catalog/search/indexing/ai-search-index.module';
@@ -16,6 +17,7 @@ import { AiSearchIndexModule } from '@/module/restaurant-catalog/search/indexing
 @Module({
   imports: [
     DatabaseModule,
+    OutboxModule,
     RestaurantModule,
     ImageModule,
     CqrsModule,
