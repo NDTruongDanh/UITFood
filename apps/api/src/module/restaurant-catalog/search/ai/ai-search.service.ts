@@ -21,6 +21,7 @@ import {
   type AiSearchFallbackReason,
   type AiSearchFollowUp,
   type AiSearchIntent,
+  type AiSearchItemKind,
   type AiSearchItemCandidate,
   type AiSearchRepositoryFilters,
   type AiSearchResponse,
@@ -345,6 +346,7 @@ export class AiSearchService {
       intent.dietaryTags.length === 0 &&
       intent.cuisineTerms.length === 0 &&
       intent.nutrition.proteinMinG === undefined &&
+      !intent.nutrition.lowerCalorie &&
       intent.nutrition.caloriesMax === undefined &&
       intent.nutrition.fatMaxG === undefined &&
       intent.nutrition.carbsMaxG === undefined &&
@@ -395,7 +397,15 @@ export class AiSearchService {
       branches.add('lexical');
       branches.add('tag');
     }
-    if (intent.nutrition.proteinMinG !== undefined) branches.add('nutrition');
+    if (
+      intent.nutrition.lowerCalorie ||
+      intent.nutrition.proteinMinG !== undefined ||
+      intent.nutrition.caloriesMax !== undefined ||
+      intent.nutrition.fatMaxG !== undefined ||
+      intent.nutrition.carbsMaxG !== undefined
+    ) {
+      branches.add('nutrition');
+    }
     if (intent.price.maxPriceVnd !== undefined) branches.add('price');
     if (intent.rating.minAverageRating !== undefined) branches.add('rating');
     if (request.lat !== undefined && request.lon !== undefined)
@@ -418,6 +428,7 @@ export class AiSearchService {
       filters.branch === 'trigram' ||
       filters.branch === 'semantic' ||
       filters.branch === 'tag' ||
+      filters.branch === 'nutrition' ||
       filters.branch === 'rating' ||
       filters.branch === 'geo'
     );
@@ -485,6 +496,25 @@ export class AiSearchService {
   ): AiSearchAppliedFilter[] {
     const filters: AiSearchAppliedFilter[] = [];
 
+    if (intent.itemKinds.length > 0) {
+      filters.push({
+        key: 'itemKinds',
+        label:
+          intent.itemKinds.length === 1
+            ? `${formatItemKind(intent.itemKinds[0])} only`
+            : intent.itemKinds.map(formatItemKind).join(' or '),
+        source: 'ai_inferred',
+      });
+    }
+
+    if (intent.nutrition.lowerCalorie) {
+      filters.push({
+        key: 'lowerCalorie',
+        label: 'Verified nutrition, lowest calories first',
+        source: 'ai_inferred',
+      });
+    }
+
     if (intent.nutrition.proteinMinG !== undefined) {
       filters.push({
         key: 'proteinMinG',
@@ -529,6 +559,14 @@ export class AiSearchService {
     request: AiSearchRequestDto,
   ): string {
     const nearby = request.lat !== undefined && request.lon !== undefined;
+
+    if (intent.nutrition.lowerCalorie) {
+      const kind =
+        intent.itemKinds.length === 1
+          ? formatItemKind(intent.itemKinds[0]).toLowerCase()
+          : 'items';
+      return `Showing ${kind} with verified nutrition, ordered by calories per serving.`;
+    }
 
     if (intent.nutrition.highProtein && nearby) {
       return 'Showing nearby high-protein food options.';
@@ -714,4 +752,10 @@ function mergeBranchScores(
   }
 
   return merged;
+}
+
+function formatItemKind(kind: AiSearchItemKind): string {
+  if (kind === 'food') return 'Food';
+  if (kind === 'beverage') return 'Beverage';
+  return 'Food + beverage';
 }

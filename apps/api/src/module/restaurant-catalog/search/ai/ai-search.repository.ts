@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, eq, or, SQL, sql } from 'drizzle-orm';
+import { and, eq, inArray, or, SQL, sql } from 'drizzle-orm';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { DB_CONNECTION } from '@/drizzle/drizzle.constants';
 import { menuItemNutrition } from '@/module/restaurant-catalog/nutrition/domain/nutrition.schema';
@@ -15,6 +15,7 @@ import {
 } from './ai-search-ranking-stats.schema';
 import type {
   AiSearchItemCandidate,
+  AiSearchIntent,
   AiSearchPopularitySignals,
   AiSearchRepositoryFilters,
   AiSearchRestaurantCandidate,
@@ -58,6 +59,7 @@ export class AiSearchRepository {
         name: menuItems.name,
         description: menuItems.description,
         price: menuItems.price,
+        itemKind: menuItems.itemKind,
         imageUrl: menuItems.imageUrl,
         tags: menuItems.tags,
         createdAt: menuItems.createdAt,
@@ -112,6 +114,7 @@ export class AiSearchRepository {
       name: row.name,
       description: row.description,
       price: row.price,
+      itemKind: row.itemKind,
       imageUrl: row.imageUrl,
       tags: row.tags,
       categoryName: row.categoryName,
@@ -182,6 +185,7 @@ export class AiSearchRepository {
     }
 
     this.applyGeoConditions(conditions, filters);
+    this.applyRestaurantItemEligibilityConditions(conditions, filters);
 
     const branchCondition = this.buildRestaurantBranchCondition(filters);
     if (branchCondition) conditions.push(branchCondition);
@@ -273,6 +277,14 @@ export class AiSearchRepository {
   ): void {
     const { intent } = filters;
 
+    if (intent.itemKinds.length > 0) {
+      conditions.push(inArray(menuItems.itemKind, intent.itemKinds));
+    }
+
+    if (hasNutritionIntent(intent)) {
+      conditions.push(eq(menuItemNutrition.verifiedByRestaurant, true));
+    }
+
     if (intent.price.maxPriceVnd !== undefined) {
       conditions.push(sql`${menuItems.price} <= ${intent.price.maxPriceVnd}`);
     }
@@ -311,6 +323,74 @@ export class AiSearchRepository {
     }
   }
 
+  private applyRestaurantItemEligibilityConditions(
+    conditions: SQL<unknown>[],
+    filters: AiSearchRepositoryFilters,
+  ): void {
+    const { intent } = filters;
+    const hasItemEligibility =
+      intent.itemKinds.length > 0 ||
+      intent.price.maxPriceVnd !== undefined ||
+      intent.price.minPriceVnd !== undefined ||
+      hasNutritionIntent(intent);
+    if (!hasItemEligibility) return;
+
+    const itemConditions: SQL<unknown>[] = [
+      sql`eligible_item.restaurant_id = ${restaurants.id}`,
+      sql`eligible_item.status = 'available'`,
+    ];
+
+    if (intent.itemKinds.length > 0) {
+      itemConditions.push(
+        sql`eligible_item.item_kind IN (${sql.join(
+          intent.itemKinds.map((kind) => sql`${kind}`),
+          sql`, `,
+        )})`,
+      );
+    }
+    if (intent.price.maxPriceVnd !== undefined) {
+      itemConditions.push(
+        sql`eligible_item.price <= ${intent.price.maxPriceVnd}`,
+      );
+    }
+    if (intent.price.minPriceVnd !== undefined) {
+      itemConditions.push(
+        sql`eligible_item.price >= ${intent.price.minPriceVnd}`,
+      );
+    }
+    if (hasNutritionIntent(intent)) {
+      itemConditions.push(sql`eligible_nutrition.verified_by_restaurant = true`);
+    }
+    if (intent.nutrition.proteinMinG !== undefined) {
+      itemConditions.push(
+        sql`eligible_nutrition.protein >= ${intent.nutrition.proteinMinG}`,
+      );
+    }
+    if (intent.nutrition.caloriesMax !== undefined) {
+      itemConditions.push(
+        sql`eligible_nutrition.calories <= ${intent.nutrition.caloriesMax}`,
+      );
+    }
+    if (intent.nutrition.fatMaxG !== undefined) {
+      itemConditions.push(
+        sql`eligible_nutrition.fat <= ${intent.nutrition.fatMaxG}`,
+      );
+    }
+    if (intent.nutrition.carbsMaxG !== undefined) {
+      itemConditions.push(
+        sql`eligible_nutrition.carbs <= ${intent.nutrition.carbsMaxG}`,
+      );
+    }
+
+    conditions.push(sql`EXISTS (
+      SELECT 1
+      FROM menu_items eligible_item
+      LEFT JOIN menu_item_nutrition eligible_nutrition
+        ON eligible_nutrition.menu_item_id = eligible_item.id
+      WHERE ${sql.join(itemConditions, sql` AND `)}
+    )`);
+  }
+
   private buildItemBranchCondition(
     filters: AiSearchRepositoryFilters,
   ): SQL<unknown> | undefined {
@@ -337,8 +417,8 @@ export class AiSearchRepository {
       return this.buildItemTermCondition(terms);
     }
 
-    if (branch === 'nutrition' && intent.nutrition.proteinMinG !== undefined) {
-      return sql`${menuItemNutrition.protein} >= ${intent.nutrition.proteinMinG}`;
+    if (branch === 'nutrition' && hasNutritionIntent(intent)) {
+      return sql`${menuItemNutrition.verifiedByRestaurant} = true`;
     }
 
     if (branch === 'price' && intent.price.maxPriceVnd !== undefined) {
@@ -605,6 +685,16 @@ export class AiSearchRepository {
     }
 
     if (
+      filters.branch === 'nutrition' &&
+      filters.intent.nutrition.lowerCalorie
+    ) {
+      return sql<number>`GREATEST(
+        0,
+        LEAST(1, 1 - (COALESCE(${menuItemNutrition.calories}, 5000) / 5000.0))
+      )`;
+    }
+
+    if (
       filters.branch === 'price' &&
       filters.intent.price.maxPriceVnd !== undefined
     ) {
@@ -693,6 +783,15 @@ export class AiSearchRepository {
     branchScoreExpr: SQL<number>,
     distanceExpr: SQL<unknown>,
   ): SQL<unknown>[] {
+    if (
+      filters.branch === 'nutrition' &&
+      filters.intent.nutrition.lowerCalorie
+    ) {
+      return [
+        sql`${menuItemNutrition.calories} ASC`,
+        sql`${branchScoreExpr} DESC`,
+      ];
+    }
     if (filters.branch === 'semantic' && filters.queryEmbedding) {
       return [sql`${this.buildItemVectorDistanceExpr(filters)} ASC`];
     }
@@ -751,6 +850,16 @@ export class AiSearchRepository {
 
 function numberOrNull(value: unknown): number | null {
   return value === null || value === undefined ? null : Number(value);
+}
+
+function hasNutritionIntent(intent: AiSearchIntent): boolean {
+  return (
+    Boolean(intent.nutrition.lowerCalorie) ||
+    intent.nutrition.proteinMinG !== undefined ||
+    intent.nutrition.caloriesMax !== undefined ||
+    intent.nutrition.fatMaxG !== undefined ||
+    intent.nutrition.carbsMaxG !== undefined
+  );
 }
 
 function numberOrZero(value: unknown): number {

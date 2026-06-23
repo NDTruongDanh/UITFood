@@ -17,6 +17,7 @@ function makeItem(
     name: 'Grilled Chicken Rice',
     description: 'Chicken and rice',
     price: 65_000,
+    itemKind: 'food',
     imageUrl: null,
     tags: ['chicken', 'rice', 'grilled'],
     categoryName: 'Rice',
@@ -99,8 +100,18 @@ describe('AiSearchService', () => {
           .filter((item) => {
             const maxPrice = filters.intent.price.maxPriceVnd;
             const proteinMin = filters.intent.nutrition.proteinMinG;
+            const itemKinds = filters.intent.itemKinds;
+            const needsNutrition =
+              Boolean(filters.intent.nutrition.lowerCalorie) ||
+              proteinMin !== undefined ||
+              filters.intent.nutrition.caloriesMax !== undefined ||
+              filters.intent.nutrition.fatMaxG !== undefined ||
+              filters.intent.nutrition.carbsMaxG !== undefined;
             return (
               (maxPrice === undefined || item.price <= maxPrice) &&
+              (itemKinds.length === 0 || itemKinds.includes(item.itemKind)) &&
+              (!needsNutrition ||
+                item.nutrition?.verifiedByRestaurant === true) &&
               (proteinMin === undefined ||
                 Number(item.nutrition?.protein ?? 0) >= proteinMin)
             );
@@ -213,6 +224,78 @@ describe('AiSearchService', () => {
     expect(response.mode).toBe('ai');
     expect(response.items.map((result) => result.id)).toEqual(['item-food']);
     expect(standardSearch.search).not.toHaveBeenCalled();
+  });
+
+  it('browses only beverages for a generic drink query', async () => {
+    const food = makeItem({ id: 'food', itemKind: 'food' });
+    const beverage = makeItem({
+      id: 'beverage',
+      itemKind: 'beverage',
+      name: 'Iced Tea',
+    });
+    const { service } = buildService([food, beverage]);
+
+    const response = await service.search({ query: 'drink' });
+
+    expect(response.items.map((item) => item.id)).toEqual(['beverage']);
+  });
+
+  it('returns only verified food ordered by calories for weight-loss intent', async () => {
+    const higherCalorieFood = makeItem({
+      id: 'food-higher',
+      nutrition: {
+        calories: 520,
+        protein: 30,
+        carbs: 60,
+        fat: 12,
+        verifiedByRestaurant: true,
+      },
+    });
+    const lowerCalorieFood = makeItem({
+      id: 'food-lower',
+      nutrition: {
+        calories: 280,
+        protein: 20,
+        carbs: 35,
+        fat: 7,
+        verifiedByRestaurant: true,
+      },
+    });
+    const beverage = makeItem({
+      id: 'beverage',
+      itemKind: 'beverage',
+      nutrition: {
+        calories: 80,
+        protein: 0,
+        carbs: 20,
+        fat: 0,
+        verifiedByRestaurant: true,
+      },
+    });
+    const missingNutrition = makeItem({
+      id: 'food-without-nutrition',
+      nutrition: null,
+    });
+    const { service } = buildService([
+      higherCalorieFood,
+      beverage,
+      missingNutrition,
+      lowerCalorieFood,
+    ]);
+
+    const response = await service.search({ query: 'food for weight lost' });
+
+    expect(response.items.map((item) => item.id)).toEqual([
+      'food-lower',
+      'food-higher',
+    ]);
+    expect(response.items[0].matchReasons).toContain('280 kcal per serving');
+    expect(response.appliedFilters).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ key: 'itemKinds', label: 'Food only' }),
+        expect.objectContaining({ key: 'lowerCalorie' }),
+      ]),
+    );
   });
 
   it('relaxes the default budget cap when budget high-protein results would otherwise be empty', async () => {

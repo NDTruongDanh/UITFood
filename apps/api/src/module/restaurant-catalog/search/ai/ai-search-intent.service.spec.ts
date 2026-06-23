@@ -20,6 +20,7 @@ describe('AiSearchIntentService', () => {
     expect(intent.nutrition.proteinMinG).toBe(25);
     expect(intent.sort).toBe('protein_desc');
     expect(intent.foodNameOnly).toBe(false);
+    expect(intent.itemKinds).toEqual(['food']);
     expect(intent.needsFallback).toBe(false);
   });
 
@@ -61,6 +62,48 @@ describe('AiSearchIntentService', () => {
     expect(intent.confidence).toBeGreaterThanOrEqual(0.65);
     expect(intent.foodTerms).toEqual([]);
     expect(intent.foodNameOnly).toBe(false);
+    expect(intent.itemKinds).toEqual(['food']);
+  });
+
+  it.each(['food for weight loss', 'food for weight lost', 'food to lose weight'])(
+    'treats %s as food-only lower-calorie intent',
+    (query) => {
+      const intent = service.parseIntent(query);
+
+      expect(intent.itemKinds).toEqual(['food']);
+      expect(intent.nutrition.lowerCalorie).toBe(true);
+      expect(intent.nutrition.caloriesMax).toBeUndefined();
+      expect(intent.sort).toBe('calories_asc');
+    },
+  );
+
+  it('supports Vietnamese lower-calorie intent', () => {
+    const intent = service.parseIntent('món ăn giảm cân');
+
+    expect(intent.itemKinds).toEqual(['food']);
+    expect(intent.nutrition.lowerCalorie).toBe(true);
+  });
+
+  it('distinguishes beverages and leaves dessert type-agnostic', () => {
+    const drinkIntent = service.parseIntent('drink');
+    expect(drinkIntent.itemKinds).toEqual(['beverage']);
+    expect(drinkIntent.foodTerms).toEqual([]);
+    expect(drinkIntent.needsFallback).toBe(false);
+    expect(service.parseIntent('low calorie drink').itemKinds).toEqual([
+      'beverage',
+    ]);
+    expect(service.parseIntent('dessert for weight loss').itemKinds).toEqual(
+      [],
+    );
+  });
+
+  it('parses calorie caps without treating them as prices', () => {
+    const intent = service.parseIntent('food under 500 calories');
+
+    expect(intent.nutrition.caloriesMax).toBe(500);
+    expect(intent.nutrition.lowerCalorie).toBe(true);
+    expect(intent.price.maxPriceVnd).toBeUndefined();
+    expect(intent.sort).toBe('calories_asc');
   });
 
   it('marks bare food names for standard search fallback', () => {
@@ -90,6 +133,7 @@ describe('AiSearchIntentService', () => {
         content: JSON.stringify({
           rewrittenQuery: 'high protein chicken nearby',
           language: 'en',
+          itemKinds: [],
           foodTerms: ['chicken'],
           cuisineTerms: [],
           dietaryTags: ['chicken'],
@@ -138,6 +182,7 @@ describe('AiSearchIntentService', () => {
         content: JSON.stringify({
           rewrittenQuery: 'pho',
           language: 'vi',
+          itemKinds: [],
           foodTerms: ['pho'],
           cuisineTerms: [],
           dietaryTags: [],
@@ -162,6 +207,43 @@ describe('AiSearchIntentService', () => {
 
     expect(intent.foodNameOnly).toBe(true);
     expect(intent.confidence).toBe(0.91);
+  });
+
+  it('does not let the provider force a type for an ambiguous dessert query', async () => {
+    const provider = {
+      isConfigured: jest.fn(() => true),
+      chat: jest.fn(async () => ({
+        model: 'gpt-oss:120b',
+        content: JSON.stringify({
+          rewrittenQuery: 'dessert for weight loss',
+          language: 'en',
+          itemKinds: ['beverage'],
+          foodTerms: ['dessert'],
+          cuisineTerms: [],
+          dietaryTags: [],
+          excludedTerms: [],
+          nutrition: { lowerCalorie: true },
+          price: {},
+          rating: {},
+          geo: {},
+          sort: 'calories_asc',
+          confidence: 0.9,
+          needsFallback: false,
+          foodNameOnly: false,
+        }),
+      })),
+    } as unknown as OllamaAiProvider;
+    const providerService = new AiSearchIntentService(
+      provider,
+      buildConfig({ AI_SEARCH_ENABLED: true }),
+    );
+
+    const intent = await providerService.parseIntentWithProvider(
+      'dessert for weight loss',
+    );
+
+    expect(intent.itemKinds).toEqual([]);
+    expect(intent.nutrition.lowerCalorie).toBe(true);
   });
   it('falls back to deterministic parsing when the provider fails', async () => {
     const provider = {

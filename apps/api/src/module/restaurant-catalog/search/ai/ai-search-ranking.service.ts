@@ -409,6 +409,16 @@ export class AiSearchRankingService {
     b: AiSearchItemResult,
     intent: AiSearchIntent,
   ): number {
+    if (intent.sort === 'calories_asc') {
+      return (
+        compareNullableNumbers(
+          a.nutrition?.calories,
+          b.nutrition?.calories,
+        ) ||
+        b.score - a.score ||
+        a.id.localeCompare(b.id)
+      );
+    }
     if (intent.sort === 'protein_desc') {
       return (
         Number(b.nutrition?.protein ?? -1) -
@@ -493,6 +503,14 @@ export class AiSearchRankingService {
     const protein = item.nutrition?.protein;
 
     if (
+      intent.nutrition.lowerCalorie &&
+      item.nutrition?.calories !== null &&
+      item.nutrition?.calories !== undefined
+    ) {
+      reasons.push(`${Math.round(item.nutrition.calories)} kcal per serving`);
+    }
+
+    if (
       intent.nutrition.proteinMinG !== undefined &&
       protein !== null &&
       protein !== undefined &&
@@ -542,6 +560,7 @@ export class AiSearchRankingService {
       name: item.name,
       description: item.description,
       price: item.price,
+      itemKind: item.itemKind,
       imageUrl: item.imageUrl,
       tags: item.tags,
       categoryName: item.categoryName,
@@ -632,6 +651,15 @@ function scoreItemNutrition(
   intent: AiSearchIntent,
 ): number {
   const scores: number[] = [];
+
+  if (intent.nutrition.lowerCalorie) {
+    const calories = item.nutrition?.calories;
+    scores.push(
+      calories === null || calories === undefined
+        ? 0
+        : clamp01(1 - calories / 5000),
+    );
+  }
 
   if (intent.nutrition.proteinMinG !== undefined) {
     const protein = item.nutrition?.protein;
