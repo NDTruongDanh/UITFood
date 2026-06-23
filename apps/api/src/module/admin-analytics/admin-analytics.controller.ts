@@ -1,4 +1,11 @@
-import { Controller, ForbiddenException, Get, Query } from '@nestjs/common';
+import {
+  Controller,
+  ForbiddenException,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Query,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiForbiddenResponse,
@@ -13,6 +20,7 @@ import { AdminAnalyticsService } from './admin-analytics.service';
 import {
   PlatformAnalyticsQueryDto,
   PlatformAnalyticsResponseDto,
+  RestaurantAnalyticsResponseDto,
 } from './dto/admin-analytics.dto';
 
 @ApiTags('Admin Analytics')
@@ -40,5 +48,26 @@ export class AdminAnalyticsController {
       throw new ForbiddenException('Admin role required.');
     }
     return this.service.getPlatformAnalytics(query.range ?? 'today');
+  }
+
+  @Get('restaurant/:restaurantId')
+  @ApiOperation({
+    summary: 'Restaurant-specific analytics for the admin dashboard',
+  })
+  @ApiOkResponse({ type: RestaurantAnalyticsResponseDto })
+  @ApiForbiddenResponse({ description: 'Admin role required.' })
+  @ApiUnauthorizedResponse({ description: 'Not authenticated.' })
+  async getRestaurantAnalytics(
+    @Session() session: UserSession,
+    @Param('restaurantId', ParseUUIDPipe) restaurantId: string,
+    @Query() query: PlatformAnalyticsQueryDto,
+  ): Promise<RestaurantAnalyticsResponseDto> {
+    if (!hasRole(session.user.role, 'admin')) {
+      throw new ForbiddenException('Admin role required.');
+    }
+    return this.service.getRestaurantAnalytics(
+      restaurantId,
+      query.range ?? 'today',
+    );
   }
 }
