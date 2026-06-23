@@ -1,6 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
-import { sql } from 'drizzle-orm';
+import { and, asc, eq, isNull, lte } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { DB_CONNECTION } from '@/drizzle/drizzle.constants';
 import type { DomainEventEnvelope } from '@uitfood/contracts';
@@ -63,16 +63,22 @@ export class OutboxRelayService {
   /** Claims and publishes one batch. Returns the number of rows handled. */
   private async drainBatch(): Promise<number> {
     return this.db.transaction(async (tx) => {
-      const rows = (await tx.execute(sql`
-        SELECT * FROM ${outboxEvents}
-        WHERE ${outboxEvents.publishedAt} IS NULL
-          AND ${outboxEvents.nextAttemptAt} <= now()
-        ORDER BY ${outboxEvents.occurredAt} ASC
-        LIMIT ${BATCH_SIZE}
-        FOR UPDATE SKIP LOCKED
-      `)) as unknown as { rows: OutboxEvent[] };
+      // FOR UPDATE SKIP LOCKED lets multiple replicas relay concurrently without
+      // grabbing the same rows. The query builder maps columns to camelCase
+      // (a raw SELECT * would return snake_case and break row.attemptCount etc.).
+      const batch = await tx
+        .select()
+        .from(outboxEvents)
+        .where(
+          and(
+            isNull(outboxEvents.publishedAt),
+            lte(outboxEvents.nextAttemptAt, new Date()),
+          ),
+        )
+        .orderBy(asc(outboxEvents.occurredAt))
+        .limit(BATCH_SIZE)
+        .for('update', { skipLocked: true });
 
-      const batch = rows.rows ?? [];
       for (const row of batch) {
         await this.publishRow(tx, row);
       }
@@ -89,7 +95,7 @@ export class OutboxRelayService {
       await tx
         .update(outboxEvents)
         .set({ publishedAt: new Date(), lastError: null })
-        .where(sql`${outboxEvents.id} = ${row.id}`);
+        .where(eq(outboxEvents.id, row.id));
     } catch (err) {
       const attempt = row.attemptCount + 1;
       const backoffMs = Math.min(
@@ -103,7 +109,7 @@ export class OutboxRelayService {
           nextAttemptAt: new Date(Date.now() + backoffMs),
           lastError: (err as Error).message.slice(0, 1_000),
         })
-        .where(sql`${outboxEvents.id} = ${row.id}`);
+        .where(eq(outboxEvents.id, row.id));
 
       this.logger.warn(
         `Outbox publish failed for eventId=${row.eventId} ` +

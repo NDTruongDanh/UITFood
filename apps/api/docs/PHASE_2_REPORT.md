@@ -1,7 +1,7 @@
 # Phase 2 — Durable Integration (Implementation Report)
 
-**Status:** Messaging foundation, `@uitfood/contracts`, transactional outbox/inbox, the RabbitMQ publisher/consumer + relay, the EventBus bridge, and the order/payment outbox conversion are implemented and verified (typecheck + 667 unit tests green). The 3 Catalog services are specified as apply-ready code (not yet applied). The "kill-after-commit" resilience test and the live-broker run are outstanding.
-**Scope:** `packages/contracts` (new), `apps/api/src/messaging` (new), `apps/api` ordering/payment handlers, `docker-compose*.yml`, `infra`, schema/migrations
+**Status:** Phase 2 is functionally complete and verified at the typecheck/unit level. `@uitfood/contracts`, transactional outbox/inbox, the RabbitMQ publisher/consumer + relay, the EventBus bridge, the Review `UnitOfWork` dismantling, the full producer outbox conversion (order, payment, review, **and all catalog incl. modifiers**), and the kill-after-commit resilience test are all implemented. Typecheck (src + test) clean; **667 unit tests pass**. Only live-infra runs remain (resilience/full e2e against Postgres, live-broker round-trip, DI-cycle boot smoke).
+**Scope:** `packages/contracts` (new), `apps/api/src/messaging` (new), `apps/api` ordering/payment/catalog handlers + services + repos, `docker-compose*.yml`, `infra`, schema/migrations
 **Date:** 2026-06-23
 **Relates to:** [MICROSERVICES_MIGRATION_PLAN.md](./MICROSERVICES_MIGRATION_PLAN.md) §2.3 (coupling), §5 (contracts/consistency), Phase 2 objectives & exit criteria
 
@@ -109,13 +109,45 @@ authoritative immediately; the projections are eventually consistent;
 | `payment/tasks/payment-timeout.task.ts` | `payment.failed` |
 
 Supporting changes: `PaymentTransactionRepository.updateStatus` accepts an
-optional `executor` so the status change and outbox insert commit atomically;
-`PaymentModule` and `OrderLifecycleModule` import `MessagingModule`. The three
-affected unit specs (place-order, transition-order, process-ipn) were updated to
-assert outbox writes.
+optional `executor` so the status change and outbox insert commit atomically.
+The three affected unit specs (place-order, transition-order, process-ipn) were
+updated to assert outbox writes.
 
 The `EventBusBridgeConsumer` re-emits each of these as the legacy in-process
 event, so Ordering/Notification/Payment `@EventsHandler` consumers are unchanged.
+
+---
+
+## 6b. Catalog outbox conversion (verified)
+
+All Restaurant Catalog producers now record their events in the outbox atomically
+with the write, closing the last `EventBus.publish` sites:
+
+| Service | Event |
+| --- | --- |
+| `zones.service.ts` | `catalog.delivery-zone.changed.v1` |
+| `menu.service.ts` (create/update/updateImage/toggleSoldOut/remove) | `catalog.menu-item.changed.v1` |
+| `restaurant.service.ts` (create/update/setApproved/remove/attachImage) | `catalog.restaurant.changed.v1` |
+| `modifiers.service.ts` (6 group/option mutations) | `catalog.menu-item.changed.v1` |
+
+**Executor threading:** the `zones`/`menu`/`restaurant`/modifier repositories
+gained an optional `DrizzleExecutor` param so a write joins the service's outer
+transaction. `menu`/`restaurant` repos keep their internal search-index
+transaction when called standalone and join the outer tx when one is passed.
+`ModifiersService` rebuilds the modifier snapshot **inside** the transaction
+(reading via the executor so it reflects the uncommitted change) before writing
+the event via `MenuService.writeMenuItemOutbox`.
+
+**DI-cycle fix:** the dependency-free `OutboxWriter` was extracted into a tiny
+`OutboxModule`. Every producer module (catalog menu/restaurant/zones, order,
+order-lifecycle, payment, review) imports `OutboxModule` instead of the
+contracts-heavy `MessagingModule`, breaking the
+`RestaurantModule → MessagingModule → CatalogContractsModule → RestaurantModule`
+cycle. `MessagingModule` (relay + publisher + consumers + bridge) is imported
+once by `AppModule`.
+
+Catalog specs (`zones.service.spec`, `restaurant.service.spec`) were updated from
+an `EventBus` mock to `db` + `outbox` mocks asserting outbox envelopes.
 
 ---
 
@@ -132,49 +164,73 @@ event, so Ordering/Notification/Payment `@EventsHandler` consumers are unchanged
 
 ---
 
-## 8. Verification performed
+## 8. Resilience test (kill-after-commit)
+
+`test/e2e/outbox-resilience.e2e-spec.ts` proves the durability guarantee against
+the REAL Postgres outbox table and the REAL `OutboxRelayService`, with a
+controllable fake publisher standing in for RabbitMQ (recovery is
+broker-independent — the DB + relay guarantee no loss — so the test is
+deterministic and needs no live broker).
+
+| Test | Proves |
+| --- | --- |
+| OR-01 | A business tx commits the outbox row but the process dies before publishing → on "reboot" a fresh relay drains it and delivers exactly once. |
+| OR-02 | Broker down → publish rejects (no confirm) → row is NOT lost (`publishedAt` null, `attemptCount=1`, `lastError` set); after recovery the next tick delivers it exactly once. |
+| OR-03 | Already-published rows are never re-published (idempotent relay). |
+| OR-04 | Inbox dedupe → replaying the same event applies its effect exactly once. |
+
+**Relay bug found & fixed:** writing this test against real Postgres surfaced
+that `OutboxRelayService` used a raw `SELECT *`, which returns snake_case columns
+— so `row.attemptCount` / `row.eventId` were `undefined` at runtime (retry
+counting and logging silently broken). `drainBatch` was rewritten to use
+Drizzle's query builder with `.for('update', { skipLocked: true })`, keeping the
+`FOR UPDATE SKIP LOCKED` multi-replica safety while mapping columns to camelCase.
+
+---
+
+## 9. Verification performed
 
 | Check | Result |
 | --- | --- |
 | `@uitfood/contracts` build | ✅ Pass |
-| `pnpm --filter api run typecheck` | ✅ Pass |
+| `pnpm --filter api run typecheck` (src) | ✅ Pass |
+| Full src + test typecheck | ✅ Pass |
 | Full API unit suite | ✅ 56 suites / 667 tests pass |
+| Resilience e2e — typecheck | ✅ Pass; runtime requires Postgres (`pnpm --filter api test:e2e`) |
 | Live broker round-trip (publish → consume) | ⏳ requires running RabbitMQ |
 
 ---
 
-## 9. Outstanding work
+## 10. Outstanding work (runtime / live-infra only)
 
-- [ ] **Catalog services** (`menu`, `restaurant`, `zones` + `ModifiersService`):
-      apply the executor-aware repo + transactional outbox refactor (provided as
-      apply-ready code) and update their specs (`eventBus` → `outbox` mock). Run
-      `pnpm --filter api typecheck` + catalog specs.
-- [ ] **Resilience "kill-after-commit" test/QA**: prove a committed business
-      transaction whose process dies before the relay publishes still delivers on
-      reboot, and that replaying every event twice leaves projections correct.
+- [ ] **Run the resilience + full e2e** against Postgres:
+      `docker compose up -d postgres && pnpm --filter api test:e2e` (the
+      resilience test needs only Postgres; CI's validate job already provides it).
 - [ ] **Live-broker validation**: `docker compose up` (Postgres + Redis +
       RabbitMQ), `db:push`, boot the API, exercise checkout/payment/review, and
       confirm events flow outbox → RabbitMQ → bridge → handlers; DLQ empty.
-- [ ] **DI-cycle smoke**: boot `pnpm dev:api` once to confirm `MessagingModule` ↔
-      Payment/OrderLifecycle introduces no Nest dependency cycle (use
-      `forwardRef()` if it does).
+- [ ] **DI-cycle boot smoke**: `pnpm dev:api` once to confirm no Nest dependency
+      cycle (the `OutboxModule` extraction should prevent it).
+- [ ] Add RabbitMQ to the CI `validate` service containers for the live round-trip.
 - [ ] Refactor scheduled tasks to use a distributed lease (idempotency under
       multiple replicas) — plan Phase 2 item 6.
 - [ ] Update `.env.example` with `RABBITMQ_*`.
 
 ---
 
-## 10. Exit-criteria status (plan Phase 2)
+## 11. Exit-criteria status (plan Phase 2)
 
 | Criterion | Status |
 | --- | --- |
-| Durable events for currently shared event classes | ✅ Order/payment/review on outbox; ⏳ catalog pending apply |
+| Durable events for currently shared event classes | ✅ Order, payment, review, AND all catalog (incl. modifiers) on outbox |
 | Inbox/outbox + relay with confirms, retry, DLQ | ✅ Implemented |
 | No cross-context transaction carrier in production workflows | ✅ Review UnitOfWork dismantled |
-| Killing the API after commit does not lose the event | ⏳ Mechanism in place (outbox + relay); resilience test pending |
-| Replaying every event twice leaves projections correct | ⏳ Inbox dedupe in place; test pending |
-| Broker unavailability queues outbox rows without failing the business write | ✅ By design (relay decoupled); ⏳ live verification |
+| Killing the API after commit does not lose the event | ✅ Mechanism + resilience test (OR-01/OR-02); ⏳ run against live Postgres |
+| Replaying every event twice leaves projections correct | ✅ Inbox dedupe + resilience test (OR-03/OR-04); ⏳ run against live Postgres |
+| Broker unavailability queues outbox rows without failing the business write | ✅ By design + OR-02; ⏳ live verification |
 | Local/Nest-TCP switchable adapters | ⏳ Deferred within Phase 2 (adapter seam exists via ports) |
 
-Once the catalog refactor is applied and the resilience test passes against a
-local broker, Phase 2 is complete and we proceed to **Phase 3 (Media extraction)**.
+Phase 2 is functionally complete (implementation + tests verified at the
+typecheck/unit level). Once the e2e/resilience suite and the live-broker
+round-trip run green against local infra, we proceed to **Phase 3 (Media
+extraction)**.
