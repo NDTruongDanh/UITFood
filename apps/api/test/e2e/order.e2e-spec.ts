@@ -142,6 +142,7 @@ describe('Order placement E2E', () => {
         restaurantId: TEST_RESTAURANT_ID,
         name: 'Test Burger',
         price: 10000,
+        itemKind: 'food',
       });
     expect(itemRes.status).toBe(201);
     snapshotItemId = itemRes.body.id as string;
@@ -542,6 +543,7 @@ describe('Order placement E2E', () => {
           restaurantId: TEST_RESTAURANT_ID,
           name: 'Soon Unavailable',
           price: 5000,
+          itemKind: 'food',
         });
       expect(tempItemRes.status).toBe(201);
       const tempItemId = tempItemRes.body.id as string;
@@ -592,6 +594,7 @@ describe('Order placement E2E', () => {
           restaurantId: TEST_RESTAURANT_ID,
           name: 'Modifier Burger',
           price: 12000,
+          itemKind: 'food',
         });
       expect(modItemRes.status).toBe(201);
       modItemId = modItemRes.body.id as string;

@@ -122,6 +122,7 @@ describeRealOllama('AI Nutrition Analyzer with real Ollama (E2E)', () => {
       restaurantId: TEST_RESTAURANT_ID,
       name,
       price: 45000,
+      itemKind: 'food',
     });
 
     expect(res.status).toBe(201);

@@ -74,6 +74,7 @@ describe('Cart API (E2E)', () => {
       restaurantId: TEST_RESTAURANT_ID,
       name: 'Plain Burger',
       price: 10000,
+      itemKind: 'food',
     });
     snapshotItemId = basic.body.id as string;
 
@@ -85,6 +86,7 @@ describe('Cart API (E2E)', () => {
         restaurantId: TEST_RESTAURANT_ID,
         name: 'Fancy Burger',
         price: 15000,
+        itemKind: 'food',
       });
     modItemId = modItem.body.id as string;
 

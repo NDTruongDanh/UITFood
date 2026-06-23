@@ -240,6 +240,7 @@ describe('Promotion Checkout E2E (Phase PR-3 + PR-4)', () => {
         restaurantId: TEST_RESTAURANT_ID,
         name: 'Promo Test Item',
         price: ITEM_PRICE,
+        itemKind: 'food',
       });
     expect(itemRes.status).toBe(201);
     snapshotItemId = itemRes.body.id as string;

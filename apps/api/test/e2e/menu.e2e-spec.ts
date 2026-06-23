@@ -205,6 +205,7 @@ describe('Menu Item & Category CRUD (E2E)', () => {
         restaurantId: TEST_RESTAURANT_ID,
         name: 'Margherita Pizza',
         price: 12000,
+        itemKind: 'food',
       });
 
       expect(res.status).toBe(201);
@@ -212,6 +213,7 @@ describe('Menu Item & Category CRUD (E2E)', () => {
         restaurantId: TEST_RESTAURANT_ID,
         name: 'Margherita Pizza',
         price: 12000,
+        itemKind: 'food',
         status: 'available',
       });
       expect(res.body.id).toBeDefined();
@@ -235,6 +237,7 @@ describe('Menu Item & Category CRUD (E2E)', () => {
           restaurantId: TEST_RESTAURANT_ID,
           name: 'Deluxe Burger',
           price: 19000,
+          itemKind: 'food',
           categoryId: catId,
           description: 'Double patty with special sauce',
           sku: 'BURGER-DLX-001',
@@ -272,6 +275,7 @@ describe('Menu Item & Category CRUD (E2E)', () => {
           restaurantId: TEST_RESTAURANT_ID,
           name: 'Intrusion Item',
           price: 10000,
+          itemKind: 'food',
         });
 
       expect(res.status).toBe(403);
@@ -281,7 +285,24 @@ describe('Menu Item & Category CRUD (E2E)', () => {
       const res = await http
         .post('/api/menu-items')
         .set(ownerHeaders())
-        .send({ restaurantId: TEST_RESTAURANT_ID, price: 10 });
+        .send({
+          restaurantId: TEST_RESTAURANT_ID,
+          price: 10,
+          itemKind: 'food',
+        });
+
+      expect(res.status).toBe(400);
+    });
+
+    it('returns 400 for missing item type', async () => {
+      const res = await http
+        .post('/api/menu-items')
+        .set(ownerHeaders())
+        .send({
+          restaurantId: TEST_RESTAURANT_ID,
+          name: 'Unclassified Item',
+          price: 10000,
+        });
 
       expect(res.status).toBe(400);
     });
@@ -290,7 +311,12 @@ describe('Menu Item & Category CRUD (E2E)', () => {
       const res = await http
         .post('/api/menu-items')
         .set(ownerHeaders())
-        .send({ restaurantId: TEST_RESTAURANT_ID, name: 'A', price: 10 });
+        .send({
+          restaurantId: TEST_RESTAURANT_ID,
+          name: 'A',
+          price: 10,
+          itemKind: 'food',
+        });
 
       expect(res.status).toBe(400);
     });
@@ -299,7 +325,11 @@ describe('Menu Item & Category CRUD (E2E)', () => {
       const res = await http
         .post('/api/menu-items')
         .set(ownerHeaders())
-        .send({ restaurantId: TEST_RESTAURANT_ID, name: 'No Price Item' });
+        .send({
+          restaurantId: TEST_RESTAURANT_ID,
+          name: 'No Price Item',
+          itemKind: 'food',
+        });
 
       expect(res.status).toBe(400);
     });
@@ -308,7 +338,7 @@ describe('Menu Item & Category CRUD (E2E)', () => {
       const res = await http
         .post('/api/menu-items')
         .set(ownerHeaders())
-        .send({ name: 'Orphan Item', price: 9.99 });
+        .send({ name: 'Orphan Item', price: 9.99, itemKind: 'food' });
 
       expect(res.status).toBe(400);
     });
@@ -318,6 +348,7 @@ describe('Menu Item & Category CRUD (E2E)', () => {
         restaurantId: TEST_RESTAURANT_ID,
         name: 'Bad URL',
         price: 10,
+        itemKind: 'food',
         imageUrl: 'not-a-url',
       });
 
@@ -348,6 +379,7 @@ describe('Menu Item & Category CRUD (E2E)', () => {
           restaurantId: TEST_RESTAURANT_ID,
           name: 'Tomato Soup',
           price: 8000,
+          itemKind: 'food',
           categoryId: listCategoryId,
         });
       soupId = soupRes.body.id as string;
@@ -359,6 +391,7 @@ describe('Menu Item & Category CRUD (E2E)', () => {
           restaurantId: TEST_RESTAURANT_ID,
           name: 'Caesar Salad',
           price: 9000,
+          itemKind: 'food',
         });
       saladId = saladRes.body.id as string;
     });
@@ -512,6 +545,7 @@ describe('Menu Item & Category CRUD (E2E)', () => {
         restaurantId: TEST_RESTAURANT_ID,
         name: 'Spaghetti Carbonara',
         price: 15000,
+        itemKind: 'food',
       });
       itemId = res.body.id as string;
     });
@@ -571,6 +605,7 @@ describe('Menu Item & Category CRUD (E2E)', () => {
         restaurantId: TEST_RESTAURANT_ID,
         name: 'Tiramisu',
         price: 7000,
+        itemKind: 'food',
       });
       itemId = res.body.id as string;
     });
@@ -650,6 +685,7 @@ describe('Menu Item & Category CRUD (E2E)', () => {
           restaurantId: TEST_RESTAURANT_ID,
           name: 'Toggle Burger',
           price: 10000,
+          itemKind: 'food',
         });
       toggleItemId = toggleRes.body.id as string;
 
@@ -661,6 +697,7 @@ describe('Menu Item & Category CRUD (E2E)', () => {
           restaurantId: TEST_RESTAURANT_ID,
           name: 'Unavailable Item',
           price: 5000,
+          itemKind: 'food',
         });
       unavailableItemId = unavailableRes.body.id as string;
       // Set to unavailable via update
@@ -723,6 +760,7 @@ describe('Menu Item & Category CRUD (E2E)', () => {
         restaurantId: TEST_RESTAURANT_ID,
         name: 'Deletable Item',
         price: 5000,
+        itemKind: 'food',
       });
       deletableItemId = res.body.id as string;
     });
@@ -791,6 +829,7 @@ describe('Menu Item & Category CRUD (E2E)', () => {
           restaurantId: TEST_RESTAURANT_ID,
           name: 'Snapshot Item',
           price: 10000,
+          itemKind: 'food',
         });
       expect(createRes.status).toBe(201);
       plainItemId = createRes.body.id as string;

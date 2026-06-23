@@ -246,6 +246,7 @@ describe('SoLi Full Integration E2E', () => {
         restaurantId: TEST_RESTAURANT_ID,
         name: 'Plain Burger',
         price: 10000,
+        itemKind: 'food',
       });
     expect(basicRes.status).toBe(201);
     basicItemId = basicRes.body.id as string;
@@ -256,6 +257,7 @@ describe('SoLi Full Integration E2E', () => {
       restaurantId: TEST_RESTAURANT_ID,
       name: 'Fancy Burger',
       price: 15000,
+      itemKind: 'food',
     });
     expect(modRes.status).toBe(201);
     modItemId = modRes.body.id as string;
@@ -450,6 +452,7 @@ describe('SoLi Full Integration E2E', () => {
           restaurantId: newRestaurantId,
           name: 'Bistro Salad',
           price: 9000,
+          itemKind: 'food',
         });
       expect(res.status).toBe(201);
       expect(res.body).toMatchObject({

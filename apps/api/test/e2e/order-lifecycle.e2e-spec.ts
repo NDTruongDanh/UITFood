@@ -319,6 +319,7 @@ describe('Order Lifecycle E2E (Phase 5)', () => {
         restaurantId: TEST_RESTAURANT_ID,
         name: 'Test Burger',
         price: 10000,
+        itemKind: 'food',
       });
     expect(itemRes.status).toBe(201);
     snapshotItemId = itemRes.body.id as string;
