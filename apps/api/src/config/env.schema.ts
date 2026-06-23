@@ -229,6 +229,19 @@ const baseEnvSchema = z.object({
   AI_SEARCH_ENABLED: stringToBoolean(false),
   AI_SEARCH_MODEL: z.string().trim().min(1).default('gpt-oss:20b'),
   AI_SEARCH_TIMEOUT_MS: z.coerce.number().int().positive().default(8000),
+  AI_SEARCH_VERIFICATION_ENABLED: stringToBoolean(true),
+  AI_SEARCH_VERIFICATION_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .max(30_000)
+    .default(5000),
+  AI_SEARCH_VERIFICATION_BATCH_SIZE: z.coerce
+    .number()
+    .int()
+    .min(5)
+    .max(50)
+    .default(40),
   AI_SEARCH_MIN_CONFIDENCE: z.coerce.number().min(0).max(1).default(0.65),
   AI_SEARCH_DAILY_LIMIT_PER_USER: z.coerce
     .number()
