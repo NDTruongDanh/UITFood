@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { PaginationControls } from './PaginationControls';
+import { MenuItemDetailSheet } from './MenuItemDetailSheet';
 import type { MenuItemStatusFilter } from '../api/menu.api';
 
 const PAGE_SIZE = 24;
@@ -23,6 +24,7 @@ export function MenuTab({ restaurantId }: { restaurantId: string }) {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<MenuItemStatusFilter>('all');
   const [page, setPage] = useState(0);
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
 
   const { data: categories, isLoading: isLoadingCats } =
     useRestaurantMenuCategories(restaurantId);
@@ -116,7 +118,11 @@ export function MenuTab({ restaurantId }: { restaurantId: string }) {
               </h3>
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {categoryItems.map((item) => (
-                  <Card key={item.id} className="overflow-hidden">
+                  <Card
+                    key={item.id}
+                    className="overflow-hidden cursor-pointer hover:border-primary transition-colors"
+                    onClick={() => setSelectedItemId(item.id)}
+                  >
                     <div className="flex h-full flex-col">
                       {item.imageUrl ? (
                         <div
@@ -177,6 +183,11 @@ export function MenuTab({ restaurantId }: { restaurantId: string }) {
         pageSize={PAGE_SIZE}
         total={itemsData?.total ?? 0}
         onPageChange={setPage}
+      />
+
+      <MenuItemDetailSheet
+        itemId={selectedItemId}
+        onClose={() => setSelectedItemId(null)}
       />
     </div>
   );

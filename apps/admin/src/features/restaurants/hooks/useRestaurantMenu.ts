@@ -24,3 +24,19 @@ export function useRestaurantMenuItems(
     enabled: !!restaurantId,
   });
 }
+
+export function useMenuItem(itemId: string | null) {
+  return useQuery({
+    queryKey: ['menu-item', itemId],
+    queryFn: () => (itemId ? menuApi.getItem(itemId) : null),
+    enabled: !!itemId,
+  });
+}
+
+export function useMenuItemModifiers(menuItemId: string | null) {
+  return useQuery({
+    queryKey: ['menu-item-modifiers', menuItemId],
+    queryFn: () => (menuItemId ? menuApi.getModifiers(menuItemId) : null),
+    enabled: !!menuItemId,
+  });
+}
