@@ -37,6 +37,7 @@ export interface MenuItem {
   name: string;
   description?: string;
   price: number;
+  itemKind: 'food' | 'beverage' | 'mixed';
   sku?: string;
   categoryId?: string;
   status: 'available' | 'unavailable' | 'out_of_stock';
@@ -163,6 +164,7 @@ export interface SearchItemResult {
   name: string;
   description?: string | null;
   price: number;
+  itemKind: 'food' | 'beverage' | 'mixed';
   imageUrl?: string | null;
   tags?: string[];
   categoryName?: string | null;
