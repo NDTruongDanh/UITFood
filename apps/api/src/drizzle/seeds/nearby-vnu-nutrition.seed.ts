@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import { randomUUID } from 'node:crypto';
 import { hashPassword } from 'better-auth/crypto';
 import { inArray, or, sql } from 'drizzle-orm';
 import { db } from '../db';
@@ -59,6 +60,19 @@ type RecipeIngredientSeed = {
   category: IngredientCategory;
 };
 
+type ModifierOptionSeed = {
+  name: string;
+  price: number;
+  isDefault?: boolean;
+};
+
+type ModifierGroupSeed = {
+  name: string;
+  minSelections: number;
+  maxSelections: number;
+  options: ModifierOptionSeed[];
+};
+
 type MenuItemSeed = {
   id: string;
   analysisSessionId: string;
@@ -70,6 +84,7 @@ type MenuItemSeed = {
   imageUrl: string;
   servings: number;
   ingredients: RecipeIngredientSeed[];
+  modifiers?: ModifierGroupSeed[];
 };
 
 type RestaurantSeed = {
@@ -662,6 +677,35 @@ const restaurantsData: RestaurantSeed[] = [
           ),
           ingredient('oliveOil', 'olive oil', 5, 'g', 'unknown', 'sauce'),
         ],
+        modifiers: [
+          {
+            name: 'Size',
+            minSelections: 1,
+            maxSelections: 1,
+            options: [
+              { name: 'Regular', price: 0, isDefault: true },
+              { name: 'Large', price: 15000 },
+            ],
+          },
+          {
+            name: 'Protein',
+            minSelections: 0,
+            maxSelections: 2,
+            options: [
+              { name: 'Extra Chicken', price: 20000 },
+              { name: 'Add Egg', price: 10000 },
+            ],
+          },
+          {
+            name: 'Utensils',
+            minSelections: 0,
+            maxSelections: 1,
+            options: [
+              { name: 'No Utensils', price: 0, isDefault: true },
+              { name: 'Add Utensils', price: 0 },
+            ],
+          },
+        ],
       }),
       item(2, 'Tofu Brown Rice Bowl', {
         description:
@@ -685,6 +729,35 @@ const restaurantsData: RestaurantSeed[] = [
           ingredient('cucumber', 'cucumber', 45, 'g', 'raw', 'main'),
           ingredient('soySauce', 'soy sauce', 12, 'g', 'unknown', 'sauce'),
           ingredient('sesameOil', 'sesame oil', 4, 'g', 'unknown', 'sauce'),
+        ],
+        modifiers: [
+          {
+            name: 'Size',
+            minSelections: 1,
+            maxSelections: 1,
+            options: [
+              { name: 'Regular', price: 0, isDefault: true },
+              { name: 'Large', price: 15000 },
+            ],
+          },
+          {
+            name: 'Protein',
+            minSelections: 0,
+            maxSelections: 2,
+            options: [
+              { name: 'Extra Tofu', price: 15000 },
+              { name: 'Add Egg', price: 10000 },
+            ],
+          },
+          {
+            name: 'Utensils',
+            minSelections: 0,
+            maxSelections: 1,
+            options: [
+              { name: 'No Utensils', price: 0, isDefault: true },
+              { name: 'Add Utensils', price: 0 },
+            ],
+          },
         ],
       }),
       item(3, 'Shrimp Vermicelli Salad', {
@@ -739,6 +812,35 @@ const restaurantsData: RestaurantSeed[] = [
             'sauce',
           ),
         ],
+        modifiers: [
+          {
+            name: 'Size',
+            minSelections: 1,
+            maxSelections: 1,
+            options: [
+              { name: 'Regular', price: 0, isDefault: true },
+              { name: 'Large', price: 15000 },
+            ],
+          },
+          {
+            name: 'Extras',
+            minSelections: 0,
+            maxSelections: 2,
+            options: [
+              { name: 'Extra Shrimp', price: 25000 },
+              { name: 'Extra Peanuts', price: 5000 },
+            ],
+          },
+          {
+            name: 'Utensils',
+            minSelections: 0,
+            maxSelections: 1,
+            options: [
+              { name: 'No Utensils', price: 0, isDefault: true },
+              { name: 'Add Utensils', price: 0 },
+            ],
+          },
+        ],
       }),
       item(4, 'Beef Pho Protein Bowl', {
         description:
@@ -782,6 +884,35 @@ const restaurantsData: RestaurantSeed[] = [
             'unknown',
             'sauce',
           ),
+        ],
+        modifiers: [
+          {
+            name: 'Size',
+            minSelections: 1,
+            maxSelections: 1,
+            options: [
+              { name: 'Regular', price: 0, isDefault: true },
+              { name: 'Large', price: 15000 },
+            ],
+          },
+          {
+            name: 'Extras',
+            minSelections: 0,
+            maxSelections: 2,
+            options: [
+              { name: 'Extra Beef', price: 30000 },
+              { name: 'Extra Noodles', price: 10000 },
+            ],
+          },
+          {
+            name: 'Utensils',
+            minSelections: 0,
+            maxSelections: 1,
+            options: [
+              { name: 'No Utensils', price: 0, isDefault: true },
+              { name: 'Add Utensils', price: 0 },
+            ],
+          },
         ],
       }),
     ],
@@ -831,6 +962,35 @@ const restaurantsData: RestaurantSeed[] = [
           ingredient('honey', 'honey glaze', 10, 'g', 'unknown', 'sauce'),
           ingredient('fishSauce', 'fish sauce', 12, 'g', 'unknown', 'sauce'),
         ],
+        modifiers: [
+          {
+            name: 'Size',
+            minSelections: 1,
+            maxSelections: 1,
+            options: [
+              { name: 'Regular', price: 0, isDefault: true },
+              { name: 'Large', price: 15000 },
+            ],
+          },
+          {
+            name: 'Extras',
+            minSelections: 0,
+            maxSelections: 2,
+            options: [
+              { name: 'Extra Pork Chop', price: 35000 },
+              { name: 'Add Egg', price: 10000 },
+            ],
+          },
+          {
+            name: 'Utensils',
+            minSelections: 0,
+            maxSelections: 1,
+            options: [
+              { name: 'No Utensils', price: 0, isDefault: true },
+              { name: 'Add Utensils', price: 0 },
+            ],
+          },
+        ],
       }),
       item(6, 'Grilled Chicken Banh Mi', {
         description:
@@ -867,6 +1027,35 @@ const restaurantsData: RestaurantSeed[] = [
             'herb_side',
           ),
           ingredient('soySauce', 'soy sauce', 8, 'g', 'unknown', 'sauce'),
+        ],
+        modifiers: [
+          {
+            name: 'Size',
+            minSelections: 1,
+            maxSelections: 1,
+            options: [
+              { name: 'Regular', price: 0, isDefault: true },
+              { name: 'Large', price: 10000 },
+            ],
+          },
+          {
+            name: 'Extras',
+            minSelections: 0,
+            maxSelections: 2,
+            options: [
+              { name: 'Extra Chicken', price: 15000 },
+              { name: 'Add Pate', price: 5000 },
+            ],
+          },
+          {
+            name: 'Utensils',
+            minSelections: 0,
+            maxSelections: 1,
+            options: [
+              { name: 'No Utensils', price: 0, isDefault: true },
+              { name: 'Add Utensils', price: 0 },
+            ],
+          },
         ],
       }),
       item(7, 'Beef Skewer Vermicelli', {
@@ -943,6 +1132,35 @@ const restaurantsData: RestaurantSeed[] = [
           ingredient('soySauce', 'soy sauce', 10, 'g', 'unknown', 'sauce'),
           ingredient('sesameOil', 'sesame oil', 4, 'g', 'unknown', 'sauce'),
         ],
+        modifiers: [
+          {
+            name: 'Size',
+            minSelections: 1,
+            maxSelections: 1,
+            options: [
+              { name: 'Regular', price: 0, isDefault: true },
+              { name: 'Large', price: 20000 },
+            ],
+          },
+          {
+            name: 'Extras',
+            minSelections: 0,
+            maxSelections: 2,
+            options: [
+              { name: 'Extra Salmon', price: 45000 },
+              { name: 'Extra Rice', price: 10000 },
+            ],
+          },
+          {
+            name: 'Utensils',
+            minSelections: 0,
+            maxSelections: 1,
+            options: [
+              { name: 'No Utensils', price: 0, isDefault: true },
+              { name: 'Add Utensils', price: 0 },
+            ],
+          },
+        ],
       }),
     ],
   },
@@ -992,6 +1210,35 @@ const restaurantsData: RestaurantSeed[] = [
           ingredient('tomato', 'tomato', 40, 'g', 'raw', 'main'),
           ingredient('oliveOil', 'olive oil', 5, 'g', 'unknown', 'sauce'),
         ],
+        modifiers: [
+          {
+            name: 'Size',
+            minSelections: 1,
+            maxSelections: 1,
+            options: [
+              { name: 'Regular', price: 0, isDefault: true },
+              { name: 'Large', price: 15000 },
+            ],
+          },
+          {
+            name: 'Extras',
+            minSelections: 0,
+            maxSelections: 2,
+            options: [
+              { name: 'Extra Avocado', price: 15000 },
+              { name: 'Extra Egg', price: 10000 },
+            ],
+          },
+          {
+            name: 'Utensils',
+            minSelections: 0,
+            maxSelections: 1,
+            options: [
+              { name: 'No Utensils', price: 0, isDefault: true },
+              { name: 'Add Utensils', price: 0 },
+            ],
+          },
+        ],
       }),
       item(10, 'Tuna Brown Rice Salad', {
         description:
@@ -1023,6 +1270,35 @@ const restaurantsData: RestaurantSeed[] = [
           ingredient('carrotRaw', 'shredded carrot', 30, 'g', 'raw', 'main'),
           ingredient('soySauce', 'soy sauce', 10, 'g', 'unknown', 'sauce'),
         ],
+        modifiers: [
+          {
+            name: 'Size',
+            minSelections: 1,
+            maxSelections: 1,
+            options: [
+              { name: 'Regular', price: 0, isDefault: true },
+              { name: 'Large', price: 15000 },
+            ],
+          },
+          {
+            name: 'Extras',
+            minSelections: 0,
+            maxSelections: 2,
+            options: [
+              { name: 'Extra Tuna', price: 20000 },
+              { name: 'Add Boiled Egg', price: 10000 },
+            ],
+          },
+          {
+            name: 'Utensils',
+            minSelections: 0,
+            maxSelections: 1,
+            options: [
+              { name: 'No Utensils', price: 0, isDefault: true },
+              { name: 'Add Utensils', price: 0 },
+            ],
+          },
+        ],
       }),
       item(11, 'Yogurt Fruit Granola Bowl', {
         description:
@@ -1044,6 +1320,35 @@ const restaurantsData: RestaurantSeed[] = [
           ingredient('mango', 'mango', 80, 'g', 'raw', 'main'),
           ingredient('granola', 'granola', 35, 'g', 'cooked', 'main'),
           ingredient('honey', 'honey', 8, 'g', 'unknown', 'sauce'),
+        ],
+        modifiers: [
+          {
+            name: 'Size',
+            minSelections: 1,
+            maxSelections: 1,
+            options: [
+              { name: 'Regular', price: 0, isDefault: true },
+              { name: 'Large', price: 15000 },
+            ],
+          },
+          {
+            name: 'Extras',
+            minSelections: 0,
+            maxSelections: 2,
+            options: [
+              { name: 'Extra Granola', price: 10000 },
+              { name: 'Extra Mango', price: 10000 },
+            ],
+          },
+          {
+            name: 'Utensils',
+            minSelections: 0,
+            maxSelections: 1,
+            options: [
+              { name: 'No Utensils', price: 0, isDefault: true },
+              { name: 'Add Utensils', price: 0 },
+            ],
+          },
         ],
       }),
       item(12, 'Chicken Porridge Bowl', {
@@ -1087,6 +1392,35 @@ const restaurantsData: RestaurantSeed[] = [
             'herb_side',
           ),
           ingredient('fishSauce', 'fish sauce', 8, 'g', 'unknown', 'sauce'),
+        ],
+        modifiers: [
+          {
+            name: 'Size',
+            minSelections: 1,
+            maxSelections: 1,
+            options: [
+              { name: 'Regular', price: 0, isDefault: true },
+              { name: 'Large', price: 15000 },
+            ],
+          },
+          {
+            name: 'Extras',
+            minSelections: 0,
+            maxSelections: 2,
+            options: [
+              { name: 'Extra Chicken', price: 15000 },
+              { name: 'Extra Egg', price: 10000 },
+            ],
+          },
+          {
+            name: 'Utensils',
+            minSelections: 0,
+            maxSelections: 1,
+            options: [
+              { name: 'No Utensils', price: 0, isDefault: true },
+              { name: 'Add Utensils', price: 0 },
+            ],
+          },
         ],
       }),
     ],
@@ -1405,10 +1739,55 @@ async function seedMenuItem(
     description: menuItem.description,
     price: menuItem.price,
     itemKind: menuItem.itemKind,
-    status: 'available',
     tags: menuItem.tags,
     imageUrl: menuItem.imageUrl,
   });
+
+  const modifierSnapshots: import('../../module/ordering/acl/schemas/menu-item-snapshot.schema').OrderingMenuItemSnapshot['modifiers'] = [];
+
+  if (menuItem.modifiers && menuItem.modifiers.length > 0) {
+    let groupDisplayOrder = 0;
+    for (const group of menuItem.modifiers) {
+      const groupId = randomUUID();
+      await db.insert(schema.modifierGroups).values({
+        id: groupId,
+        menuItemId: menuItem.id,
+        name: group.name,
+        minSelections: group.minSelections,
+        maxSelections: group.maxSelections,
+        displayOrder: groupDisplayOrder++,
+      });
+
+      const optionSnapshots = [];
+      let optionDisplayOrder = 0;
+      for (const option of group.options) {
+        const optionId = randomUUID();
+        await db.insert(schema.modifierOptions).values({
+          id: optionId,
+          groupId: groupId,
+          name: option.name,
+          price: option.price,
+          isDefault: option.isDefault ?? false,
+          isAvailable: true,
+          displayOrder: optionDisplayOrder++,
+        });
+        optionSnapshots.push({
+          optionId,
+          name: option.name,
+          price: option.price,
+          isDefault: option.isDefault ?? false,
+          isAvailable: true,
+        });
+      }
+      modifierSnapshots.push({
+        groupId,
+        groupName: group.name,
+        minSelections: group.minSelections,
+        maxSelections: group.maxSelections,
+        options: optionSnapshots,
+      });
+    }
+  }
 
   await db.insert(schema.orderingMenuItemSnapshots).values({
     menuItemId: menuItem.id,
@@ -1416,7 +1795,7 @@ async function seedMenuItem(
     name: menuItem.name,
     price: menuItem.price,
     status: 'available',
-    modifiers: [],
+    modifiers: modifierSnapshots,
   });
 }
 
@@ -1519,6 +1898,7 @@ function item(
     analysisSessionId: seedId(7, index),
     name,
     itemKind: details.itemKind ?? 'food',
+    modifiers: details.modifiers ?? [],
     ...details,
   };
 }

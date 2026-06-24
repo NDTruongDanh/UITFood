@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import { randomUUID } from 'node:crypto';
 import { hashPassword } from 'better-auth/crypto';
 import { inArray, or, sql } from 'drizzle-orm';
 import { db } from '../db';
@@ -45,6 +46,19 @@ type RecipeIngredientSeed = {
   category: IngredientCategory;
 };
 
+type ModifierOptionSeed = {
+  name: string;
+  price: number;
+  isDefault?: boolean;
+};
+
+type ModifierGroupSeed = {
+  name: string;
+  minSelections: number;
+  maxSelections: number;
+  options: ModifierOptionSeed[];
+};
+
 type MenuItemSeed = {
   id: string;
   analysisSessionId: string;
@@ -56,6 +70,7 @@ type MenuItemSeed = {
   imageUrl: string;
   servings: number;
   ingredients: RecipeIngredientSeed[];
+  modifiers?: ModifierGroupSeed[];
 };
 
 type RestaurantSeed = {
@@ -280,6 +295,36 @@ const restaurantsData: RestaurantSeed[] = [
           ingredient('milkWhole', 'whole milk', 150, 'g', 'unknown', 'main'),
           ingredient('sugarWhite', 'white sugar', 10, 'g', 'unknown', 'sauce'),
         ],
+        modifiers: [
+          {
+            name: 'Size',
+            minSelections: 1,
+            maxSelections: 1,
+            options: [
+              { name: 'Medium', price: 0, isDefault: true },
+              { name: 'Large', price: 10000 },
+            ],
+          },
+          {
+            name: 'Milk Option',
+            minSelections: 1,
+            maxSelections: 1,
+            options: [
+              { name: 'Whole Milk', price: 0, isDefault: true },
+              { name: 'Oat Milk', price: 15000 },
+              { name: 'Almond Milk', price: 15000 },
+            ],
+          },
+          {
+            name: 'Add-ons',
+            minSelections: 0,
+            maxSelections: 2,
+            options: [
+              { name: 'Extra Shot', price: 10000 },
+              { name: 'Vanilla Syrup', price: 5000 },
+            ],
+          },
+        ],
       }),
       item(2, 'Iced Matcha Latte', {
         description: 'Premium matcha with cold milk and ice.',
@@ -300,6 +345,26 @@ const restaurantsData: RestaurantSeed[] = [
           ingredient('milkWhole', 'whole milk', 180, 'g', 'unknown', 'main'),
           ingredient('sugarWhite', 'white sugar', 15, 'g', 'unknown', 'sauce'),
         ],
+        modifiers: [
+          {
+            name: 'Size',
+            minSelections: 1,
+            maxSelections: 1,
+            options: [
+              { name: 'Medium', price: 0, isDefault: true },
+              { name: 'Large', price: 12000 },
+            ],
+          },
+          {
+            name: 'Milk Option',
+            minSelections: 1,
+            maxSelections: 1,
+            options: [
+              { name: 'Whole Milk', price: 0, isDefault: true },
+              { name: 'Oat Milk', price: 15000 },
+            ],
+          },
+        ],
       }),
       item(3, 'Butter Croissant', {
         description: 'Flaky and buttery French croissant.',
@@ -310,6 +375,26 @@ const restaurantsData: RestaurantSeed[] = [
         servings: 1,
         ingredients: [
           ingredient('croissant', 'croissant', 80, 'g', 'cooked', 'main'),
+        ],
+        modifiers: [
+          {
+            name: 'Warm Up',
+            minSelections: 0,
+            maxSelections: 1,
+            options: [
+              { name: 'Yes, warm it up', price: 0 },
+              { name: 'No, keep it as is', price: 0, isDefault: true },
+            ],
+          },
+          {
+            name: 'Spreads',
+            minSelections: 0,
+            maxSelections: 2,
+            options: [
+              { name: 'Butter', price: 5000 },
+              { name: 'Jam', price: 5000 },
+            ],
+          },
         ],
       }),
       item(4, 'Ham & Cheese Club Sandwich', {
@@ -331,6 +416,36 @@ const restaurantsData: RestaurantSeed[] = [
             'main',
           ),
           ingredient('lettuce', 'lettuce', 20, 'g', 'raw', 'main'),
+        ],
+        modifiers: [
+          {
+            name: 'Bread Toasting',
+            minSelections: 1,
+            maxSelections: 1,
+            options: [
+              { name: 'Toasted', price: 0, isDefault: true },
+              { name: 'Not Toasted', price: 0 },
+            ],
+          },
+          {
+            name: 'Extras',
+            minSelections: 0,
+            maxSelections: 3,
+            options: [
+              { name: 'Extra Ham', price: 15000 },
+              { name: 'Extra Cheese', price: 10000 },
+              { name: 'Add Egg', price: 10000 },
+            ],
+          },
+          {
+            name: 'Utensils',
+            minSelections: 0,
+            maxSelections: 1,
+            options: [
+              { name: 'No Utensils', price: 0, isDefault: true },
+              { name: 'Add Utensils', price: 0 },
+            ],
+          },
         ],
       }),
     ],
@@ -639,10 +754,55 @@ async function seedMenuItem(
     description: menuItem.description,
     price: menuItem.price,
     itemKind: menuItem.itemKind,
-    status: 'available',
     tags: menuItem.tags,
     imageUrl: menuItem.imageUrl,
   });
+
+  const modifierSnapshots: import('../../module/ordering/acl/schemas/menu-item-snapshot.schema').OrderingMenuItemSnapshot['modifiers'] = [];
+
+  if (menuItem.modifiers && menuItem.modifiers.length > 0) {
+    let groupDisplayOrder = 0;
+    for (const group of menuItem.modifiers) {
+      const groupId = randomUUID();
+      await db.insert(schema.modifierGroups).values({
+        id: groupId,
+        menuItemId: menuItem.id,
+        name: group.name,
+        minSelections: group.minSelections,
+        maxSelections: group.maxSelections,
+        displayOrder: groupDisplayOrder++,
+      });
+
+      const optionSnapshots = [];
+      let optionDisplayOrder = 0;
+      for (const option of group.options) {
+        const optionId = randomUUID();
+        await db.insert(schema.modifierOptions).values({
+          id: optionId,
+          groupId: groupId,
+          name: option.name,
+          price: option.price,
+          isDefault: option.isDefault ?? false,
+          isAvailable: true,
+          displayOrder: optionDisplayOrder++,
+        });
+        optionSnapshots.push({
+          optionId,
+          name: option.name,
+          price: option.price,
+          isDefault: option.isDefault ?? false,
+          isAvailable: true,
+        });
+      }
+      modifierSnapshots.push({
+        groupId,
+        groupName: group.name,
+        minSelections: group.minSelections,
+        maxSelections: group.maxSelections,
+        options: optionSnapshots,
+      });
+    }
+  }
 
   await db.insert(schema.orderingMenuItemSnapshots).values({
     menuItemId: menuItem.id,
@@ -650,7 +810,7 @@ async function seedMenuItem(
     name: menuItem.name,
     price: menuItem.price,
     status: 'available',
-    modifiers: [],
+    modifiers: modifierSnapshots,
   });
 }
 
@@ -748,6 +908,7 @@ function item(
     analysisSessionId: seedId(7, index),
     name,
     itemKind: details.itemKind ?? 'food',
+    modifiers: details.modifiers ?? [],
     ...details,
   };
 }
