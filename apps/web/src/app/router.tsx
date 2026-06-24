@@ -6,6 +6,7 @@ import { RegisterPage } from '@/app/pages/auth/register/RegisterPage';
 import { RegisterLocationPage } from '@/app/pages/auth/register/RegisterBusinessPage';
 import { LoginPage } from '@/app/pages/auth/login/LoginPage';
 import { PendingApprovalPage } from '@/app/pages/auth/PendingApprovalPage';
+import { EditPendingApprovalPage } from '@/app/pages/auth/EditPendingApprovalPage';
 import { DashboardPage } from '@/app/pages/dashboard/DashboardPage';
 import { MenuManagementPage } from '@/app/pages/menu/MenuManagementPage';
 import CreateMenuItemPage from '@/app/pages/menu/CreateMenuItemPage';
@@ -72,6 +73,10 @@ export const router = withFaroRouterInstrumentation(createBrowserRouter([
           {
             path: 'pending-approval',
             element: <PendingApprovalPage />,
+          },
+          {
+            path: 'pending-approval/edit',
+            element: <EditPendingApprovalPage />,
           },
         ],
       },
