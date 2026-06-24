@@ -234,6 +234,7 @@ describe('Payment E2E — Complete Suite', () => {
         restaurantId: TEST_RESTAURANT_ID,
         name: 'Test Burger',
         price: 15000,
+        itemKind: 'food',
       });
     expect(itemRes.status).toBe(201);
     menuItemId = itemRes.body.id as string;

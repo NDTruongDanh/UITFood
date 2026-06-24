@@ -36,8 +36,12 @@
 // The modular (@firebase/app-compat) package is required because service
 // workers do not support ES module imports in all browsers yet.
 // ---------------------------------------------------------------------------
-importScripts('https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js');
-importScripts('https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js');
+importScripts(
+  'https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js',
+);
+importScripts(
+  'https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js',
+);
 
 // ---------------------------------------------------------------------------
 // Service worker lifecycle — activate immediately so a newly deployed SW
@@ -76,12 +80,12 @@ self.addEventListener('message', (event) => {
 // The server-side service account key is what must be kept secret.
 // ---------------------------------------------------------------------------
 firebase.initializeApp({
-  apiKey:            'AIzaSyCnWC2VZnrfct6EvdVCcdlG-OUOabgS1dY',
-  authDomain:        'soli-food-delivery.firebaseapp.com',
-  projectId:         'soli-food-delivery',
-  storageBucket:     'soli-food-delivery.firebasestorage.app',
+  apiKey: 'AIzaSyCnWC2VZnrfct6EvdVCcdlG-OUOabgS1dY',
+  authDomain: 'soli-food-delivery.firebaseapp.com',
+  projectId: 'soli-food-delivery',
+  storageBucket: 'soli-food-delivery.firebasestorage.app',
   messagingSenderId: '344352194360',
-  appId:             '1:344352194360:web:11b0603425d85663fd4bcd',
+  appId: '1:344352194360:web:11b0603425d85663fd4bcd',
 });
 
 const messaging = firebase.messaging();
@@ -103,7 +107,10 @@ const messaging = firebase.messaging();
 // consistent behaviour across all supported browsers.
 // ---------------------------------------------------------------------------
 messaging.onBackgroundMessage((payload) => {
-  console.log('[firebase-messaging-sw.js] Received background message:', payload);
+  console.log(
+    '[firebase-messaging-sw.js] Received background message:',
+    payload,
+  );
 
   // ---------------------------------------------------------------------------
   // Payload design: data-only messages
@@ -115,15 +122,22 @@ messaging.onBackgroundMessage((payload) => {
   //
   // All notification fields (title, body, icon, link) are in `payload.data`.
   // ---------------------------------------------------------------------------
-  const title = payload.data?.title ?? payload.notification?.title ?? 'SoLi Notification';
-  const body  = payload.data?.body  ?? payload.notification?.body  ?? '';
+  const title =
+    payload.data?.title ??
+    payload.notification?.title ??
+    'UITFood Notification';
+  const body = payload.data?.body ?? payload.notification?.body ?? '';
 
   // Click-through URL — data.link set by the server; falls back to fcmOptions.link
-  const clickUrl = payload.data?.link ?? payload.fcmOptions?.link ?? self.registration.scope;
+  const clickUrl =
+    payload.data?.link ?? payload.fcmOptions?.link ?? self.registration.scope;
 
   const options = {
     body,
-    icon:  payload.data?.icon  ?? payload.notification?.icon  ?? '/icons/notification-icon.png',
+    icon:
+      payload.data?.icon ??
+      payload.notification?.icon ??
+      '/icons/notification-icon.png',
     badge: '/icons/badge-icon.png',
     data: { ...payload.data, _clickUrl: clickUrl },
     // Keep notification visible so user sees it even after screen sleep
@@ -149,7 +163,8 @@ messaging.onBackgroundMessage((payload) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
-  const targetUrl = event.notification.data?._clickUrl ?? event.notification.data?.url ?? '/';
+  const targetUrl =
+    event.notification.data?._clickUrl ?? event.notification.data?.url ?? '/';
 
   event.waitUntil(
     clients

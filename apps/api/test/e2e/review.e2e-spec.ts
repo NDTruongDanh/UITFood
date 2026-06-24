@@ -230,6 +230,7 @@ describe('UC-22 Submit Rating & Review E2E', () => {
         restaurantId: TEST_RESTAURANT_ID,
         name: 'Test Burger',
         price: 10000,
+        itemKind: 'food',
       });
     expect(itemRes.status).toBe(201);
     menuItemId = itemRes.body.id as string;

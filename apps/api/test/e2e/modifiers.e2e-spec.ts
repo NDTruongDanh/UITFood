@@ -68,6 +68,7 @@ describe('Modifier Group & Option CRUD (E2E)', () => {
         restaurantId: TEST_RESTAURANT_ID,
         name: 'Modifier Test Item',
         price: 12000,
+        itemKind: 'food',
       });
     expect(itemRes.status).toBe(201);
     menuItemId = itemRes.body.id as string;

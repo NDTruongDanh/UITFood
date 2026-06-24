@@ -15,7 +15,11 @@ import {
 import { alias } from 'drizzle-orm/pg-core';
 import { DB_CONNECTION } from '@/drizzle/drizzle.constants';
 // Reporting is the sole read-only exception allowed to compose context-owned tables.
-import { orders, orderStatusLogs } from '@/module/ordering/order/order.schema';
+import {
+  orderItems,
+  orders,
+  orderStatusLogs,
+} from '@/module/ordering/order/order.schema';
 import { restaurants } from '@/module/restaurant-catalog/restaurant/restaurant.schema';
 
 export interface PlatformScalars {
@@ -56,6 +60,22 @@ export interface BottleneckRow {
 export interface DistrictRow {
   district: string;
   orderCount: number;
+}
+
+export interface RestaurantAnalyticsData {
+  totalRevenue: number;
+  orderCount: number;
+  deliveredCount: number;
+  cancelledCount: number;
+  avgPrepMinutes: number | null;
+  revenueByDay: { date: string; revenue: number }[];
+  ordersByDay: { date: string; count: number }[];
+  topItems: {
+    menuItemId: string;
+    name: string;
+    quantity: number;
+    revenue: number;
+  }[];
 }
 
 const COMMISSION_RATE = 0.15;
@@ -319,5 +339,114 @@ export class AdminAnalyticsRepository {
 
   get commissionRate(): number {
     return COMMISSION_RATE;
+  }
+
+  async getRestaurantAnalyticsData(
+    restaurantId: string,
+    start: Date,
+    end: Date,
+  ): Promise<RestaurantAnalyticsData> {
+    const windowFilter = and(
+      eq(orders.restaurantId, restaurantId),
+      gte(orders.createdAt, start),
+      lt(orders.createdAt, end),
+    );
+
+    const scalarsQuery = this.db
+      .select({
+        // Restaurant sales exclude delivery fees and include order discounts.
+        totalRevenue: sql<number>`COALESCE(SUM(${orders.totalAmount} - ${orders.shippingFee}) FILTER (WHERE ${orders.status} = 'delivered'), 0)::bigint`,
+        orderCount: count(),
+        deliveredCount: sql<number>`COUNT(*) FILTER (WHERE ${orders.status} = 'delivered')::int`,
+        cancelledCount: sql<number>`COUNT(*) FILTER (WHERE ${orders.status} IN ('cancelled', 'refunded'))::int`,
+      })
+      .from(orders)
+      .where(windowFilter);
+
+    const lConf = alias(orderStatusLogs, 'l_conf');
+    const lReady = alias(orderStatusLogs, 'l_ready');
+    const prepQuery = this.db
+      .select({
+        avgPrepSeconds: sql<number>`AVG(EXTRACT(EPOCH FROM (${lReady.createdAt} - ${lConf.createdAt})))::float8`,
+      })
+      .from(orders)
+      .innerJoin(
+        lConf,
+        and(eq(lConf.orderId, orders.id), eq(lConf.toStatus, 'confirmed')),
+      )
+      .innerJoin(
+        lReady,
+        and(
+          eq(lReady.orderId, orders.id),
+          eq(lReady.toStatus, 'ready_for_pickup'),
+        ),
+      )
+      .where(windowFilter);
+
+    const dailyQuery = this.db
+      .select({
+        day: sql<string>`date_trunc('day', ${orders.createdAt})`.as('day'),
+        orders: count().as('orders'),
+        revenue:
+          sql<number>`COALESCE(SUM(${orders.totalAmount} - ${orders.shippingFee}) FILTER (WHERE ${orders.status} = 'delivered'), 0)::bigint`.as(
+            'revenue',
+          ),
+      })
+      .from(orders)
+      .where(windowFilter)
+      .groupBy(sql`day`)
+      .orderBy(asc(sql`day`));
+
+    const topItemsQuery = this.db
+      .select({
+        menuItemId: orderItems.menuItemId,
+        name: orderItems.itemName,
+        quantity: sql<number>`SUM(${orderItems.quantity})::bigint`,
+        revenue: sql<number>`SUM(${orderItems.subtotal})::bigint`,
+      })
+      .from(orderItems)
+      .innerJoin(orders, eq(orders.id, orderItems.orderId))
+      .where(and(windowFilter, eq(orders.status, 'delivered')))
+      .groupBy(orderItems.menuItemId, orderItems.itemName)
+      .orderBy(desc(sql`SUM(${orderItems.quantity})`))
+      .limit(10);
+
+    const [scalarsRows, prepRows, dailyRows, itemsRows] = await Promise.all([
+      scalarsQuery,
+      prepQuery,
+      dailyQuery,
+      topItemsQuery,
+    ]);
+
+    const scalars = scalarsRows[0];
+    const avgPrepMinutes =
+      prepRows[0]?.avgPrepSeconds != null
+        ? Math.round(Number(prepRows[0].avgPrepSeconds) / 60)
+        : null;
+
+    const revenueByDay = dailyRows.map((row) => ({
+      date: new Date(row.day).toISOString(),
+      revenue: Number(row.revenue),
+    }));
+    const ordersByDay = dailyRows.map((row) => ({
+      date: new Date(row.day).toISOString(),
+      count: Number(row.orders),
+    }));
+
+    return {
+      totalRevenue: Number(scalars?.totalRevenue ?? 0),
+      orderCount: Number(scalars?.orderCount ?? 0),
+      deliveredCount: Number(scalars?.deliveredCount ?? 0),
+      cancelledCount: Number(scalars?.cancelledCount ?? 0),
+      avgPrepMinutes,
+      revenueByDay,
+      ordersByDay,
+      topItems: itemsRows.map((row) => ({
+        menuItemId: row.menuItemId,
+        name: row.name,
+        quantity: Number(row.quantity),
+        revenue: Number(row.revenue),
+      })),
+    };
   }
 }

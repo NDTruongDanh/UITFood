@@ -5,6 +5,7 @@ import request from 'supertest';
 import type { App } from 'supertest/types';
 import { AiRecipeExtractionService } from '../../src/module/restaurant-catalog/nutrition/ai/ai-recipe-extraction.service';
 import {
+  nutritionFoods,
   nutritionAnalysisIngredients,
   nutritionAnalysisSessions,
 } from '../../src/module/restaurant-catalog/nutrition/domain/nutrition.schema';
@@ -206,8 +207,67 @@ describe('AI Nutrition Analyzer (E2E)', () => {
     ).resolves.toEqual([]);
   });
 
+  it('runs manual ingredients through calculation and saves the manual source', async () => {
+    const menuItemId = await createMenuItem('E2E Manual ingredients');
+    const nutritionFoodId = await seedChickenNutritionFood();
+
+    const manualRes = await http
+      .post(`/api/restaurant/menu-items/${menuItemId}/nutrition/manual-session`)
+      .set(ownerHeaders());
+
+    expect(manualRes.status).toBe(201);
+    expect(extractRecipeMock).not.toHaveBeenCalled();
+    expect(manualRes.body).toMatchObject({
+      analysisSessionId: expect.any(String),
+      servings: 1,
+      ingredients: [],
+      status: 'NEEDS_REVIEW',
+    });
+
+    const calculateRes = await http
+      .post(`/api/restaurant/menu-items/${menuItemId}/nutrition/calculate`)
+      .set(ownerHeaders())
+      .send({
+        analysisSessionId: manualRes.body.analysisSessionId,
+        servings: 1,
+        ingredients: [
+          {
+            name: 'uc ga',
+            matchedNutritionFoodId: nutritionFoodId,
+            quantity: 100,
+            unit: 'g',
+            preparation: 'cooked',
+            category: 'main',
+          },
+        ],
+      });
+
+    expect(calculateRes.status).toBe(201);
+
+    const saveRes = await http
+      .put(`/api/restaurant/menu-items/${menuItemId}/nutrition`)
+      .set(ownerHeaders())
+      .send({
+        analysisSessionId: manualRes.body.analysisSessionId,
+        verifiedByRestaurant: true,
+        servings: 100,
+        nutrition: { calories: 1, protein: 0, carbs: 0, fat: 0 },
+      });
+
+    expect(saveRes.status).toBe(200);
+    expect(saveRes.body).toMatchObject({
+      calories: 120,
+      protein: 13,
+      carbs: 4,
+      fat: 3.3,
+      source: 'MANUALLY_ENTERED',
+      verifiedByRestaurant: true,
+    });
+  });
+
   it('returns saved nutrition and exposes it on menu item detail', async () => {
     const menuItemId = await createMenuItem('E2E Saved nutrition item');
+    const nutritionFoodId = await seedChickenNutritionFood();
     const extractedRecipe: ExtractedRecipe = {
       recipeName: 'Saved nutrition item',
       servings: 2,
@@ -232,22 +292,31 @@ describe('AI Nutrition Analyzer (E2E)', () => {
 
     expect(analyzeRes.status).toBe(201);
 
+    const calculateRes = await http
+      .post(`/api/restaurant/menu-items/${menuItemId}/nutrition/calculate`)
+      .set(ownerHeaders())
+      .send({
+        analysisSessionId: analyzeRes.body.analysisSessionId,
+        servings: 2,
+        ingredients: [
+          {
+            name: 'uc ga',
+            matchedNutritionFoodId: nutritionFoodId,
+            quantity: 500,
+            unit: 'g',
+            preparation: 'cooked',
+            category: 'main',
+          },
+        ],
+      });
+
+    expect(calculateRes.status).toBe(201);
+
     const saveRes = await http
       .put(`/api/restaurant/menu-items/${menuItemId}/nutrition`)
       .set(ownerHeaders())
       .send({
         analysisSessionId: analyzeRes.body.analysisSessionId,
-        servings: 2,
-        nutrition: {
-          calories: 300,
-          protein: 32.5,
-          carbs: 10,
-          fat: 8.2,
-          fiber: null,
-          sugar: null,
-          sodium: null,
-        },
-        ingredients: [],
         verifiedByRestaurant: true,
       });
 
@@ -290,7 +359,7 @@ describe('AI Nutrition Analyzer (E2E)', () => {
           quantity: 500,
           unit: 'g',
           preparation: 'cooked',
-          confidence: 0.96,
+          confidence: expect.any(Number),
           requiresConfirmation: false,
           notes: [],
         },
@@ -303,10 +372,33 @@ describe('AI Nutrition Analyzer (E2E)', () => {
       restaurantId: TEST_RESTAURANT_ID,
       name,
       price: 45000,
+      itemKind: 'food',
     });
 
     expect(res.status).toBe(201);
     return res.body.id as string;
+  }
+
+  async function seedChickenNutritionFood(): Promise<string> {
+    const id = '99999999-9999-4999-8999-999999999999';
+    await getTestDb()
+      .insert(nutritionFoods)
+      .values({
+        id,
+        nameVi: 'uc ga',
+        nameEn: 'chicken breast',
+        source: 'E2E',
+        sourceFoodId: 'e2e-chicken-breast',
+        aliases: ['uc ga'],
+        category: 'meat',
+        state: 'cooked',
+        calories100g: 120,
+        protein100g: 13,
+        carbs100g: 4,
+        fat100g: 3.28,
+      })
+      .onConflictDoNothing();
+    return id;
   }
 });
 

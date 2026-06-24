@@ -109,6 +109,9 @@ describe('environment schema observability settings', () => {
       AI_SEARCH_ENABLED: 'true',
       AI_SEARCH_MODEL: ' gpt-oss:120b-cloud ',
       AI_SEARCH_TIMEOUT_MS: '9000',
+      AI_SEARCH_VERIFICATION_ENABLED: 'true',
+      AI_SEARCH_VERIFICATION_TIMEOUT_MS: '4500',
+      AI_SEARCH_VERIFICATION_BATCH_SIZE: '30',
       AI_SEARCH_MIN_CONFIDENCE: '0.7',
       AI_SEARCH_DAILY_LIMIT_PER_USER: '250',
       AI_SEARCH_RANKING_V2_ENABLED: 'true',
@@ -129,6 +132,9 @@ describe('environment schema observability settings', () => {
     expect(env.AI_SEARCH_ENABLED).toBe(true);
     expect(env.AI_SEARCH_MODEL).toBe('gpt-oss:120b-cloud');
     expect(env.AI_SEARCH_TIMEOUT_MS).toBe(9000);
+    expect(env.AI_SEARCH_VERIFICATION_ENABLED).toBe(true);
+    expect(env.AI_SEARCH_VERIFICATION_TIMEOUT_MS).toBe(4500);
+    expect(env.AI_SEARCH_VERIFICATION_BATCH_SIZE).toBe(30);
     expect(env.AI_SEARCH_MIN_CONFIDENCE).toBe(0.7);
     expect(env.AI_SEARCH_DAILY_LIMIT_PER_USER).toBe(250);
     expect(env.AI_SEARCH_RANKING_V2_ENABLED).toBe(true);

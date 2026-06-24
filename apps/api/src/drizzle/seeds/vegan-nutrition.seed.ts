@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import { randomUUID } from 'node:crypto';
 import { hashPassword } from 'better-auth/crypto';
 import { inArray, or, sql } from 'drizzle-orm';
 import { db } from '../db';
@@ -58,16 +59,31 @@ type RecipeIngredientSeed = {
   category: IngredientCategory;
 };
 
+type ModifierOptionSeed = {
+  name: string;
+  price: number;
+  isDefault?: boolean;
+};
+
+type ModifierGroupSeed = {
+  name: string;
+  minSelections: number;
+  maxSelections: number;
+  options: ModifierOptionSeed[];
+};
+
 type MenuItemSeed = {
   id: string;
   analysisSessionId: string;
   name: string;
   description: string;
   price: number;
+  itemKind: 'food' | 'beverage' | 'mixed';
   tags: string[];
   imageUrl: string;
   servings: number;
   ingredients: RecipeIngredientSeed[];
+  modifiers?: ModifierGroupSeed[];
 };
 
 type RestaurantSeed = {
@@ -372,14 +388,36 @@ const restaurantsData: RestaurantSeed[] = [
           ),
           ingredient('lettuce', 'lettuce', 40, 'g', 'raw', 'main'),
           ingredient('carrotRaw', 'shredded carrot', 30, 'g', 'raw', 'main'),
-          ingredient(
-            'soySauce',
-            'soy sauce dressing',
-            15,
-            'g',
-            'unknown',
-            'sauce',
-          ),
+          ingredient('soySauce', 'soy sauce', 15, 'g', 'unknown', 'sauce'),
+        ],
+        modifiers: [
+          {
+            name: 'Size',
+            minSelections: 1,
+            maxSelections: 1,
+            options: [
+              { name: 'Regular', price: 0, isDefault: true },
+              { name: 'Large', price: 15000 },
+            ],
+          },
+          {
+            name: 'Extra Toppings',
+            minSelections: 0,
+            maxSelections: 5,
+            options: [
+              { name: 'Extra Tofu', price: 10000 },
+              { name: 'Extra Mushrooms', price: 12000 },
+            ],
+          },
+          {
+            name: 'Utensils',
+            minSelections: 0,
+            maxSelections: 1,
+            options: [
+              { name: 'No Utensils', price: 0, isDefault: true },
+              { name: 'Add Utensils', price: 0 },
+            ],
+          },
         ],
       }),
       item(2, 'Vegan Tofu Banh Mi', {
@@ -403,6 +441,26 @@ const restaurantsData: RestaurantSeed[] = [
           ingredient('carrotRaw', 'shredded carrot', 20, 'g', 'raw', 'main'),
           ingredient('soySauce', 'soy sauce', 10, 'g', 'unknown', 'sauce'),
         ],
+        modifiers: [
+          {
+            name: 'Size',
+            minSelections: 1,
+            maxSelections: 1,
+            options: [
+              { name: 'Regular', price: 0, isDefault: true },
+              { name: 'Large', price: 10000 },
+            ],
+          },
+          {
+            name: 'Utensils',
+            minSelections: 0,
+            maxSelections: 1,
+            options: [
+              { name: 'No Utensils', price: 0, isDefault: true },
+              { name: 'Add Utensils', price: 0 },
+            ],
+          },
+        ],
       }),
       item(3, 'Vegan Spring Rolls with Vermicelli', {
         description:
@@ -424,6 +482,26 @@ const restaurantsData: RestaurantSeed[] = [
           ingredient('lettuce', 'lettuce', 50, 'g', 'raw', 'main'),
           ingredient('cucumber', 'cucumber', 40, 'g', 'raw', 'main'),
           ingredient('soySauce', 'soy sauce', 15, 'g', 'unknown', 'sauce'),
+        ],
+        modifiers: [
+          {
+            name: 'Size',
+            minSelections: 1,
+            maxSelections: 1,
+            options: [
+              { name: 'Regular', price: 0, isDefault: true },
+              { name: 'Large', price: 12000 },
+            ],
+          },
+          {
+            name: 'Utensils',
+            minSelections: 0,
+            maxSelections: 1,
+            options: [
+              { name: 'No Utensils', price: 0, isDefault: true },
+              { name: 'Add Utensils', price: 0 },
+            ],
+          },
         ],
       }),
     ],
@@ -472,6 +550,35 @@ const restaurantsData: RestaurantSeed[] = [
           ingredient('carrotRaw', 'shredded carrot', 30, 'g', 'raw', 'main'),
           ingredient('soySauce', 'soy sauce', 10, 'g', 'unknown', 'sauce'),
         ],
+        modifiers: [
+          {
+            name: 'Size',
+            minSelections: 1,
+            maxSelections: 1,
+            options: [
+              { name: 'Regular', price: 0, isDefault: true },
+              { name: 'Large', price: 15000 },
+            ],
+          },
+          {
+            name: 'Extra Toppings',
+            minSelections: 0,
+            maxSelections: 3,
+            options: [
+              { name: 'Extra Chicken', price: 20000 },
+              { name: 'Extra Rice', price: 5000 },
+            ],
+          },
+          {
+            name: 'Utensils',
+            minSelections: 0,
+            maxSelections: 1,
+            options: [
+              { name: 'No Utensils', price: 0, isDefault: true },
+              { name: 'Add Utensils', price: 0 },
+            ],
+          },
+        ],
       }),
       item(5, 'Grilled Pork Vermicelli', {
         description:
@@ -501,6 +608,35 @@ const restaurantsData: RestaurantSeed[] = [
           ingredient('cucumber', 'cucumber', 40, 'g', 'raw', 'main'),
           ingredient('soySauce', 'soy sauce', 15, 'g', 'unknown', 'sauce'),
         ],
+        modifiers: [
+          {
+            name: 'Size',
+            minSelections: 1,
+            maxSelections: 1,
+            options: [
+              { name: 'Regular', price: 0, isDefault: true },
+              { name: 'Large', price: 15000 },
+            ],
+          },
+          {
+            name: 'Extra Toppings',
+            minSelections: 0,
+            maxSelections: 3,
+            options: [
+              { name: 'Extra Pork', price: 25000 },
+              { name: 'Extra Vermicelli', price: 5000 },
+            ],
+          },
+          {
+            name: 'Utensils',
+            minSelections: 0,
+            maxSelections: 1,
+            options: [
+              { name: 'No Utensils', price: 0, isDefault: true },
+              { name: 'Add Utensils', price: 0 },
+            ],
+          },
+        ],
       }),
       item(6, 'Vegan Mushroom Pho', {
         description:
@@ -529,6 +665,35 @@ const restaurantsData: RestaurantSeed[] = [
           ),
           ingredient('lettuce', 'lettuce', 30, 'g', 'raw', 'main'),
           ingredient('soySauce', 'soy sauce', 12, 'g', 'unknown', 'sauce'),
+        ],
+        modifiers: [
+          {
+            name: 'Size',
+            minSelections: 1,
+            maxSelections: 1,
+            options: [
+              { name: 'Regular', price: 0, isDefault: true },
+              { name: 'Large', price: 12000 },
+            ],
+          },
+          {
+            name: 'Extra Toppings',
+            minSelections: 0,
+            maxSelections: 2,
+            options: [
+              { name: 'Extra Tofu', price: 10000 },
+              { name: 'Extra Mushrooms', price: 12000 },
+            ],
+          },
+          {
+            name: 'Utensils',
+            minSelections: 0,
+            maxSelections: 1,
+            options: [
+              { name: 'No Utensils', price: 0, isDefault: true },
+              { name: 'Add Utensils', price: 0 },
+            ],
+          },
         ],
       }),
     ],
@@ -846,10 +1011,58 @@ async function seedMenuItem(
     name: menuItem.name,
     description: menuItem.description,
     price: menuItem.price,
-    status: 'available',
+    itemKind: menuItem.itemKind,
     tags: menuItem.tags,
     imageUrl: menuItem.imageUrl,
   });
+
+  const modifierSnapshots: import('../../module/ordering/acl/schemas/menu-item-snapshot.schema').OrderingMenuItemSnapshot['modifiers'] =
+    [];
+
+  if (menuItem.modifiers && menuItem.modifiers.length > 0) {
+    let groupDisplayOrder = 0;
+    for (const group of menuItem.modifiers) {
+      const groupId = randomUUID();
+      await db.insert(schema.modifierGroups).values({
+        id: groupId,
+        menuItemId: menuItem.id,
+        name: group.name,
+        minSelections: group.minSelections,
+        maxSelections: group.maxSelections,
+        displayOrder: groupDisplayOrder++,
+      });
+
+      const optionSnapshots: import('../../shared/events/menu-item-updated.event').ModifierOptionSnapshot[] =
+        [];
+      let optionDisplayOrder = 0;
+      for (const option of group.options) {
+        const optionId = randomUUID();
+        await db.insert(schema.modifierOptions).values({
+          id: optionId,
+          groupId: groupId,
+          name: option.name,
+          price: option.price,
+          isDefault: option.isDefault ?? false,
+          isAvailable: true,
+          displayOrder: optionDisplayOrder++,
+        });
+        optionSnapshots.push({
+          optionId,
+          name: option.name,
+          price: option.price,
+          isDefault: option.isDefault ?? false,
+          isAvailable: true,
+        });
+      }
+      modifierSnapshots.push({
+        groupId,
+        groupName: group.name,
+        minSelections: group.minSelections,
+        maxSelections: group.maxSelections,
+        options: optionSnapshots,
+      });
+    }
+  }
 
   await db.insert(schema.orderingMenuItemSnapshots).values({
     menuItemId: menuItem.id,
@@ -857,7 +1070,7 @@ async function seedMenuItem(
     name: menuItem.name,
     price: menuItem.price,
     status: 'available',
-    modifiers: [],
+    modifiers: modifierSnapshots,
   });
 }
 
@@ -948,12 +1161,19 @@ function nutritionFood(
 function item(
   index: number,
   name: string,
-  details: Omit<MenuItemSeed, 'id' | 'analysisSessionId' | 'name'>,
+  details: Omit<
+    MenuItemSeed,
+    'id' | 'analysisSessionId' | 'name' | 'itemKind'
+  > & {
+    itemKind?: 'food' | 'beverage' | 'mixed';
+  },
 ): MenuItemSeed {
   return {
     id: seedId(6, index),
     analysisSessionId: seedId(7, index),
     name,
+    itemKind: details.itemKind ?? 'food',
+    modifiers: details.modifiers ?? [],
     ...details,
   };
 }

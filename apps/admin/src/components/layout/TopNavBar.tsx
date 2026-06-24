@@ -41,10 +41,7 @@ type TopNavBarProps = {
   onToggleSidebar: () => void;
 };
 
-export function TopNavBar({
-  isSidebarOpen,
-  onToggleSidebar,
-}: TopNavBarProps) {
+export function TopNavBar({ isSidebarOpen, onToggleSidebar }: TopNavBarProps) {
   const breadcrumbs = useMatches()
     .map((match) => {
       const handle = match.handle as BreadcrumbHandle | undefined;

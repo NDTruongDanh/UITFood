@@ -36,6 +36,17 @@ describe('buildSearchDocument', () => {
     expect(changed.contentHash).not.toBe(original.contentHash);
   });
 
+  it('indexes the canonical item kind independently from category text', () => {
+    const document = buildSearchDocument({
+      primaryName: 'House Special',
+      itemKind: 'beverage',
+      categoryName: 'Dessert',
+    });
+
+    expect(document.document).toContain('item type beverage');
+    expect(document.document).toContain('dessert');
+  });
+
   it('only includes nutrition text when nutrition is restaurant verified', () => {
     const unverified = buildSearchDocument({
       primaryName: 'Chicken Rice',

@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, count, desc, eq } from 'drizzle-orm';
+import { and, count, desc, eq, sql } from 'drizzle-orm';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { DB_CONNECTION } from '@/drizzle/drizzle.constants';
 import { reviews, type NewReview, type Review } from '../domain/review.schema';
@@ -92,5 +92,72 @@ export class ReviewRepository {
     ]);
 
     return { data, total: Number(totalRows[0]?.value ?? 0) };
+  }
+
+  /**
+   * Paginated admin listing for a restaurant.
+   * Includes all reviews regardless of moderationStatus.
+   * Rating statistics use the same all-review population as the listing.
+   *
+   * @param page  — 1-based page index
+   * @param limit — page size (caller validates max 50)
+   */
+  async findAdminByRestaurantId(
+    restaurantId: string,
+    page: number,
+    limit: number,
+  ): Promise<{
+    data: Review[];
+    total: number;
+    averageRating: number;
+    ratingDistribution: Record<number, number>;
+  }> {
+    const where = eq(reviews.restaurantId, restaurantId);
+    const offset = (page - 1) * limit;
+
+    const [data, aggregateRows, distributionRows] = await Promise.all([
+      this.db
+        .select()
+        .from(reviews)
+        .where(where)
+        .orderBy(desc(reviews.createdAt))
+        .limit(limit)
+        .offset(offset),
+      this.db
+        .select({
+          total: count(),
+          averageRating: sql<number>`COALESCE(AVG(${reviews.stars}), 0)::float8`,
+        })
+        .from(reviews)
+        .where(where),
+      this.db
+        .select({
+          stars: reviews.stars,
+          count: count(),
+        })
+        .from(reviews)
+        .where(where)
+        .groupBy(reviews.stars),
+    ]);
+
+    const ratingDistribution: Record<number, number> = {
+      1: 0,
+      2: 0,
+      3: 0,
+      4: 0,
+      5: 0,
+    };
+    for (const row of distributionRows) {
+      if (row.stars >= 1 && row.stars <= 5) {
+        ratingDistribution[row.stars] = Number(row.count);
+      }
+    }
+
+    return {
+      data,
+      total: Number(aggregateRows[0]?.total ?? 0),
+      averageRating: Number(aggregateRows[0]?.averageRating ?? 0),
+      ratingDistribution,
+    };
   }
 }

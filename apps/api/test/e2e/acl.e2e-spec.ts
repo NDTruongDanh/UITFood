@@ -82,6 +82,7 @@ describe('ACL Layer — Snapshot Projection & Read API (E2E)', () => {
           restaurantId: TEST_RESTAURANT_ID,
           name: 'Snapshot Pizza',
           price: 12000,
+          itemKind: 'food',
         });
       itemId = itemRes.body.id as string;
 
@@ -229,6 +230,7 @@ describe('ACL Layer — Snapshot Projection & Read API (E2E)', () => {
         restaurantId: TEST_RESTAURANT_ID,
         name: 'Read Test Item',
         price: 8000,
+        itemKind: 'food',
       });
       readItemId = res.body.id as string;
       await delay(150);
@@ -662,6 +664,7 @@ describe('ACL Layer — Snapshot Projection & Read API (E2E)', () => {
         restaurantId: TEST_RESTAURANT_ID,
         name: 'Gate Test Item',
         price: 9000,
+        itemKind: 'food',
       });
       availableItemId = res.body.id as string;
       await delay(150);

@@ -27,6 +27,7 @@ export const nutritionFoodStateEnum = pgEnum('nutrition_food_state', [
 export const nutritionInputTypeEnum = pgEnum('nutrition_input_type', [
   'text',
   'image',
+  'manual',
 ]);
 
 export const nutritionAnalysisStatusEnum = pgEnum('nutrition_analysis_status', [
