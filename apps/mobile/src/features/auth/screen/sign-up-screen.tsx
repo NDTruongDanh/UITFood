@@ -5,6 +5,8 @@ import {
   ScrollView,
   StatusBar,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -61,7 +63,10 @@ export function SignUpScreen({
   };
 
   return (
-    <View className="flex-1 bg-surface">
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      className="flex-1 bg-surface"
+    >
       <StatusBar
         translucent
         backgroundColor="transparent"
@@ -350,6 +355,6 @@ export function SignUpScreen({
           </Text>
         </View>
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 }

@@ -7,6 +7,8 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowLeft, Star } from 'lucide-react-native';
@@ -106,7 +108,11 @@ export function RateOrderScreen() {
       : tags;
 
   return (
-    <View className="flex-1 bg-background" style={{ paddingTop: insets.top }}>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      className="flex-1 bg-background"
+      style={{ paddingTop: insets.top }}
+    >
       <View className="flex-row items-center px-4 h-16 w-full bg-surface/80 z-50">
         <TouchableOpacity
           onPress={() => router.back()}
@@ -288,6 +294,6 @@ export function RateOrderScreen() {
           )}
         </ScrollView>
       )}
-    </View>
+    </KeyboardAvoidingView>
   );
 }

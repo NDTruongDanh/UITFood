@@ -7,6 +7,8 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -248,7 +250,10 @@ export function AddressSelectionScreen() {
   };
 
   return (
-    <View className="flex-1 bg-surface">
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      className="flex-1 bg-surface"
+    >
       <View
         className="z-10 bg-surface px-4 pb-3"
         style={{ paddingTop: Math.max(insets.top, 12) + 8 }}
@@ -543,6 +548,6 @@ export function AddressSelectionScreen() {
           </Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
