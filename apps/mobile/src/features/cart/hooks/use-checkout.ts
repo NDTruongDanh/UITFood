@@ -189,7 +189,6 @@ export function useCheckout() {
             }
           }
 
-          router.dismissAll();
           router.replace({
             pathname: VNPAY_STATUS_ROUTE as any,
             params: buildVNPayStatusRouteParams({
@@ -209,8 +208,7 @@ export function useCheckout() {
           type: 'success',
           text1: 'Order placed successfully!',
         });
-        router.dismissAll();
-        router.replace('/(customer)/(tabs)');
+        router.navigate('/(customer)/(tabs)');
       },
     );
   };
