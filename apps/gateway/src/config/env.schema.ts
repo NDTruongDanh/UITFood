@@ -17,18 +17,30 @@ const schema = z.object({
   /** Base URL of the upstream monolith that all /api/** traffic proxies to. */
   MONOLITH_UPSTREAM_URL: z
     .string()
-    .url('MONOLITH_UPSTREAM_URL must be a valid URL (e.g. http://localhost:3000)')
+    .url(
+      'MONOLITH_UPSTREAM_URL must be a valid URL (e.g. http://localhost:3000)',
+    )
     .default('http://localhost:3000'),
 
   /**
    * End-to-end proxy timeout in milliseconds applied to both the incoming
    * socket and the upstream request. Bounds a slow/hung monolith.
    */
-  GATEWAY_PROXY_TIMEOUT_MS: z.coerce
-    .number()
-    .int()
-    .positive()
-    .default(30_000),
+  GATEWAY_PROXY_TIMEOUT_MS: z.coerce.number().int().positive().default(30_000),
+
+  /** Phase 3 cutover switch. False keeps all Media routes on the monolith. */
+  MEDIA_ROUTES_ENABLED: z
+    .string()
+    .default('false')
+    .transform((value) => ['1', 'true', 'yes'].includes(value.toLowerCase())),
+  MEDIA_TCP_HOST: z.string().min(1).default('localhost'),
+  MEDIA_TCP_PORT: z.coerce.number().int().positive().default(4001),
+  MEDIA_MANAGEMENT_PORT: z.coerce.number().int().positive().default(4002),
+  MEDIA_RPC_TIMEOUT_MS: z.coerce.number().int().positive().default(2000),
+  GATEWAY_AUTH_TIMEOUT_MS: z.coerce.number().int().positive().default(3000),
+  GATEWAY_CORS_ORIGINS: z
+    .string()
+    .default('http://localhost:5173,http://localhost:5174'),
 });
 
 export type Env = z.infer<typeof schema>;

@@ -1,8 +1,4 @@
-import {
-  Controller,
-  Get,
-  ServiceUnavailableException,
-} from '@nestjs/common';
+import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Env } from '../config/env.schema';
 
@@ -21,26 +17,65 @@ export class HealthController {
   }
 
   /**
-   * Readiness: the gateway can reach the upstream monolith. Returns 503 when the
-   * upstream is unreachable so traffic is not routed to a gateway that cannot
-   * serve it. A non-2xx HTTP response from the monolith still counts as
+   * Readiness follows active route ownership. The monolith must always be
+   * reachable, and Media must be ready after its route cutover is enabled.
+   * A non-2xx HTTP response from the monolith still counts as
    * "reachable" — only a transport failure/timeout fails readiness.
    */
   @Get('ready')
-  async ready(): Promise<{ status: 'ok'; upstream: 'reachable' }> {
+  async ready(): Promise<{
+    status: 'ok';
+    upstream: 'reachable';
+    media: 'reachable' | 'disabled';
+  }> {
     const target = this.config.get('MONOLITH_UPSTREAM_URL', { infer: true });
+    const mediaEnabled = this.config.get('MEDIA_ROUTES_ENABLED', {
+      infer: true,
+    });
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 2_000);
     try {
-      await fetch(target, { method: 'HEAD', signal: controller.signal });
-      return { status: 'ok', upstream: 'reachable' };
-    } catch {
-      throw new ServiceUnavailableException({
-        status: 'degraded',
-        upstream: 'unreachable',
-      });
+      const [upstreamResult, mediaResult] = await Promise.allSettled([
+        fetch(target, { method: 'HEAD', signal: controller.signal }),
+        mediaEnabled
+          ? this.checkMediaReadiness(controller.signal)
+          : Promise.resolve(),
+      ]);
+      if (
+        upstreamResult.status === 'rejected' ||
+        mediaResult.status === 'rejected'
+      ) {
+        throw new ServiceUnavailableException({
+          status: 'degraded',
+          upstream:
+            upstreamResult.status === 'fulfilled' ? 'reachable' : 'unreachable',
+          media: !mediaEnabled
+            ? 'disabled'
+            : mediaResult.status === 'fulfilled'
+              ? 'reachable'
+              : 'unreachable',
+        });
+      }
+      return {
+        status: 'ok',
+        upstream: 'reachable',
+        media: mediaEnabled ? 'reachable' : 'disabled',
+      };
+    } catch (error) {
+      if (error instanceof ServiceUnavailableException) throw error;
+      throw new ServiceUnavailableException({ status: 'degraded' });
     } finally {
       clearTimeout(timer);
     }
+  }
+
+  private async checkMediaReadiness(signal: AbortSignal): Promise<void> {
+    const host = this.config.get('MEDIA_TCP_HOST', { infer: true });
+    const port = this.config.get('MEDIA_MANAGEMENT_PORT', { infer: true });
+    const response = await fetch(`http://${host}:${port}/ready`, {
+      method: 'GET',
+      signal,
+    });
+    if (!response.ok) throw new Error('Media is not ready');
   }
 }

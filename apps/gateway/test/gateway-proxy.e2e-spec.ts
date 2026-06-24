@@ -233,5 +233,15 @@ describe('Gateway reverse proxy (E2E)', () => {
       // Gateway's own body — not the echo-upstream's CapturedRequest shape.
       expect(res.body).toEqual({ status: 'ok' });
     });
+
+    it('GW-08 /ready reports Media disabled before cutover', async () => {
+      const res = await client.get('/ready');
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({
+        status: 'ok',
+        upstream: 'reachable',
+        media: 'disabled',
+      });
+    });
   });
 });

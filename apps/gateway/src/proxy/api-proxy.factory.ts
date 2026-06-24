@@ -1,7 +1,10 @@
 import type { ServerResponse } from 'http';
 import type { Socket } from 'net';
 import { Logger } from '@nestjs/common';
-import { createProxyMiddleware, type RequestHandler } from 'http-proxy-middleware';
+import {
+  createProxyMiddleware,
+  type RequestHandler,
+} from 'http-proxy-middleware';
 import { GATEWAY_MANAGEMENT_PATHS } from './proxy.constants';
 
 const logger = new Logger('GatewayProxy');
@@ -11,6 +14,17 @@ export interface ApiProxyOptions {
   target: string;
   /** End-to-end timeout (incoming socket + upstream request) in ms. */
   proxyTimeoutMs: number;
+  /** When true, Media-owned public routes are handled locally over TCP. */
+  mediaRoutesEnabled: boolean;
+}
+
+export function isMediaPublicRoute(pathname: string): boolean {
+  return (
+    pathname === '/api/images' ||
+    pathname === '/api/images/' ||
+    pathname === '/api/cloudinary/signature' ||
+    pathname === '/api/cloudinary/signature/'
+  );
 }
 
 /**
@@ -40,6 +54,7 @@ export interface ApiProxyOptions {
 export function createApiProxy({
   target,
   proxyTimeoutMs,
+  mediaRoutesEnabled,
 }: ApiProxyOptions): RequestHandler {
   return createProxyMiddleware({
     target,
@@ -52,6 +67,7 @@ export function createApiProxy({
     // http-proxy-middleware call next(), letting the gateway's own controllers
     // (HealthController) serve /live and /ready.
     pathFilter: (pathname: string) =>
+      !(mediaRoutesEnabled && isMediaPublicRoute(pathname)) &&
       !GATEWAY_MANAGEMENT_PATHS.some(
         (p) => pathname === p || pathname.startsWith(`${p}/`),
       ),

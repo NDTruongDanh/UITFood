@@ -1,0 +1,3 @@
+export const MEDIA_RPC_GATEWAY = Symbol('MEDIA_RPC_GATEWAY');
+export const MEDIA_TCP_CLIENT = Symbol('MEDIA_TCP_CLIENT');
+export const SESSION_AUTHENTICATOR = Symbol('SESSION_AUTHENTICATOR');
