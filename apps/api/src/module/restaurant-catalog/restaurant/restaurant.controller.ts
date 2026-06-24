@@ -130,7 +130,7 @@ export class RestaurantController {
   }
 
   @Patch(':id')
-  @Roles(['admin', 'restaurant'])
+  @Roles(['admin', 'restaurant', 'user'])
   @ApiUnauthorizedResponse({ description: 'Missing or invalid bearer token' })
   @ApiOperation({
     summary: 'Update restaurant',
@@ -168,7 +168,7 @@ export class RestaurantController {
   }
 
   @Post(':id/logo-image')
-  @Roles(['admin', 'restaurant'])
+  @Roles(['admin', 'restaurant', 'user'])
   @ApiUnauthorizedResponse({ description: 'Missing or invalid bearer token' })
   @ApiOperation({
     summary: 'Attach restaurant logo image',
@@ -194,7 +194,7 @@ export class RestaurantController {
   }
 
   @Post(':id/cover-image')
-  @Roles(['admin', 'restaurant'])
+  @Roles(['admin', 'restaurant', 'user'])
   @ApiUnauthorizedResponse({ description: 'Missing or invalid bearer token' })
   @ApiOperation({
     summary: 'Attach restaurant cover image',

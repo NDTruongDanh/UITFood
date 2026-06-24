@@ -12,8 +12,8 @@ export const restaurantFormSchema = z.object({
   phone: z.string().trim().min(7, 'Phone number is required'),
   description: z.string().trim().optional(),
   cuisineType: z.string().trim().optional(),
-  latitude: z.number().optional(),
-  longitude: z.number().optional(),
+  latitude: z.number({ required_error: 'Please set your location on the map' }),
+  longitude: z.number({ required_error: 'Please set your location on the map' }),
   logoUrl: optionalUrl,
   coverImageUrl: optionalUrl,
 });
