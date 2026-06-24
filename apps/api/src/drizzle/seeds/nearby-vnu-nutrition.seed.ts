@@ -1758,7 +1758,7 @@ async function seedMenuItem(
         displayOrder: groupDisplayOrder++,
       });
 
-      const optionSnapshots = [];
+      const optionSnapshots: any[] = [];
       let optionDisplayOrder = 0;
       for (const option of group.options) {
         const optionId = randomUUID();
