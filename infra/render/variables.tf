@@ -44,10 +44,22 @@ variable "gateway_service_name" {
   default     = "UITFood Gateway"
 }
 
+variable "media_service_name" {
+  description = "Private-network DNS/service name for the Media service."
+  type        = string
+  default     = "uitfood-media"
+}
+
 variable "postgres_name" {
   description = "Render Postgres instance name."
   type        = string
   default     = "UITFood Postgres"
+}
+
+variable "media_postgres_name" {
+  description = "Render Postgres instance name dedicated to Media."
+  type        = string
+  default     = "UITFood Media Postgres"
 }
 
 variable "service_plan" {
@@ -61,6 +73,17 @@ variable "service_plan" {
   }
 }
 
+variable "media_service_plan" {
+  description = "Render private services require a paid compute plan."
+  type        = string
+  default     = "starter"
+
+  validation {
+    condition     = contains(["starter", "standard", "pro", "pro_plus", "pro_max", "pro_ultra"], var.media_service_plan)
+    error_message = "media_service_plan must be a private-service capable Render plan."
+  }
+}
+
 variable "postgres_plan" {
   description = "Render Postgres plan."
   type        = string
@@ -69,6 +92,17 @@ variable "postgres_plan" {
   validation {
     condition     = contains(["free", "starter", "standard", "pro", "plus"], var.postgres_plan)
     error_message = "The postgres_plan must be a valid Render plan: free, starter, standard, pro, or plus."
+  }
+}
+
+variable "media_postgres_plan" {
+  description = "Render Postgres plan for the Media-owned database."
+  type        = string
+  default     = "free"
+
+  validation {
+    condition     = contains(["free", "starter", "standard", "pro", "plus"], var.media_postgres_plan)
+    error_message = "media_postgres_plan must be a valid Render Postgres plan."
   }
 }
 
@@ -88,6 +122,18 @@ variable "postgres_database_user" {
   description = "Application database user."
   type        = string
   default     = "nestjs"
+}
+
+variable "media_postgres_database_name" {
+  description = "Immutable logical database name owned by Media."
+  type        = string
+  default     = "uitfood_media"
+}
+
+variable "media_postgres_database_user" {
+  description = "Immutable database user owned by Media."
+  type        = string
+  default     = "uitfood_media"
 }
 
 variable "postgres_ip_allow_list" {
@@ -117,6 +163,12 @@ variable "gateway_image_url" {
   default     = "ghcr.io/ndtruongdanh/uitfood-gateway"
 }
 
+variable "media_image_url" {
+  description = "Container image repository for Media, without a tag."
+  type        = string
+  default     = "ghcr.io/ndtruongdanh/uitfood-media"
+}
+
 variable "api_image_tag" {
   description = "Container image tag for the API service."
   type        = string
@@ -124,6 +176,11 @@ variable "api_image_tag" {
 
 variable "gateway_image_tag" {
   description = "Container image tag for the gateway service."
+  type        = string
+}
+
+variable "media_image_tag" {
+  description = "Container image tag for the Media service."
   type        = string
 }
 
@@ -201,8 +258,69 @@ variable "gateway_env_vars" {
   sensitive   = true
 }
 
+variable "media_env_vars" {
+  description = "Media-only runtime variables, including Cloudinary credentials."
+  type        = map(string)
+  default     = {}
+  sensitive   = true
+}
+
 variable "gateway_monolith_upstream_url" {
   description = "Upstream URL the gateway proxies to. When empty, defaults to the managed API service URL."
   type        = string
   default     = ""
+}
+
+variable "media_tcp_host" {
+  description = "Optional private DNS override; defaults to the Media service slug."
+  type        = string
+  default     = ""
+}
+
+variable "media_tcp_port" {
+  description = "Primary private Nest TCP listener port."
+  type        = number
+  default     = 10000
+}
+
+variable "media_management_port" {
+  description = "Secondary private HTTP management port."
+  type        = number
+  default     = 10001
+}
+
+variable "media_rpc_timeout_ms" {
+  description = "Gateway/API deadline for Media TCP requests."
+  type        = number
+  default     = 2000
+}
+
+variable "media_rpc_max_attempts" {
+  description = "Bounded Catalog retries for idempotent image creation."
+  type        = number
+  default     = 2
+}
+
+variable "gateway_auth_timeout_ms" {
+  description = "Deadline for the transitional monolith session check."
+  type        = number
+  default     = 3000
+}
+
+variable "gateway_cors_origins" {
+  description = "Comma-separated browser origins allowed on Gateway-owned routes."
+  type        = string
+  default     = "http://localhost:5173,http://localhost:5174"
+}
+
+variable "media_routes_enabled" {
+  description = "Cutover switch: Gateway owns /api/images and /api/cloudinary."
+  type        = bool
+  default     = false
+}
+
+variable "legacy_media_routes_enabled" {
+  description = "Rollback switch for legacy API Media routes. Disable at cutover."
+  type        = bool
+  default     = true
 }

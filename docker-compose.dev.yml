@@ -81,12 +81,16 @@ services:
       - api_nm_app:/app/apps/api/node_modules
     environment:
       # Override localhost references so the API reaches the compose services.
-      DATABASE_URL: postgresql://${POSTGRES_USER:-food_order}:${POSTGRES_PASSWORD:-foodordersecret}@postgres:5432/${POSTGRES_DB:-food_order_db}
+      DATABASE_URL: postgresql://uitfood_api:api_secret@postgres:5432/${POSTGRES_DB:-food_order_db}
       REDIS_URL: redis://redis:6379
       REDIS_HOST: redis
       REDIS_PORT: 6379
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASS:-guest}@rabbitmq:5672${RABBITMQ_VHOST:+/}${RABBITMQ_VHOST:-}
       RABBITMQ_EXCHANGE: uitfood.domain-events
+      MEDIA_TCP_HOST: media
+      MEDIA_TCP_PORT: 4001
+      MEDIA_RPC_REQUIRED: 'true'
+      LEGACY_MEDIA_ROUTES_ENABLED: 'true'
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-https://ollama.com}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-gpt-oss:20b}
       OLLAMA_API_KEY: ${OLLAMA_API_KEY:-}
@@ -96,6 +100,7 @@ services:
       CHOKIDAR_USEPOLLING: 'true'
     ports:
       - '3000:3000'
+    command: sh -c "pnpm --filter @uitfood/contracts build && pnpm --filter api run dev"
     depends_on:
       postgres:
         condition: service_healthy
@@ -103,6 +108,58 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      media:
+        condition: service_started
+    restart: unless-stopped
+
+  media:
+    build:
+      context: .
+      dockerfile: apps/services/media/Dockerfile.dev
+    container_name: food_order_media_dev
+    volumes:
+      - .:/app
+      - media_nm_root:/app/node_modules
+      - media_nm_app:/app/apps/services/media/node_modules
+    environment:
+      DATABASE_URL: postgresql://uitfood_media:media_secret@postgres:5432/uitfood_media
+      MEDIA_TCP_PORT: 4001
+      MEDIA_MANAGEMENT_PORT: 4002
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-STUB_CLOUD}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-STUB_KEY}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-STUB_SECRET}
+      CHOKIDAR_USEPOLLING: 'true'
+    command: sh -c "pnpm --filter @uitfood/contracts build && pnpm run db:migrate && pnpm run dev"
+    ports:
+      - '4001:4001'
+      - '4002:4002'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  gateway:
+    build:
+      context: .
+      dockerfile: apps/gateway/Dockerfile.dev
+    container_name: food_order_gateway_dev
+    volumes:
+      - .:/app
+      - gateway_nm_root:/app/node_modules
+      - gateway_nm_app:/app/apps/gateway/node_modules
+    environment:
+      PORT: 8080
+      MONOLITH_UPSTREAM_URL: http://api:3000
+      MEDIA_ROUTES_ENABLED: 'true'
+      MEDIA_TCP_HOST: media
+      MEDIA_TCP_PORT: 4001
+      CHOKIDAR_USEPOLLING: 'true'
+    ports:
+      - '8080:8080'
+    command: sh -c "pnpm --filter @uitfood/contracts build && pnpm run dev"
+    depends_on:
+      - api
+      - media
     restart: unless-stopped
 
   web:
@@ -114,12 +171,14 @@ services:
       - .:/app
       - web_nm_root:/app/node_modules
       - web_nm_app:/app/apps/web/node_modules
+    environment:
+      VITE_API_BASE_URL: http://localhost:8080
     # VITE_API_BASE_URL stays at localhost:3000 — the browser talks to the
     # published host port, not the internal Docker network.
     ports:
       - '5173:5173'
     depends_on:
-      - api
+      - gateway
     restart: unless-stopped
 
   admin:
@@ -133,8 +192,10 @@ services:
       - admin_nm_app:/app/apps/admin/node_modules
     ports:
       - '5174:5174'
+    environment:
+      VITE_API_BASE_URL: http://localhost:8080
     depends_on:
-      - api
+      - gateway
     restart: unless-stopped
 
 volumes:
@@ -150,3 +211,7 @@ volumes:
   web_nm_app:
   admin_nm_root:
   admin_nm_app:
+  media_nm_root:
+  media_nm_app:
+  gateway_nm_root:
+  gateway_nm_app:

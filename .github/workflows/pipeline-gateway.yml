@@ -5,6 +5,7 @@ on:
     branches: [master]
     paths:
       - 'apps/gateway/**'
+      - 'packages/contracts/**'
   workflow_dispatch:
 
 concurrency:

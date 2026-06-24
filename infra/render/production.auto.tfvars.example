@@ -5,6 +5,7 @@
 api_image_tag     = "sha-replace-me"
 web_image_tag     = "sha-replace-me"
 gateway_image_tag = "sha-replace-me"
+media_image_tag   = "sha-replace-me"
 
 api_health_check_path     = "/api/ready"
 web_health_check_path     = "/healthz"
@@ -22,6 +23,19 @@ gateway_env_vars = {
   GATEWAY_PROXY_TIMEOUT_MS = "30000"
 }
 
+gateway_cors_origins = "https://app.example.com,https://admin.example.com"
+
+# Set both switches atomically during cutover. Rollback reverses them only
+# after target-to-source synchronization reports matching hashes.
+media_routes_enabled        = false
+legacy_media_routes_enabled = true
+
+media_env_vars = {
+  CLOUDINARY_CLOUD_NAME = "replace-me"
+  CLOUDINARY_API_KEY    = "replace-me"
+  CLOUDINARY_API_SECRET = "replace-me"
+}
+
 api_env_vars = {
   BETTER_AUTH_SECRET = "replace-me"
   BETTER_AUTH_URL    = "https://api.example.com"
@@ -32,6 +46,7 @@ api_env_vars = {
 
   FIREBASE_SERVICE_ACCOUNT_PATH = "/etc/secrets/firebase-service-account.json"
 
+  # Retain only through the Media rollback window, then remove from API.
   CLOUDINARY_CLOUD_NAME = "replace-me"
   CLOUDINARY_API_KEY    = "replace-me"
   CLOUDINARY_API_SECRET = "replace-me"

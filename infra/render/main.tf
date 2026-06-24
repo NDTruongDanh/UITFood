@@ -11,6 +11,24 @@ locals {
       APP_ENV = {
         value = var.environment
       }
+      MEDIA_TCP_HOST = {
+        value = coalesce(trimspace(var.media_tcp_host), render_private_service.media.slug)
+      }
+      MEDIA_TCP_PORT = {
+        value = tostring(var.media_tcp_port)
+      }
+      MEDIA_RPC_TIMEOUT_MS = {
+        value = tostring(var.media_rpc_timeout_ms)
+      }
+      MEDIA_RPC_MAX_ATTEMPTS = {
+        value = tostring(var.media_rpc_max_attempts)
+      }
+      MEDIA_RPC_REQUIRED = {
+        value = "true"
+      }
+      LEGACY_MEDIA_ROUTES_ENABLED = {
+        value = tostring(var.legacy_media_routes_enabled)
+      }
     },
     {
       for key, value in var.api_env_vars : key => {
@@ -36,9 +54,54 @@ locals {
           render_web_service.api.url,
         )
       }
+      MEDIA_ROUTES_ENABLED = {
+        value = tostring(var.media_routes_enabled)
+      }
+      MEDIA_TCP_HOST = {
+        value = coalesce(trimspace(var.media_tcp_host), render_private_service.media.slug)
+      }
+      MEDIA_TCP_PORT = {
+        value = tostring(var.media_tcp_port)
+      }
+      MEDIA_MANAGEMENT_PORT = {
+        value = tostring(var.media_management_port)
+      }
+      MEDIA_RPC_TIMEOUT_MS = {
+        value = tostring(var.media_rpc_timeout_ms)
+      }
+      GATEWAY_AUTH_TIMEOUT_MS = {
+        value = tostring(var.gateway_auth_timeout_ms)
+      }
+      GATEWAY_CORS_ORIGINS = {
+        value = var.gateway_cors_origins
+      }
     },
     {
       for key, value in var.gateway_env_vars : key => {
+        value = value
+      }
+    }
+  )
+  media_env_vars = merge(
+    {
+      DATABASE_URL = {
+        value = render_postgres.media.connection_info.internal_connection_string
+      }
+      NODE_ENV = {
+        value = "production"
+      }
+      APP_ENV = {
+        value = var.environment
+      }
+      MEDIA_TCP_PORT = {
+        value = tostring(var.media_tcp_port)
+      }
+      MEDIA_MANAGEMENT_PORT = {
+        value = tostring(var.media_management_port)
+      }
+    },
+    {
+      for key, value in var.media_env_vars : key => {
         value = value
       }
     }
@@ -52,6 +115,18 @@ resource "render_postgres" "main" {
   version        = var.postgres_version
   database_name  = var.postgres_database_name
   database_user  = var.postgres_database_user
+  environment_id = var.project_environment_id
+
+  ip_allow_list = var.postgres_ip_allow_list
+}
+
+resource "render_postgres" "media" {
+  name           = var.media_postgres_name
+  plan           = var.media_postgres_plan
+  region         = var.region
+  version        = var.postgres_version
+  database_name  = var.media_postgres_database_name
+  database_user  = var.media_postgres_database_user
   environment_id = var.project_environment_id
 
   ip_allow_list = var.postgres_ip_allow_list
@@ -100,6 +175,28 @@ resource "render_web_service" "gateway" {
   env_vars = local.gateway_env_vars
 
   # Keep secret files in Render unless Terraform should own their full contents.
+  lifecycle {
+    ignore_changes = [
+      secret_files,
+    ]
+  }
+}
+
+resource "render_private_service" "media" {
+  name           = var.media_service_name
+  plan           = var.media_service_plan
+  region         = var.region
+  environment_id = var.project_environment_id
+
+  runtime_source = {
+    image = {
+      image_url = var.media_image_url
+      tag       = var.media_image_tag
+    }
+  }
+
+  env_vars = local.media_env_vars
+
   lifecycle {
     ignore_changes = [
       secret_files,

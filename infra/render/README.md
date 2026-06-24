@@ -4,6 +4,8 @@ This directory manages the Render infrastructure for UITFood:
 
 - `UITFood Web`
 - `UITFood API`
+- `uitfood-media` private service
+- `UITFood Media Postgres`
 - `UITFood Postgres`
 
 Terraform should own infrastructure shape: service names, plans, region, image references, custom domains, Postgres, service links, and any environment variables declared in your local `.tfvars` file.
@@ -45,8 +47,10 @@ Then edit `production.auto.tfvars` and set:
 
 - `api_image_tag`
 - `web_image_tag`
+- `media_image_tag`
 - `api_env_vars`
 - `web_env_vars`
+- `media_env_vars` (Cloudinary credentials only)
 
 Terraform automatically loads `*.auto.tfvars` files when you run `terraform plan` or `terraform apply` from this directory. Values from `api_env_vars` are sent to the Render API service, and values from `web_env_vars` are sent to the Render web service.
 

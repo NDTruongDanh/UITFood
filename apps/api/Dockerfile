@@ -44,6 +44,8 @@ USER nestjs
 
 COPY --from=installer /app/apps/api/package.json ./package.json
 COPY --from=installer /app/apps/api/dist ./dist
+COPY --from=installer /app/packages/contracts/package.json /app/packages/contracts/package.json
+COPY --from=installer /app/packages/contracts/dist /app/packages/contracts/dist
 COPY --from=production-deps /app/node_modules /app/node_modules
 COPY --from=production-deps /app/apps/api/node_modules ./node_modules
 

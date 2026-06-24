@@ -19,11 +19,19 @@ on:
         required: false
         type: boolean
         default: false
+      media_use_github_sha_tag:
+        required: false
+        type: boolean
+        default: false
       api_image_tag:
         required: false
         type: string
         default: ''
       web_image_tag:
+        required: false
+        type: string
+        default: ''
+      media_image_tag:
         required: false
         type: string
         default: ''
@@ -36,6 +44,10 @@ on:
         type: string
         default: ''
       web_image_url:
+        required: false
+        type: string
+        default: ''
+      media_image_url:
         required: false
         type: string
         default: ''
@@ -98,6 +110,9 @@ jobs:
           WEB_IMAGE_URL_INPUT: ${{ inputs.web_image_url }}
           WEB_IMAGE_TAG_INPUT: ${{ inputs.web_image_tag }}
           WEB_USE_GITHUB_SHA_TAG: ${{ inputs.web_use_github_sha_tag }}
+          MEDIA_IMAGE_URL_INPUT: ${{ inputs.media_image_url }}
+          MEDIA_IMAGE_TAG_INPUT: ${{ inputs.media_image_tag }}
+          MEDIA_USE_GITHUB_SHA_TAG: ${{ inputs.media_use_github_sha_tag }}
         run: |
           set -euo pipefail
 
@@ -120,16 +135,19 @@ jobs:
           gh_repository="${gh_repository,,}"
           api_image_url="${API_IMAGE_URL_INPUT:-ghcr.io/${gh_repository}-api}"
           web_image_url="${WEB_IMAGE_URL_INPUT:-ghcr.io/${gh_repository}-web}"
+          media_image_url="${MEDIA_IMAGE_URL_INPUT:-ghcr.io/${gh_repository}-media}"
 
           echo "TF_VAR_api_image_url=${api_image_url}" >> "${GITHUB_ENV}"
           echo "TF_VAR_web_image_url=${web_image_url}" >> "${GITHUB_ENV}"
+          echo "TF_VAR_media_image_url=${media_image_url}" >> "${GITHUB_ENV}"
 
           short_sha="${GITHUB_SHA:0:7}"
 
           read_current_tag() {
             local service_name="$1"
+            local resource_type="$2"
 
-            terraform state pull | python3 -c 'import json, sys; service = sys.argv[1]; state = json.load(sys.stdin); print(next(((((instance.get("attributes", {}).get("runtime_source") or {}).get("image") or {}).get("tag")) for resource in state.get("resources", []) if resource.get("type") == "render_web_service" and resource.get("name") == service for instance in (resource.get("instances") or []) if (((instance.get("attributes", {}).get("runtime_source") or {}).get("image") or {}).get("tag"))), ""))' "${service_name}"
+            terraform state pull | python3 -c 'import json, sys; service, resource_type = sys.argv[1:3]; state = json.load(sys.stdin); print(next(((((instance.get("attributes", {}).get("runtime_source") or {}).get("image") or {}).get("tag")) for resource in state.get("resources", []) if resource.get("type") == resource_type and resource.get("name") == service for instance in (resource.get("instances") or []) if (((instance.get("attributes", {}).get("runtime_source") or {}).get("image") or {}).get("tag"))), ""))' "${service_name}" "${resource_type}"
           }
 
           if [ "${USE_GITHUB_SHA_TAG}" = "true" ] || [ "${API_USE_GITHUB_SHA_TAG}" = "true" ]; then
@@ -137,7 +155,7 @@ jobs:
           else
             api_image_tag="${API_IMAGE_TAG_INPUT:-}"
             if [ -z "${api_image_tag}" ]; then
-              api_image_tag="$(read_current_tag api)"
+              api_image_tag="$(read_current_tag api render_web_service)"
             fi
           fi
 
@@ -146,7 +164,16 @@ jobs:
           else
             web_image_tag="${WEB_IMAGE_TAG_INPUT:-}"
             if [ -z "${web_image_tag}" ]; then
-              web_image_tag="$(read_current_tag web)"
+              web_image_tag="$(read_current_tag web render_web_service)"
+            fi
+          fi
+
+          if [ "${USE_GITHUB_SHA_TAG}" = "true" ] || [ "${MEDIA_USE_GITHUB_SHA_TAG}" = "true" ]; then
+            media_image_tag="sha-${short_sha}"
+          else
+            media_image_tag="${MEDIA_IMAGE_TAG_INPUT:-}"
+            if [ -z "${media_image_tag}" ]; then
+              media_image_tag="$(read_current_tag media render_private_service)"
             fi
           fi
 
@@ -156,6 +183,10 @@ jobs:
 
           if [ -n "${web_image_tag}" ]; then
             echo "TF_VAR_web_image_tag=${web_image_tag}" >> "${GITHUB_ENV}"
+          fi
+
+          if [ -n "${media_image_tag}" ]; then
+            echo "TF_VAR_media_image_tag=${media_image_tag}" >> "${GITHUB_ENV}"
           fi
 
       - name: Validate
