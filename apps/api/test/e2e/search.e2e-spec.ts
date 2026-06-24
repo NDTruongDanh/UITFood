@@ -1464,7 +1464,7 @@ describe('Search API (E2E)', () => {
         {
           menuItemId: highFoodId,
           servings: 1,
-          calories: 520,
+          calories: 490,
           protein: 35,
           carbs: 60,
           fat: 15,

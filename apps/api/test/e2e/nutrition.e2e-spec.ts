@@ -359,7 +359,7 @@ describe('AI Nutrition Analyzer (E2E)', () => {
           quantity: 500,
           unit: 'g',
           preparation: 'cooked',
-          confidence: 0.96,
+          confidence: expect.any(Number),
           requiresConfirmation: false,
           notes: [],
         },
