@@ -224,6 +224,14 @@ const baseEnvSchema = z.object({
   ),
 
   // ---------------------------------------------------------------------------
+  // Hugging Face inference API
+  // ---------------------------------------------------------------------------
+  HUGGINGFACE_API_KEY: z.preprocess(
+    emptyStringToUndefined,
+    z.string().trim().optional(),
+  ),
+
+  // ---------------------------------------------------------------------------
   // AI search intent extraction. When disabled, deterministic parsing is used.
   // ---------------------------------------------------------------------------
   AI_SEARCH_ENABLED: stringToBoolean(false),
@@ -260,6 +268,9 @@ const baseEnvSchema = z.object({
     .trim()
     .min(1)
     .default(defaultAiSearchRankingWeights),
+  AI_SEARCH_EMBEDDING_PROVIDER: z
+    .enum(['ollama', 'huggingface'])
+    .default('ollama'),
   AI_SEARCH_EMBEDDING_BASE_URL: z
     .string()
     .trim()
@@ -368,6 +379,30 @@ export const envSchema = baseEnvSchema.superRefine((env, ctx) => {
       code: 'custom',
       path: ['AI_SEARCH_RANKING_WEIGHTS'],
       message: rankingWeightsError,
+    });
+  }
+
+  if (
+    env.AI_SEARCH_EMBEDDING_PROVIDER === 'huggingface' &&
+    !env.HUGGINGFACE_API_KEY
+  ) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['HUGGINGFACE_API_KEY'],
+      message:
+        'HUGGINGFACE_API_KEY is required when AI_SEARCH_EMBEDDING_PROVIDER is huggingface',
+    });
+  }
+
+  if (
+    env.AI_SEARCH_EMBEDDING_PROVIDER === 'huggingface' &&
+    env.AI_SEARCH_EMBEDDING_MODEL === 'embeddinggemma'
+  ) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['AI_SEARCH_EMBEDDING_MODEL'],
+      message:
+        'AI_SEARCH_EMBEDDING_MODEL must be explicitly set to a valid Hugging Face model (e.g. google/embeddinggemma-300m) when using the huggingface provider. The default "embeddinggemma" is for Ollama only.',
     });
   }
 
