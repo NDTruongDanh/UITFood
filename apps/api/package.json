@@ -38,6 +38,7 @@
   "dependencies": {
     "@better-auth/drizzle-adapter": "^1.6.11",
     "@better-auth/expo": "^1.6.11",
+    "@huggingface/inference": "^4.13.19",
     "@nestjs/common": "^11.1.21",
     "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^11.1.21",
