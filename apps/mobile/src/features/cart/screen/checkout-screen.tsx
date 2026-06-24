@@ -6,6 +6,8 @@ import {
   StatusBar,
   TouchableOpacity,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Tag } from 'lucide-react-native';
 import { router } from 'expo-router';
@@ -124,7 +126,10 @@ export function SingleScreenCheckout() {
   }
 
   return (
-    <View className="flex-1 bg-surface">
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      className="flex-1 bg-surface"
+    >
       <StatusBar barStyle="dark-content" />
 
       <CheckoutHeader title="Checkout" onBack={handleBack} />
@@ -194,6 +199,6 @@ export function SingleScreenCheckout() {
         paddingBottom={Math.max(insets.bottom, 16)}
         isPlacingOrder={isPlacingOrder}
       />
-    </View>
+    </KeyboardAvoidingView>
   );
 }

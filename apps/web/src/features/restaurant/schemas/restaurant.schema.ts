@@ -1,10 +1,9 @@
 import { z } from 'zod';
 
-const optionalUrl = z.preprocess(
-  (value) =>
-    typeof value === 'string' && value.trim() === '' ? undefined : value,
-  z.string().trim().url('Must be a valid URL').optional(),
-);
+const optionalUrl = z.union([
+  z.string().trim().url('Must be a valid URL'),
+  z.literal('').transform(() => undefined),
+]).optional();
 
 export const restaurantFormSchema = z.object({
   name: z.string().trim().min(2, 'Name must be at least 2 characters'),
