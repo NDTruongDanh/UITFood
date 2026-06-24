@@ -23,7 +23,7 @@ export function RegisterBusinessFooter({ isPending }: RegisterBusinessFooterProp
         <Button
           type="submit"
           disabled={isPending}
-          className="flex items-center gap-2 px-10 py-4 h-auto bg-primary text-on-primary font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-primary/90 hover:scale-[1.02] active:scale-95 transition-all"
+          className="flex items-center gap-2 px-10 py-4 h-auto bg-primary text-white font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-primary/90 hover:scale-[1.02] active:scale-95 transition-all"
         >
           {isPending ? 'Saving…' : 'Save & Continue'}
           <ArrowRight className="w-5 h-5" />
