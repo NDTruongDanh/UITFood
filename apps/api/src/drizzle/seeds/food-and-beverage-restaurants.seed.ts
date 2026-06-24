@@ -11,6 +11,7 @@ import type {
   NutritionUnit,
   PreparationState,
 } from '../../module/restaurant-catalog/nutrition/types/nutrition.types';
+import { dietaryTagSlugs, type DietaryTagSlug } from './dietary-tags.data';
 
 type SeedImage = {
   publicId: string;
@@ -66,7 +67,7 @@ type MenuItemSeed = {
   description: string;
   price: number;
   itemKind: 'food' | 'beverage' | 'mixed';
-  tags: string[];
+  tags: DietaryTagSlug[];
   imageUrl: string;
   servings: number;
   ingredients: RecipeIngredientSeed[];
@@ -370,7 +371,7 @@ const restaurantsData: RestaurantSeed[] = [
         description: 'Flaky and buttery French croissant.',
         price: 35000,
         itemKind: 'food',
-        tags: ['vegetarian'],
+        tags: [dietaryTagSlugs.vegetarian],
         imageUrl: seedImages.croissant.secureUrl,
         servings: 1,
         ingredients: [

@@ -11,6 +11,7 @@ import type {
   NutritionUnit,
   PreparationState,
 } from '../../module/restaurant-catalog/nutrition/types/nutrition.types';
+import { dietaryTagSlugs, type DietaryTagSlug } from './dietary-tags.data';
 
 /**
  * Nearby VNU nutrition seed.
@@ -80,7 +81,7 @@ type MenuItemSeed = {
   description: string;
   price: number;
   itemKind: 'food' | 'beverage' | 'mixed';
-  tags: string[];
+  tags: DietaryTagSlug[];
   imageUrl: string;
   servings: number;
   ingredients: RecipeIngredientSeed[];
@@ -711,7 +712,7 @@ const restaurantsData: RestaurantSeed[] = [
         description:
           'Firm tofu, brown rice, lettuce, tomato, cucumber, sesame oil, and soy dressing.',
         price: 62000,
-        tags: ['vegetarian', 'vegan'],
+        tags: [dietaryTagSlugs.vegetarian, dietaryTagSlugs.vegan],
         imageUrl: seedImages.tofuBrownRiceBowl.secureUrl,
         servings: 1,
         ingredients: [
@@ -764,7 +765,7 @@ const restaurantsData: RestaurantSeed[] = [
         description:
           'Rice vermicelli with shrimp, lettuce, cucumber, carrot, herbs, peanuts, and fish sauce.',
         price: 72000,
-        tags: ['pescatarian'],
+        tags: [dietaryTagSlugs.pescatarian],
         imageUrl: seedImages.shrimpVermicelliSalad.secureUrl,
         servings: 1,
         ingredients: [
@@ -1106,7 +1107,7 @@ const restaurantsData: RestaurantSeed[] = [
         description:
           'Grilled salmon served with brown rice, lettuce, cucumber, tomato, and sesame soy sauce.',
         price: 98000,
-        tags: ['pescatarian'],
+        tags: [dietaryTagSlugs.pescatarian],
         imageUrl: seedImages.salmonRicePlate.secureUrl,
         servings: 1,
         ingredients: [
@@ -1186,7 +1187,7 @@ const restaurantsData: RestaurantSeed[] = [
         description:
           'Whole wheat toast with boiled egg, avocado, tomato, and olive oil.',
         price: 59000,
-        tags: ['vegetarian'],
+        tags: [dietaryTagSlugs.vegetarian],
         imageUrl: seedImages.eggAvocadoToast.secureUrl,
         servings: 1,
         ingredients: [
@@ -1244,7 +1245,7 @@ const restaurantsData: RestaurantSeed[] = [
         description:
           'Brown rice salad with tuna, lettuce, cucumber, tomato, carrot, and light soy dressing.',
         price: 69000,
-        tags: ['pescatarian'],
+        tags: [dietaryTagSlugs.pescatarian],
         imageUrl: seedImages.tunaBrownRiceSalad.secureUrl,
         servings: 1,
         ingredients: [
@@ -1304,7 +1305,7 @@ const restaurantsData: RestaurantSeed[] = [
         description:
           'Plain Greek yogurt with banana, mango, granola, and honey.',
         price: 56000,
-        tags: ['vegetarian'],
+        tags: [dietaryTagSlugs.vegetarian],
         imageUrl: seedImages.yogurtFruitGranola.secureUrl,
         servings: 1,
         ingredients: [

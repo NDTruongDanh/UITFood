@@ -11,6 +11,7 @@ import type {
   NutritionUnit,
   PreparationState,
 } from '../../module/restaurant-catalog/nutrition/types/nutrition.types';
+import { dietaryTagSlugs, type DietaryTagSlug } from './dietary-tags.data';
 
 /**
  * Vegan nutrition seed.
@@ -79,7 +80,7 @@ type MenuItemSeed = {
   description: string;
   price: number;
   itemKind: 'food' | 'beverage' | 'mixed';
-  tags: string[];
+  tags: DietaryTagSlug[];
   imageUrl: string;
   servings: number;
   ingredients: RecipeIngredientSeed[];
@@ -365,7 +366,7 @@ const restaurantsData: RestaurantSeed[] = [
         description:
           'Tofu, cooked mushrooms, lettuce, cucumber, carrots, and soy sauce over white rice.',
         price: 65000,
-        tags: ['vegan', 'vegetarian'],
+        tags: [dietaryTagSlugs.vegan, dietaryTagSlugs.vegetarian],
         imageUrl: seedImages.veganBuddhaBowl.secureUrl,
         servings: 1,
         ingredients: [
@@ -424,7 +425,7 @@ const restaurantsData: RestaurantSeed[] = [
         description:
           'Crispy baguette with marinated firm tofu, cucumber, carrots, and soy sauce.',
         price: 45000,
-        tags: ['vegan', 'vegetarian'],
+        tags: [dietaryTagSlugs.vegan, dietaryTagSlugs.vegetarian],
         imageUrl: seedImages.veganBanhMi.secureUrl,
         servings: 1,
         ingredients: [
@@ -466,7 +467,7 @@ const restaurantsData: RestaurantSeed[] = [
         description:
           'Fresh rolls with tofu, lettuce, and cucumber over rice vermicelli.',
         price: 55000,
-        tags: ['vegan', 'vegetarian'],
+        tags: [dietaryTagSlugs.vegan, dietaryTagSlugs.vegetarian],
         imageUrl: seedImages.veganSpringRolls.secureUrl,
         servings: 1,
         ingredients: [
@@ -642,7 +643,7 @@ const restaurantsData: RestaurantSeed[] = [
         description:
           'Vegan pho with rich mushroom broth, cooked mushrooms, and tofu.',
         price: 55000,
-        tags: ['vegan', 'vegetarian'],
+        tags: [dietaryTagSlugs.vegan, dietaryTagSlugs.vegetarian],
         imageUrl: seedImages.veganMushroomPho.secureUrl,
         servings: 1,
         ingredients: [

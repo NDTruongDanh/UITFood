@@ -11,6 +11,7 @@ import type {
   NutritionUnit,
   PreparationState,
 } from '../../module/restaurant-catalog/nutrition/types/nutrition.types';
+import { dietaryTagSlugs, type DietaryTagSlug } from './dietary-tags.data';
 
 type SeedImage = {
   publicId: string;
@@ -66,7 +67,7 @@ type MenuItemSeed = {
   description: string;
   price: number;
   itemKind: 'food' | 'beverage' | 'mixed';
-  tags: string[];
+  tags: DietaryTagSlug[];
   imageUrl: string;
   servings: number;
   ingredients: RecipeIngredientSeed[];
@@ -284,7 +285,7 @@ const restaurantsData: RestaurantSeed[] = [
         description: 'Strong black coffee with sugar and ice.',
         price: 25000,
         itemKind: 'beverage',
-        tags: ['vegan'],
+        tags: [dietaryTagSlugs.vegan],
         imageUrl: seedImages.blackCoffee.secureUrl,
         servings: 1,
         ingredients: [
@@ -480,7 +481,7 @@ const restaurantsData: RestaurantSeed[] = [
         description: 'Freshly squeezed orange juice.',
         price: 30000,
         itemKind: 'beverage',
-        tags: ['vegan', 'healthy'],
+        tags: [dietaryTagSlugs.vegan],
         imageUrl: seedImages.orangeJuice.secureUrl,
         servings: 1,
         ingredients: [
