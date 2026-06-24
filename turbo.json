@@ -6,6 +6,16 @@
     "REDIS_URL",
     "MONOLITH_UPSTREAM_URL",
     "GATEWAY_PROXY_TIMEOUT_MS",
+    "GATEWAY_AUTH_TIMEOUT_MS",
+    "GATEWAY_CORS_ORIGINS",
+    "MEDIA_ROUTES_ENABLED",
+    "MEDIA_TCP_HOST",
+    "MEDIA_TCP_PORT",
+    "MEDIA_MANAGEMENT_PORT",
+    "MEDIA_RPC_TIMEOUT_MS",
+    "MEDIA_RPC_MAX_ATTEMPTS",
+    "MEDIA_RPC_REQUIRED",
+    "LEGACY_MEDIA_ROUTES_ENABLED",
     "RABBITMQ_URL",
     "RABBITMQ_EXCHANGE",
     "RABBITMQ_PREFETCH",
@@ -75,17 +85,17 @@
       ]
     },
     "test": {
-      "dependsOn": ["transit"]
+      "dependsOn": ["transit", "^build"]
     },
     "lint": {
-      "dependsOn": ["transit"]
+      "dependsOn": ["transit", "^build"]
     },
     "test:e2e": {
       "dependsOn": ["build"],
       "cache": false
     },
     "typecheck": {
-      "dependsOn": ["transit"]
+      "dependsOn": ["transit", "^build"]
     },
     "dev": {
       "cache": false,
