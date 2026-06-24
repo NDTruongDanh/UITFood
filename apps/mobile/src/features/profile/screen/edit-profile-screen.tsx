@@ -5,9 +5,10 @@ import {
   TextInput,
   ScrollView,
   TouchableOpacity,
-  ActivityIndicator,
   Alert,
   TextInputProps,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowLeft, User, Mail, Phone, Camera, Lock } from 'lucide-react-native';
@@ -152,7 +153,11 @@ export function EditProfileScreen() {
   };
 
   return (
-    <View className="flex-1 bg-surface" style={{ paddingTop: insets.top }}>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      className="flex-1 bg-surface"
+      style={{ paddingTop: insets.top }}
+    >
       {/* Header */}
       <View className="h-16 flex-row items-center bg-surface px-4 border-b border-outline-variant/40">
         <TouchableOpacity
@@ -336,6 +341,6 @@ export function EditProfileScreen() {
           </View>
         </ScrollView>
       )}
-    </View>
+    </KeyboardAvoidingView>
   );
 }
