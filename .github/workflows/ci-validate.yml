@@ -78,7 +78,7 @@ jobs:
             ${{ runner.os }}-turbo-
 
       - name: Check (Lint & Typecheck)
-        run: pnpm turbo run lint typecheck --affected --cache-dir=".turbo"
+        run: pnpm turbo run lint typecheck --filter="...[$TURBO_SCM_BASE]" --cache-dir=".turbo"
         env:
           TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
           TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
@@ -87,7 +87,7 @@ jobs:
         run: pnpm audit --audit-level high
 
       - name: Unit Test
-        run: pnpm turbo run test --affected --cache-dir=".turbo"
+        run: pnpm turbo run test --filter="...[$TURBO_SCM_BASE]" --cache-dir=".turbo"
         env:
           TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
           TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
@@ -102,7 +102,7 @@ jobs:
           CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
 
       - name: Build
-        run: pnpm turbo run build --affected --cache-dir=".turbo"
+        run: pnpm turbo run build --filter="...[$TURBO_SCM_BASE]" --cache-dir=".turbo"
         env:
           TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
           TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
