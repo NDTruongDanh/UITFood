@@ -174,30 +174,30 @@ Record each decision as an ADR before implementation.
 | Public ingress                 | Add one edge gateway and keep the current public HTTP origin. Only the gateway and required static assets are internet-facing. Extracted route handlers in the gateway translate HTTP requests to NestJS TCP request-response messages.                                                                               |
 | Public contract                | Preserve `/api/**`, Better Auth callback paths, VNPay return/IPN paths, cookies, and WebSocket connection paths. Route ownership changes behind the gateway. Public HTTP remains documented by OpenAPI.                                                                                                               |
 | Internal synchronous protocol  | Use NestJS `Transport.TCP`, `ClientProxy.send()`, and `@MessagePattern()` for request-response RPC. Use versioned pattern names, explicit RxJS timeouts, bounded retries, `RpcException` error envelopes, request/trace propagation, and TLS in production.                                                           |
-| Durable asynchronous transport | Use RabbitMQ through NestJS `Transport.RMQ`, `ClientProxy.emit()`, and `@EventPattern()`. Use a durable topic exchange, per-consumer quorum queues, persistent messages, publisher confirms, manual acknowledgements, bounded prefetch, retry queues, and dead-letter queues.                                          |
+| Durable asynchronous transport | Use RabbitMQ through NestJS `Transport.RMQ`, `ClientProxy.emit()`, and `@EventPattern()`. Use a durable topic exchange, per-consumer quorum queues, persistent messages, publisher confirms, manual acknowledgements, bounded prefetch, retry queues, and dead-letter queues.                                         |
 | Delivery semantics             | At-least-once delivery. Producers use a transactional outbox; consumers use an inbox/deduplication table and idempotent handlers.                                                                                                                                                                                     |
 | Database isolation             | One logical database and credential per service from the first extraction. Databases may initially share a managed PostgreSQL cluster for cost reasons, but services must not cross-query or share credentials. Move high-load databases to separate instances later without changing ownership.                      |
 | Cache isolation                | Ordering and Notifications use separate Redis credentials/key prefixes and eventually separate instances. A service must tolerate cache loss when the cached data is not authoritative.                                                                                                                               |
 | Authentication                 | Identity remains the source of users and sessions. The gateway validates the external cookie/bearer session through Identity and sends a short-lived, signed internal JWT with `sub`, roles, audience, correlation ID, and expiry. Services verify the signature and audience; they never trust raw identity headers. |
 | Authorization                  | Each service enforces its own role and resource-ownership rules. Gateway authentication is not a substitute for service authorization.                                                                                                                                                                                |
 | Configuration                  | Per-service validated environment schema and per-service secret group. Never link the current all-purpose API secret group to every service.                                                                                                                                                                          |
-| Observability                  | OpenTelemetry traces, RED metrics, structured logs, domain metrics, and correlation/causation IDs across gateway HTTP, Nest TCP RPC, and RabbitMQ messages.                                                                                                                                                            |
+| Observability                  | OpenTelemetry traces, RED metrics, structured logs, domain metrics, and correlation/causation IDs across gateway HTTP, Nest TCP RPC, and RabbitMQ messages.                                                                                                                                                           |
 | Deployment                     | Continue using pnpm/Turborepo, container images, GHCR immutable SHA tags, and Render. Create one deployable application per service and one reusable CI/CD workflow matrix.                                                                                                                                           |
 
 ### 4.2 Target service boundaries
 
-| Service            | Gateway HTTP route mapping                                                                    | Data/state ownership                                                             | Key integrations                                                 |
-| ------------------ | --------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| Edge Gateway       | All public `/api/**`, docs aggregation, CORS, request IDs, auth handoff, WebSocket routing    | No business data                                                                 | Every service; Identity session introspection                    |
-| Identity           | `/api/auth/**`                                                                                | Users, sessions, accounts, verification, roles                                   | Better Auth providers; role-change events                        |
-| Media              | `/api/images/**`, `/api/cloudinary/**`                                                        | Image metadata                                                                   | Cloudinary; Catalog TCP RPC                                      |
-| Restaurant Catalog | Restaurants, delivery zones, menu items/categories/modifiers, search, nutrition, dietary tags | All Catalog tables and search/indexing jobs                                      | Identity/Media TCP RPC; Catalog change events                    |
-| Ordering           | Carts, checkout, orders, role-specific order views, lifecycle, order history, Ordering ACL    | Orders, logs, catalog snapshots, app settings, Redis carts/idempotency           | Promotion/Payment TCP RPC; Catalog, Payment, Review events       |
-| Promotion          | `/api/promotions/**`                                                                          | Promotions, coupons, usage/reservations                                          | Ordering reservation TCP RPC; rollback/confirmation events       |
-| Payment            | `/api/payments/**`, including VNPay IPN/return/mobile-return                                  | Payment transactions and provider state                                          | VNPay; payment result events                                     |
-| Review             | `/api/reviews/**`                                                                             | Reviews                                                                          | Ordering eligibility TCP RPC during migration; Review event      |
-| Notification       | `/api/notifications/**` and notification Socket.IO traffic                                    | Inbox, preferences, device tokens, delivery logs, contact/restaurant projections | RabbitMQ events, FCM, SMTP, temporary Identity TCP RPC           |
-| Reporting          | `/api/admin/analytics/**` and `/api/restaurant/analytics/**`                                  | Denormalized reporting projections                                               | Consumes business events; never queries another service DB       |
+| Service            | Gateway HTTP route mapping                                                                    | Data/state ownership                                                             | Key integrations                                            |
+| ------------------ | --------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| Edge Gateway       | All public `/api/**`, docs aggregation, CORS, request IDs, auth handoff, WebSocket routing    | No business data                                                                 | Every service; Identity session introspection               |
+| Identity           | `/api/auth/**`                                                                                | Users, sessions, accounts, verification, roles                                   | Better Auth providers; role-change events                   |
+| Media              | `/api/images/**`, `/api/cloudinary/**`                                                        | Image metadata                                                                   | Cloudinary; Catalog TCP RPC                                 |
+| Restaurant Catalog | Restaurants, delivery zones, menu items/categories/modifiers, search, nutrition, dietary tags | All Catalog tables and search/indexing jobs                                      | Identity/Media TCP RPC; Catalog change events               |
+| Ordering           | Carts, checkout, orders, role-specific order views, lifecycle, order history, Ordering ACL    | Orders, logs, catalog snapshots, app settings, Redis carts/idempotency           | Promotion/Payment TCP RPC; Catalog, Payment, Review events  |
+| Promotion          | `/api/promotions/**`                                                                          | Promotions, coupons, usage/reservations                                          | Ordering reservation TCP RPC; rollback/confirmation events  |
+| Payment            | `/api/payments/**`, including VNPay IPN/return/mobile-return                                  | Payment transactions and provider state                                          | VNPay; payment result events                                |
+| Review             | `/api/reviews/**`                                                                             | Reviews                                                                          | Ordering eligibility TCP RPC during migration; Review event |
+| Notification       | `/api/notifications/**` and notification Socket.IO traffic                                    | Inbox, preferences, device tokens, delivery logs, contact/restaurant projections | RabbitMQ events, FCM, SMTP, temporary Identity TCP RPC      |
+| Reporting          | `/api/admin/analytics/**` and `/api/restaurant/analytics/**`                                  | Denormalized reporting projections                                               | Consumes business events; never queries another service DB  |
 
 Search and AI indexing remain in Catalog initially because they join Catalog-owned menu, restaurant, nutrition, vector, and ranking data. Reconsider a Search service only if independent scaling or ownership becomes measurable.
 
@@ -296,23 +296,23 @@ Each service runs as a hybrid Nest application with three listeners as needed: a
 
 Initial internal TCP pattern catalog:
 
-| Pattern | Caller | Owner | Idempotency requirement |
-| --- | --- | --- | --- |
-| `identity.auth.handle.v1` | Gateway | Identity | Method-dependent; preserve Better Auth request semantics |
-| `identity.session.introspect.v1` | Gateway | Identity | Read-only |
-| `identity.user.promote-restaurant.v1` | Catalog | Identity | Idempotent by user ID and target role |
-| `identity.user-contact.get.v1` | Notification during transition | Identity | Read-only; replace with a local projection later |
-| `media.image.create.v1` | Gateway/Catalog | Media | Idempotency key required |
-| `media.cloudinary.signature.get.v1` | Gateway/Catalog | Media | Read-only, short-lived result |
-| `promotion.discount.preview.v1` | Gateway/Ordering | Promotion | Read-only |
-| `promotion.reservation.create.v1` | Ordering | Promotion | Idempotent by order ID |
-| `promotion.reservation.confirm.v1` | Ordering | Promotion | Idempotent by order ID |
-| `promotion.reservation.rollback.v1` | Ordering | Promotion | Idempotent by order ID |
-| `payment.attempt.create.v1` | Ordering | Payment | Idempotent by order ID |
-| `payment.attempt.fail.v1` | Ordering | Payment | Idempotent by attempt ID |
-| `payment.refund.request.v1` | Ordering/Admin gateway | Payment | Idempotency key required |
-| `payment.ipn.process.v1` | Gateway | Payment | Idempotent by provider transaction/reference |
-| `ordering.review-eligibility.get.v1` | Review | Ordering | Read-only |
+| Pattern                               | Caller                         | Owner     | Idempotency requirement                                  |
+| ------------------------------------- | ------------------------------ | --------- | -------------------------------------------------------- |
+| `identity.auth.handle.v1`             | Gateway                        | Identity  | Method-dependent; preserve Better Auth request semantics |
+| `identity.session.introspect.v1`      | Gateway                        | Identity  | Read-only                                                |
+| `identity.user.promote-restaurant.v1` | Catalog                        | Identity  | Idempotent by user ID and target role                    |
+| `identity.user-contact.get.v1`        | Notification during transition | Identity  | Read-only; replace with a local projection later         |
+| `media.image.create.v1`               | Gateway/Catalog                | Media     | Idempotency key required                                 |
+| `media.cloudinary.signature.get.v1`   | Gateway/Catalog                | Media     | Read-only, short-lived result                            |
+| `promotion.discount.preview.v1`       | Gateway/Ordering               | Promotion | Read-only                                                |
+| `promotion.reservation.create.v1`     | Ordering                       | Promotion | Idempotent by order ID                                   |
+| `promotion.reservation.confirm.v1`    | Ordering                       | Promotion | Idempotent by order ID                                   |
+| `promotion.reservation.rollback.v1`   | Ordering                       | Promotion | Idempotent by order ID                                   |
+| `payment.attempt.create.v1`           | Ordering                       | Payment   | Idempotent by order ID                                   |
+| `payment.attempt.fail.v1`             | Ordering                       | Payment   | Idempotent by attempt ID                                 |
+| `payment.refund.request.v1`           | Ordering/Admin gateway         | Payment   | Idempotency key required                                 |
+| `payment.ipn.process.v1`              | Gateway                        | Payment   | Idempotent by provider transaction/reference             |
+| `ordering.review-eligibility.get.v1`  | Review                         | Ordering  | Read-only                                                |
 
 Public resource routes use the same naming convention, for example `catalog.restaurant.get.v1` or `ordering.cart.checkout.v1`. Keep pattern values centralized; never scatter string literals across controllers and clients.
 
@@ -675,17 +675,17 @@ Required invariants include:
 
 ## 9. Testing strategy
 
-| Layer        | Required coverage                                                                                                                                                            |
-| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Unit         | Domain policies, state transitions, pricing, validation, mapping, retry classification, and idempotency decisions                                                            |
-| Architecture | No service imports another service's source, schema, repository, or migration; shared packages contain no domain persistence                                                 |
-| Contract     | Public OpenAPI compatibility; TCP pattern/payload/response/error compatibility; AsyncAPI and RabbitMQ routing-key compatibility; provider/consumer tests                      |
-| Integration  | Real PostgreSQL, Redis, RabbitMQ, Nest TCP client/server, outbox confirms, manual acknowledgement, inbox dedupe, retry/DLQ, and previous-release migrations                    |
-| Component    | Each hybrid service booted with private management HTTP, TCP and RMQ listeners, fake external providers, and real owned infrastructure                                           |
-| End-to-end   | Gateway through real service topology for Web, Admin, Mobile, auth, checkout, payment callbacks, review, notifications, and analytics                                        |
+| Layer        | Required coverage                                                                                                                                                                 |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Unit         | Domain policies, state transitions, pricing, validation, mapping, retry classification, and idempotency decisions                                                                 |
+| Architecture | No service imports another service's source, schema, repository, or migration; shared packages contain no domain persistence                                                      |
+| Contract     | Public OpenAPI compatibility; TCP pattern/payload/response/error compatibility; AsyncAPI and RabbitMQ routing-key compatibility; provider/consumer tests                          |
+| Integration  | Real PostgreSQL, Redis, RabbitMQ, Nest TCP client/server, outbox confirms, manual acknowledgement, inbox dedupe, retry/DLQ, and previous-release migrations                       |
+| Component    | Each hybrid service booted with private management HTTP, TCP and RMQ listeners, fake external providers, and real owned infrastructure                                            |
+| End-to-end   | Gateway through real service topology for Web, Admin, Mobile, auth, checkout, payment callbacks, review, notifications, and analytics                                             |
 | Resilience   | TCP timeout/reset/unknown outcome, RabbitMQ outage, duplicate/reordered delivery, poison message, process kill before ack/after commit, stale projection, Redis loss, and retries |
 | Performance  | Public and TCP RPC latency, connection saturation, peak load, 30% headroom, soak tests, DB pool use, RabbitMQ queue/confirm latency, and WebSocket reconnect storms               |
-| Migration    | Backfill rehearsal on a production-sized sanitized copy, checksum validation, cutover, rollback, replay, backup, and restore                                                 |
+| Migration    | Backfill rehearsal on a production-sized sanitized copy, checksum validation, cutover, rollback, replay, backup, and restore                                                      |
 
 CI must block a service release when it introduces an incompatible public API, TCP RPC, or RabbitMQ event change, fails the previous migration path, or violates dependency boundaries. Full cross-service E2E runs remain required before production promotion even when path filtering limits per-PR work.
 
@@ -739,19 +739,19 @@ The current default free service/database plans are a cost baseline, not a produ
 
 ## 13. Risks and mitigations
 
-| Risk                                                                | Impact                                                   | Mitigation                                                                                                       |
-| ------------------------------------------------------------------- | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| Distributed monolith: many synchronous calls and shared deployments | Worse reliability with more operational cost             | Enforce call-direction rules, prefer local projections/events, and measure dependency depth                      |
-| Lost or duplicate events                                            | Missing snapshots/notifications or repeated side effects | Transactional outbox, inbox uniqueness, idempotent handlers, DLQ, replay tests                                   |
-| Checkout partial failure                                            | Wrong discounts, orphan payments, inconsistent orders    | Persisted Ordering saga, idempotency by `orderId`, explicit compensation, reconciliation                         |
-| Auth migration breaks sessions/cookies                              | All clients lose access                                  | Preserve public origin/cookie contract, migrate sessions, rehearse each client, fast route rollback              |
-| Shared database remains an informal API                             | Services cannot evolve independently                     | Separate credentials/databases, deny cross-database access, architecture tests                                   |
-| Reporting becomes stale                                             | Incorrect admin decisions                                | Projection lag SLO, replayable events, periodic source reconciliation                                            |
-| Scheduled jobs run in two deployments                               | Duplicate timeout/cleanup actions                        | Single owner flag, distributed lease, idempotent operation, cutover checklist                                    |
-| Event schema drift                                                  | Consumers fail after producer release                    | Schema registry in Git, compatibility CI, version overlap, consumer-first deployment                             |
-| Too many services for the team                                      | Slower delivery and weak ownership                       | Keep nine coarse services, provide templates, assign owners, stop at a phase gate if benefits do not exceed cost |
-| Rollback writes diverge                                             | Unsafe return to monolith                                | Time-boxed reverse synchronization, invariant checks, atomic writer ownership, rehearsed runbook                 |
-| RabbitMQ or network outage                                          | Event backlog or synchronous RPC failures                | Local commit plus outbox, publisher confirms, bounded TCP timeouts, circuit breakers, capacity and recovery tests |
+| Risk                                                                | Impact                                                   | Mitigation                                                                                                                  |
+| ------------------------------------------------------------------- | -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Distributed monolith: many synchronous calls and shared deployments | Worse reliability with more operational cost             | Enforce call-direction rules, prefer local projections/events, and measure dependency depth                                 |
+| Lost or duplicate events                                            | Missing snapshots/notifications or repeated side effects | Transactional outbox, inbox uniqueness, idempotent handlers, DLQ, replay tests                                              |
+| Checkout partial failure                                            | Wrong discounts, orphan payments, inconsistent orders    | Persisted Ordering saga, idempotency by `orderId`, explicit compensation, reconciliation                                    |
+| Auth migration breaks sessions/cookies                              | All clients lose access                                  | Preserve public origin/cookie contract, migrate sessions, rehearse each client, fast route rollback                         |
+| Shared database remains an informal API                             | Services cannot evolve independently                     | Separate credentials/databases, deny cross-database access, architecture tests                                              |
+| Reporting becomes stale                                             | Incorrect admin decisions                                | Projection lag SLO, replayable events, periodic source reconciliation                                                       |
+| Scheduled jobs run in two deployments                               | Duplicate timeout/cleanup actions                        | Single owner flag, distributed lease, idempotent operation, cutover checklist                                               |
+| Event schema drift                                                  | Consumers fail after producer release                    | Schema registry in Git, compatibility CI, version overlap, consumer-first deployment                                        |
+| Too many services for the team                                      | Slower delivery and weak ownership                       | Keep nine coarse services, provide templates, assign owners, stop at a phase gate if benefits do not exceed cost            |
+| Rollback writes diverge                                             | Unsafe return to monolith                                | Time-boxed reverse synchronization, invariant checks, atomic writer ownership, rehearsed runbook                            |
+| RabbitMQ or network outage                                          | Event backlog or synchronous RPC failures                | Local commit plus outbox, publisher confirms, bounded TCP timeouts, circuit breakers, capacity and recovery tests           |
 | RabbitMQ disk/memory alarm or quorum loss                           | Publishers blocked and consumers unavailable             | Three-node quorum deployment, capacity alerts, persistent storage, tested node recovery, and managed service where possible |
 
 ## 14. Governance and phase gates
