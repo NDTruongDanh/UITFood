@@ -1,4 +1,5 @@
 import type { ConfigService } from '@nestjs/config';
+import type { HuggingFaceAiProvider } from '@/lib/ai/hugging-face-ai.provider';
 import type { OllamaAiProvider } from '@/lib/ai/ollama-ai.provider';
 import { AiSearchEmbeddingService } from './ai-search-embedding.service';
 
@@ -8,6 +9,7 @@ describe('AiSearchEmbeddingService', () => {
     const provider = buildProvider(embedding);
     const service = new AiSearchEmbeddingService(
       provider,
+      provider as unknown as jest.Mocked<HuggingFaceAiProvider>,
       buildConfig({
         AI_SEARCH_EMBEDDING_MODEL: 'embeddinggemma',
         AI_SEARCH_EMBEDDING_BASE_URL: 'http://localhost:11434',
@@ -34,6 +36,7 @@ describe('AiSearchEmbeddingService', () => {
     const provider = buildProvider([0.1, 0.2]);
     const service = new AiSearchEmbeddingService(
       provider,
+      provider as unknown as jest.Mocked<HuggingFaceAiProvider>,
       buildConfig({ AI_SEARCH_EMBEDDING_DIMENSIONS: 768 }),
     );
 
@@ -48,7 +51,11 @@ describe('AiSearchEmbeddingService', () => {
         Promise.reject(new Error('Ollama embed request timed out.')),
       ),
     } as unknown as jest.Mocked<OllamaAiProvider>;
-    const service = new AiSearchEmbeddingService(provider, buildConfig({}));
+    const service = new AiSearchEmbeddingService(
+      provider,
+      provider as unknown as jest.Mocked<HuggingFaceAiProvider>,
+      buildConfig({}),
+    );
 
     await expect(service.embedSearchDocument('chicken rice')).rejects.toThrow(
       'timed out',
