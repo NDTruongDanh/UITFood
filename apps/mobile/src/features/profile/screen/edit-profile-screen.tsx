@@ -9,9 +9,17 @@ import {
   TextInputProps,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ArrowLeft, User, Mail, Phone, Camera, Lock } from 'lucide-react-native';
+import {
+  ArrowLeft,
+  User,
+  Mail,
+  Phone,
+  Camera,
+  Lock,
+} from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -37,7 +45,12 @@ interface ProfileFieldProps extends TextInputProps {
   error?: string;
 }
 
-function ProfileField({ label, icon, error, ...inputProps }: ProfileFieldProps) {
+function ProfileField({
+  label,
+  icon,
+  error,
+  ...inputProps
+}: ProfileFieldProps) {
   const [focused, setFocused] = useState(false);
 
   return (
@@ -131,7 +144,9 @@ export function EditProfileScreen() {
           callbackURL: 'uitfood://edit-profile',
         });
         if (error) emailErr = error.message ?? 'Could not update email.';
-        else emailMsg = (res as Record<string, unknown>)?.message as string ?? null;
+        else
+          emailMsg =
+            ((res as Record<string, unknown>)?.message as string) ?? null;
       }
       await refetch();
     } catch (err) {
@@ -143,11 +158,21 @@ export function EditProfileScreen() {
     if (nameErr && emailErr) {
       Toast.show({ type: 'error', text1: 'Update failed', text2: nameErr });
     } else if (nameErr) {
-      Toast.show({ type: 'error', text1: 'Name update failed', text2: nameErr });
+      Toast.show({
+        type: 'error',
+        text1: 'Name update failed',
+        text2: nameErr,
+      });
     } else if (emailErr) {
-      Toast.show({ type: 'error', text1: 'Email update failed', text2: emailErr });
+      Toast.show({
+        type: 'error',
+        text1: 'Email update failed',
+        text2: emailErr,
+      });
     } else if (nameChanged || emailChanged) {
-      const text2 = emailMsg ?? (emailChanged ? 'Email updated.' : 'Your changes have been saved.');
+      const text2 =
+        emailMsg ??
+        (emailChanged ? 'Email updated.' : 'Your changes have been saved.');
       Toast.show({ type: 'success', text1: 'Profile updated', text2 });
     }
   };
@@ -202,7 +227,11 @@ export function EditProfileScreen() {
               <View>
                 <View
                   className="h-32 w-32 items-center justify-center overflow-hidden rounded-full bg-surface-container-high"
-                  style={{ borderWidth: 4, borderColor: '#f9f9f9', elevation: 2 }}
+                  style={{
+                    borderWidth: 4,
+                    borderColor: '#f9f9f9',
+                    elevation: 2,
+                  }}
                 >
                   <User size={64} color="#00490e" />
                 </View>
