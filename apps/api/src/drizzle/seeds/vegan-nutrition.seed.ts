@@ -1016,7 +1016,8 @@ async function seedMenuItem(
     imageUrl: menuItem.imageUrl,
   });
 
-  const modifierSnapshots: import('../../module/ordering/acl/schemas/menu-item-snapshot.schema').OrderingMenuItemSnapshot['modifiers'] = [];
+  const modifierSnapshots: import('../../module/ordering/acl/schemas/menu-item-snapshot.schema').OrderingMenuItemSnapshot['modifiers'] =
+    [];
 
   if (menuItem.modifiers && menuItem.modifiers.length > 0) {
     let groupDisplayOrder = 0;
@@ -1031,7 +1032,8 @@ async function seedMenuItem(
         displayOrder: groupDisplayOrder++,
       });
 
-      const optionSnapshots: any[] = [];
+      const optionSnapshots: import('../../shared/events/menu-item-updated.event').ModifierOptionSnapshot[] =
+        [];
       let optionDisplayOrder = 0;
       for (const option of group.options) {
         const optionId = randomUUID();
