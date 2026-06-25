@@ -299,6 +299,7 @@ export function NutritionAssistantCard({
       {
         onSuccess: (nutrition) => {
           onNutritionSaved?.(nutrition);
+          setCalculation(null);
           setSaveMessage('Nutrition saved.');
         },
       },
