@@ -28,7 +28,11 @@ import { dietaryTagSlugs, type DietaryTagSlug } from './dietary-tags.data';
  *   - calculated, restaurant-verified menu_item_nutrition values
  */
 
-import { uploadSeedImages, type SeedImage, type SeedImageDef } from './cloudinary-uploader';
+import {
+  uploadSeedImages,
+  type SeedImage,
+  type SeedImageDef,
+} from './cloudinary-uploader';
 
 type SeedImageWithPlaceholder = SeedImageDef & { secureUrl: string };
 
@@ -114,7 +118,12 @@ const image = (
   height = 800,
 ): SeedImageWithPlaceholder => ({
   publicId,
-  sourceUrl: remoteImageId.endsWith('.jpg') || remoteImageId.endsWith('.png') || remoteImageId.startsWith('http') ? remoteImageId : `https://images.unsplash.com/${remoteImageId}`,
+  sourceUrl:
+    remoteImageId.endsWith('.jpg') ||
+    remoteImageId.endsWith('.png') ||
+    remoteImageId.startsWith('http')
+      ? remoteImageId
+      : `https://images.unsplash.com/${remoteImageId}`,
   secureUrl: `__UPLOAD_PENDING__:${publicId}`,
   width,
   height,
@@ -1441,10 +1450,18 @@ async function main() {
   await seedImageRecords(uploadedImagesMap);
 
   for (const restaurant of restaurantsData) {
-    restaurant.logoUrl = uploadedImagesMap.get(restaurant.logoUrl.replace('__UPLOAD_PENDING__:', ''))?.secureUrl || restaurant.logoUrl;
-    restaurant.coverImageUrl = uploadedImagesMap.get(restaurant.coverImageUrl.replace('__UPLOAD_PENDING__:', ''))?.secureUrl || restaurant.coverImageUrl;
+    restaurant.logoUrl =
+      uploadedImagesMap.get(
+        restaurant.logoUrl.replace('__UPLOAD_PENDING__:', ''),
+      )?.secureUrl || restaurant.logoUrl;
+    restaurant.coverImageUrl =
+      uploadedImagesMap.get(
+        restaurant.coverImageUrl.replace('__UPLOAD_PENDING__:', ''),
+      )?.secureUrl || restaurant.coverImageUrl;
     for (const item of restaurant.items) {
-      item.imageUrl = uploadedImagesMap.get(item.imageUrl.replace('__UPLOAD_PENDING__:', ''))?.secureUrl || item.imageUrl;
+      item.imageUrl =
+        uploadedImagesMap.get(item.imageUrl.replace('__UPLOAD_PENDING__:', ''))
+          ?.secureUrl || item.imageUrl;
     }
   }
 

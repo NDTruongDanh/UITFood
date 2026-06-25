@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { v2 as cloudinary } from 'cloudinary';
+import { v2 as cloudinary, UploadApiResponse } from 'cloudinary';
 
 export type SeedImage = {
   publicId: string;
@@ -43,17 +43,20 @@ export async function uploadSeedImages(
   for (const def of imageDefs) {
     try {
       const primaryUrl = def.sourceUrl;
-      const foodName = def.publicId.split('/').pop()?.replace(/-/g, ' ') || 'food';
+      const foodName =
+        def.publicId.split('/').pop()?.replace(/-/g, ' ') || 'food';
       console.log(`Uploading ${def.publicId} from ${primaryUrl}...`);
-      
-      let uploadResult;
+
+      let uploadResult: UploadApiResponse;
       try {
         uploadResult = await cloudinary.uploader.upload(primaryUrl, {
           public_id: def.publicId,
           overwrite: true,
         });
-      } catch (err: any) {
-        console.warn(`Failed to upload: ${err.message}. Using fallback placeholder.`);
+      } catch (err) {
+        console.warn(
+          `Failed to upload: ${err instanceof Error ? err.message : String(err)}. Using fallback placeholder.`,
+        );
         const fallbackUrl = `https://placehold.co/${def.width}x${def.height}/EEE/31343C?text=${encodeURIComponent(foodName)}`;
         uploadResult = await cloudinary.uploader.upload(fallbackUrl, {
           public_id: def.publicId,

@@ -26,7 +26,11 @@ import { dietaryTagSlugs, type DietaryTagSlug } from './dietary-tags.data';
  * Each restaurant has its own restaurant-owner account and 3 menu items.
  */
 
-import { uploadSeedImages, type SeedImage, type SeedImageDef } from './cloudinary-uploader';
+import {
+  uploadSeedImages,
+  type SeedImage,
+  type SeedImageDef,
+} from './cloudinary-uploader';
 
 type SeedImageWithPlaceholder = SeedImageDef & { secureUrl: string };
 
@@ -713,10 +717,18 @@ async function main() {
   await seedImageRecords(uploadedImagesMap);
 
   for (const restaurant of restaurantsData) {
-    restaurant.logoUrl = uploadedImagesMap.get(restaurant.logoUrl.replace('__UPLOAD_PENDING__:', ''))?.secureUrl || restaurant.logoUrl;
-    restaurant.coverImageUrl = uploadedImagesMap.get(restaurant.coverImageUrl.replace('__UPLOAD_PENDING__:', ''))?.secureUrl || restaurant.coverImageUrl;
+    restaurant.logoUrl =
+      uploadedImagesMap.get(
+        restaurant.logoUrl.replace('__UPLOAD_PENDING__:', ''),
+      )?.secureUrl || restaurant.logoUrl;
+    restaurant.coverImageUrl =
+      uploadedImagesMap.get(
+        restaurant.coverImageUrl.replace('__UPLOAD_PENDING__:', ''),
+      )?.secureUrl || restaurant.coverImageUrl;
     for (const item of restaurant.items) {
-      item.imageUrl = uploadedImagesMap.get(item.imageUrl.replace('__UPLOAD_PENDING__:', ''))?.secureUrl || item.imageUrl;
+      item.imageUrl =
+        uploadedImagesMap.get(item.imageUrl.replace('__UPLOAD_PENDING__:', ''))
+          ?.secureUrl || item.imageUrl;
     }
   }
 
