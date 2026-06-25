@@ -11,10 +11,13 @@ import type { MediaRouteOverrides } from './media/media.interfaces';
 import {
   isIdentityPublicRoute,
   isMediaPublicRoute,
+  isNotificationPublicRoute,
 } from './proxy/api-proxy.factory';
 import { createMediaCors } from './media/media-cors.middleware';
 import type { IdentityRouteOverrides } from './identity/identity.interfaces';
 import { IdentityHttpProxyService } from './identity/identity-http-proxy.service';
+import type { NotificationRouteOverrides } from './notification/notification.interfaces';
+import { createNotificationCors } from './notification/notification-cors.middleware';
 
 /**
  * Builds the fully-wired gateway application WITHOUT listening.
@@ -28,7 +31,8 @@ import { IdentityHttpProxyService } from './identity/identity-http-proxy.service
  */
 export interface GatewayOverrides
   extends MediaRouteOverrides,
-    IdentityRouteOverrides {
+    IdentityRouteOverrides,
+    NotificationRouteOverrides {
   /** Override the upstream target (used by tests to point at a stub). */
   target?: string;
   /** Override the proxy timeout in ms. */
@@ -37,6 +41,8 @@ export interface GatewayOverrides
   mediaRoutesEnabled?: boolean;
   /** Override the Identity route cutover flag. */
   identityRoutesEnabled?: boolean;
+  /** Override the Notification route cutover flag. */
+  notificationRoutesEnabled?: boolean;
 }
 
 export async function createGatewayApp(
@@ -70,6 +76,10 @@ export async function createGatewayApp(
     overrides.identityRoutesEnabled ??
     config.get('IDENTITY_ROUTES_ENABLED', { infer: true }) ??
     false;
+  const notificationRoutesEnabled =
+    overrides.notificationRoutesEnabled ??
+    config.get('NOTIFICATION_ROUTES_ENABLED', { infer: true }) ??
+    false;
 
   // 1. Strip internal/trust headers + ensure x-request-id (before proxying).
   app.use(requestContext);
@@ -99,12 +109,30 @@ export async function createGatewayApp(
     app.useGlobalPipes(new ValidationPipe({ transform: true }));
   }
 
+  if (notificationRoutesEnabled) {
+    const allowedOrigins = new Set(
+      config
+        .get('GATEWAY_CORS_ORIGINS', { infer: true })
+        .split(',')
+        .map((origin) => origin.trim())
+        .filter(Boolean),
+    );
+    app.use(createNotificationCors(allowedOrigins));
+    const jsonParser = json({ limit: '1mb' });
+    app.use((req, res, next) =>
+      isNotificationPublicRoute(req.path) ? jsonParser(req, res, next) : next(),
+    );
+    app.useGlobalPipes(new ValidationPipe({ transform: true }));
+  }
+
   // 2. Proxy everything except the gateway's own management paths.
   const proxy = createApiProxy({
     target,
     proxyTimeoutMs,
     mediaRoutesEnabled,
     identityRoutesEnabled,
+    notificationRoutesEnabled,
+    notificationSocketTarget: `http://${config.get('NOTIFICATION_TCP_HOST', { infer: true })}:${config.get('NOTIFICATION_MANAGEMENT_PORT', { infer: true })}`,
   });
   app.use(proxy);
 

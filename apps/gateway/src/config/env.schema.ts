@@ -47,6 +47,23 @@ const schema = z.object({
   IDENTITY_MANAGEMENT_PORT: z.coerce.number().int().positive().default(4012),
   IDENTITY_RPC_TIMEOUT_MS: z.coerce.number().int().positive().default(3000),
   GATEWAY_AUTH_TIMEOUT_MS: z.coerce.number().int().positive().default(3000),
+  /** Phase 5 cutover switch. False keeps Notification routes/sockets on the monolith. */
+  NOTIFICATION_ROUTES_ENABLED: z
+    .string()
+    .default('false')
+    .transform((value) => ['1', 'true', 'yes'].includes(value.toLowerCase())),
+  NOTIFICATION_TCP_HOST: z.string().min(1).default('localhost'),
+  NOTIFICATION_TCP_PORT: z.coerce.number().int().positive().default(4021),
+  NOTIFICATION_MANAGEMENT_PORT: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(4022),
+  NOTIFICATION_RPC_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(3000),
   GATEWAY_CORS_ORIGINS: z
     .string()
     .default('http://localhost:5173,http://localhost:5174'),

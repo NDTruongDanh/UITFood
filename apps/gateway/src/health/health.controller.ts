@@ -28,6 +28,7 @@ export class HealthController {
     upstream: 'reachable';
     media: 'reachable' | 'disabled';
     identity: 'reachable' | 'disabled';
+    notification: 'reachable' | 'disabled';
   }> {
     const target = this.config.get('MONOLITH_UPSTREAM_URL', { infer: true });
     const mediaEnabled = this.config.get('MEDIA_ROUTES_ENABLED', {
@@ -36,10 +37,18 @@ export class HealthController {
     const identityEnabled = this.config.get('IDENTITY_ROUTES_ENABLED', {
       infer: true,
     });
+    const notificationEnabled = this.config.get('NOTIFICATION_ROUTES_ENABLED', {
+      infer: true,
+    });
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 2_000);
     try {
-      const [upstreamResult, mediaResult, identityResult] =
+      const [
+        upstreamResult,
+        mediaResult,
+        identityResult,
+        notificationResult,
+      ] =
         await Promise.allSettled([
         fetch(target, { method: 'HEAD', signal: controller.signal }),
         mediaEnabled
@@ -48,11 +57,15 @@ export class HealthController {
         identityEnabled
           ? this.checkIdentityReadiness(controller.signal)
           : Promise.resolve(),
+        notificationEnabled
+          ? this.checkNotificationReadiness(controller.signal)
+          : Promise.resolve(),
       ]);
       if (
         upstreamResult.status === 'rejected' ||
         mediaResult.status === 'rejected' ||
-        identityResult.status === 'rejected'
+        identityResult.status === 'rejected' ||
+        notificationResult.status === 'rejected'
       ) {
         throw new ServiceUnavailableException({
           status: 'degraded',
@@ -68,6 +81,11 @@ export class HealthController {
             : identityResult.status === 'fulfilled'
               ? 'reachable'
               : 'unreachable',
+          notification: !notificationEnabled
+            ? 'disabled'
+            : notificationResult.status === 'fulfilled'
+              ? 'reachable'
+              : 'unreachable',
         });
       }
       return {
@@ -75,6 +93,7 @@ export class HealthController {
         upstream: 'reachable',
         media: mediaEnabled ? 'reachable' : 'disabled',
         identity: identityEnabled ? 'reachable' : 'disabled',
+        notification: notificationEnabled ? 'reachable' : 'disabled',
       };
     } catch (error) {
       if (error instanceof ServiceUnavailableException) throw error;
@@ -102,5 +121,17 @@ export class HealthController {
       signal,
     });
     if (!response.ok) throw new Error('Identity is not ready');
+  }
+
+  private async checkNotificationReadiness(signal: AbortSignal): Promise<void> {
+    const host = this.config.get('NOTIFICATION_TCP_HOST', { infer: true });
+    const port = this.config.get('NOTIFICATION_MANAGEMENT_PORT', {
+      infer: true,
+    });
+    const response = await fetch(`http://${host}:${port}/ready`, {
+      method: 'GET',
+      signal,
+    });
+    if (!response.ok) throw new Error('Notification is not ready');
   }
 }

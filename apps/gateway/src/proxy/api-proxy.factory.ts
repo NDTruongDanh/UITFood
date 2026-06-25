@@ -18,6 +18,10 @@ export interface ApiProxyOptions {
   mediaRoutesEnabled: boolean;
   /** When true, Better Auth routes are handled locally over Identity TCP. */
   identityRoutesEnabled: boolean;
+  /** When true, Notification HTTP routes are handled locally and Socket.IO targets Notification. */
+  notificationRoutesEnabled: boolean;
+  /** HTTP target for Notification Socket.IO polling/upgrade traffic. */
+  notificationSocketTarget: string;
 }
 
 export function isMediaPublicRoute(pathname: string): boolean {
@@ -31,6 +35,17 @@ export function isMediaPublicRoute(pathname: string): boolean {
 
 export function isIdentityPublicRoute(pathname: string): boolean {
   return pathname === '/api/auth' || pathname.startsWith('/api/auth/');
+}
+
+export function isNotificationPublicRoute(pathname: string): boolean {
+  return (
+    pathname === '/api/notifications' ||
+    pathname.startsWith('/api/notifications/')
+  );
+}
+
+export function isSocketIoRoute(pathname: string): boolean {
+  return pathname === '/socket.io' || pathname.startsWith('/socket.io/');
 }
 
 /**
@@ -62,9 +77,15 @@ export function createApiProxy({
   proxyTimeoutMs,
   mediaRoutesEnabled,
   identityRoutesEnabled,
+  notificationRoutesEnabled,
+  notificationSocketTarget,
 }: ApiProxyOptions): RequestHandler {
   return createProxyMiddleware({
     target,
+    router: (req) =>
+      notificationRoutesEnabled && isSocketIoRoute(req.url?.split('?')[0] ?? '')
+        ? notificationSocketTarget
+        : target,
     changeOrigin: true,
     xfwd: true,
     ws: true,
@@ -76,6 +97,9 @@ export function createApiProxy({
     pathFilter: (pathname: string) =>
       !(mediaRoutesEnabled && isMediaPublicRoute(pathname)) &&
       !(identityRoutesEnabled && isIdentityPublicRoute(pathname)) &&
+      !(
+        notificationRoutesEnabled && isNotificationPublicRoute(pathname)
+      ) &&
       !GATEWAY_MANAGEMENT_PATHS.some(
         (p) => pathname === p || pathname.startsWith(`${p}/`),
       ),

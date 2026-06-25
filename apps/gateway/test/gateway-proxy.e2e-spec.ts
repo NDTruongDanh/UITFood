@@ -234,7 +234,7 @@ describe('Gateway reverse proxy (E2E)', () => {
       expect(res.body).toEqual({ status: 'ok' });
     });
 
-    it('GW-08 /ready reports Media disabled before cutover', async () => {
+    it('GW-08 /ready reports extracted routes disabled before cutover', async () => {
       const res = await client.get('/ready');
       expect(res.status).toBe(200);
       expect(res.body).toEqual({
@@ -242,6 +242,7 @@ describe('Gateway reverse proxy (E2E)', () => {
         upstream: 'reachable',
         media: 'disabled',
         identity: 'disabled',
+        notification: 'disabled',
       });
     });
   });
