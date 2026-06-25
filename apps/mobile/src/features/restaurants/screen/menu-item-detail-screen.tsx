@@ -2,7 +2,6 @@ import React, { useState, useMemo, useRef } from 'react';
 import {
   View,
   Text,
-  ScrollView,
   TouchableOpacity,
   StatusBar,
   ActivityIndicator,
@@ -254,7 +253,7 @@ export function MenuItemDetailScreen({
         stickyHeaderIndices={[1]}
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: true }
+          { useNativeDriver: true },
         )}
         scrollEventThrottle={16}
       >
@@ -285,12 +284,12 @@ export function MenuItemDetailScreen({
         >
           {/* Transparent spacer that fades in background when stuck */}
           <View style={{ height: SPACER_HEIGHT }} pointerEvents="none">
-            <Animated.View 
+            <Animated.View
               className="flex-1 bg-surface"
-              style={{ opacity: spacerBackgroundOpacity }} 
+              style={{ opacity: spacerBackgroundOpacity }}
             />
           </View>
-          
+
           {/* Product Header Information */}
           <View className="px-6 pt-6 pb-8 bg-surface rounded-t-xl -mt-6 relative flex-row justify-between items-start">
             <View className="flex-1">
@@ -320,7 +319,10 @@ export function MenuItemDetailScreen({
         </View>
 
         {/* Item 2: Rest of Content */}
-        <View className="px-4 pt-4 flex-col gap-6" style={{ zIndex: 1, elevation: 1 }}>
+        <View
+          className="px-4 pt-4 flex-col gap-6"
+          style={{ zIndex: 1, elevation: 1 }}
+        >
           {item.nutrition && (
             <View className="bg-surface-container-lowest rounded-xl p-6 shadow-sm">
               <Text className="font-jakarta-sans text-xl font-semibold text-on-surface mb-4">
