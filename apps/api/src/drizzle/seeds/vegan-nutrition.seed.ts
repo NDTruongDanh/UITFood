@@ -26,12 +26,9 @@ import { dietaryTagSlugs, type DietaryTagSlug } from './dietary-tags.data';
  * Each restaurant has its own restaurant-owner account and 3 menu items.
  */
 
-type SeedImage = {
-  publicId: string;
-  secureUrl: string;
-  width: number;
-  height: number;
-};
+import { uploadSeedImages, type SeedImage, type SeedImageDef } from './cloudinary-uploader';
+
+type SeedImageWithPlaceholder = SeedImageDef & { secureUrl: string };
 
 type NutritionFoodSeed = {
   key: string;
@@ -113,9 +110,10 @@ const image = (
   remoteImageId: string,
   width = 1200,
   height = 800,
-): SeedImage => ({
+): SeedImageWithPlaceholder => ({
   publicId,
-  secureUrl: `https://res.cloudinary.com/demo/image/fetch/c_fill,w_${width},h_${height},q_auto,f_auto/https://images.unsplash.com/${remoteImageId}`,
+  sourceUrl: `https://images.unsplash.com/${remoteImageId}`,
+  secureUrl: `__UPLOAD_PENDING__:${publicId}`,
   width,
   height,
 });
@@ -165,7 +163,7 @@ const seedImages = {
     'vegan-nutrition/menu/vegan-mushroom-pho',
     'photo-1582878826629-29b7ad1cdc43',
   ),
-} satisfies Record<string, SeedImage>;
+} satisfies Record<string, SeedImageWithPlaceholder>;
 
 const veganNutritionImages = Object.values(seedImages);
 
@@ -710,7 +708,17 @@ async function main() {
 
   await cleanupExistingSeedData();
   await seedOwnerAccounts();
-  await seedImageRecords();
+
+  const uploadedImagesMap = await uploadSeedImages(Object.values(seedImages));
+  await seedImageRecords(uploadedImagesMap);
+
+  for (const restaurant of restaurantsData) {
+    restaurant.logoUrl = uploadedImagesMap.get(restaurant.logoUrl.replace('__UPLOAD_PENDING__:', ''))?.secureUrl || restaurant.logoUrl;
+    restaurant.coverImageUrl = uploadedImagesMap.get(restaurant.coverImageUrl.replace('__UPLOAD_PENDING__:', ''))?.secureUrl || restaurant.coverImageUrl;
+    for (const item of restaurant.items) {
+      item.imageUrl = uploadedImagesMap.get(item.imageUrl.replace('__UPLOAD_PENDING__:', ''))?.secureUrl || item.imageUrl;
+    }
+  }
 
   const foodIdsByKey = await seedNutritionFoodDatabase();
 
@@ -822,9 +830,12 @@ async function seedOwnerAccounts() {
   }
 }
 
-async function seedImageRecords() {
-  await db.insert(schema.images).values(veganNutritionImages);
-  console.log(`Seeded ${veganNutritionImages.length} image records.`);
+async function seedImageRecords(uploadedImagesMap: Map<string, SeedImage>) {
+  const imagesToInsert = Array.from(uploadedImagesMap.values());
+  if (imagesToInsert.length > 0) {
+    await db.insert(schema.images).values(imagesToInsert);
+  }
+  console.log(`Seeded ${imagesToInsert.length} image records.`);
 }
 
 async function seedNutritionFoodDatabase(): Promise<Map<string, string>> {
