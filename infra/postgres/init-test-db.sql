@@ -34,6 +34,21 @@ WHERE NOT EXISTS (
 REVOKE ALL ON DATABASE uitfood_media FROM PUBLIC;
 GRANT CONNECT, TEMPORARY ON DATABASE uitfood_media TO uitfood_media;
 
+-- Phase 4: a separate logical database and credential for the Identity service.
+-- The legacy API credential is deliberately not granted access.
+SELECT 'CREATE ROLE uitfood_identity LOGIN PASSWORD ''identity_secret'''
+WHERE NOT EXISTS (
+    SELECT FROM pg_roles WHERE rolname = 'uitfood_identity'
+)\gexec
+
+SELECT 'CREATE DATABASE uitfood_identity OWNER uitfood_identity'
+WHERE NOT EXISTS (
+    SELECT FROM pg_database WHERE datname = 'uitfood_identity'
+)\gexec
+
+REVOKE ALL ON DATABASE uitfood_identity FROM PUBLIC;
+GRANT CONNECT, TEMPORARY ON DATABASE uitfood_identity TO uitfood_identity;
+
 -- Grant the default user full access to the test database.
 GRANT ALL PRIVILEGES ON DATABASE food_order_test TO food_order;
 
