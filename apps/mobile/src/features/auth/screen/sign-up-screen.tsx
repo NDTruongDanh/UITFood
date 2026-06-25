@@ -23,7 +23,10 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 
 import { SignUpField } from '@/src/features/auth/components';
-import type { SignUpScreenProps, SignUpFormData } from '@/src/features/auth/types';
+import type {
+  SignUpScreenProps,
+  SignUpFormData,
+} from '@/src/features/auth/types';
 import { signUpSchema } from '@/src/features/auth/types';
 import { keyboardAvoidingBehavior } from '@/src/lib/keyboard';
 import { useState } from 'react';
@@ -90,7 +93,7 @@ export function SignUpScreen({
           }}
           pointerEvents="none"
         >
-          Harvest Market
+          UIT Food
         </Text>
 
         {/* Symmetry spacer */}
@@ -280,13 +283,13 @@ export function SignUpScreen({
                     >
                       Privacy Policy
                     </Text>{' '}
-                    of Harvest Market.
+                    of UIT Food.
                   </Text>
                 </View>
                 {!!errors.termsAccepted && (
                   <Text
                     className="text-[#ff4d4d] text-xs ml-9"
-                    style={{ fontFamily: "Inter_500Medium" }}
+                    style={{ fontFamily: 'Inter_500Medium' }}
                   >
                     {errors.termsAccepted.message}
                   </Text>
