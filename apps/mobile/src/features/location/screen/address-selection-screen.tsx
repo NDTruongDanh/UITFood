@@ -18,7 +18,6 @@ import {
   LocateFixed,
   Map,
   MapPin,
-  MoreVertical,
   Pencil,
   Plus,
   Search,
@@ -82,9 +81,6 @@ function LocationRow({
         >
           {subtitle}
         </Text>
-      </View>
-      <View className="p-1">
-        <MoreVertical size={20} color="#40493d" />
       </View>
     </TouchableOpacity>
   );

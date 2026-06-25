@@ -3,8 +3,10 @@ import {
   Keyboard,
   Platform,
   ScrollView,
+  FlatList,
   StyleSheet,
   type ScrollViewProps,
+  type FlatListProps,
   type ViewStyle,
 } from 'react-native';
 
@@ -77,3 +79,61 @@ export const KeyboardAwareScrollView = forwardRef<
     />
   );
 });
+
+export interface KeyboardAwareFlatListProps<T> extends FlatListProps<T> {
+  keyboardBottomOffset?: number;
+}
+
+export const KeyboardAwareFlatList = forwardRef(
+  function KeyboardAwareFlatList<T>(
+    {
+      contentContainerStyle,
+      keyboardBottomOffset = 24,
+      keyboardShouldPersistTaps = 'handled',
+      ...props
+    }: KeyboardAwareFlatListProps<T>,
+    ref: React.Ref<FlatList<T>>,
+  ) {
+    const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+    useEffect(() => {
+      if (Platform.OS !== 'ios') return;
+
+      const showSub = Keyboard.addListener('keyboardWillShow', (e) => {
+        setKeyboardHeight(e.endCoordinates.height);
+      });
+      const hideSub = Keyboard.addListener('keyboardWillHide', () => {
+        setKeyboardHeight(0);
+      });
+
+      return () => {
+        showSub.remove();
+        hideSub.remove();
+      };
+    }, []);
+
+    const adjustedContentContainerStyle =
+      Platform.OS === 'android' && keyboardHeight > 0
+        ? [
+            contentContainerStyle,
+            {
+              paddingBottom:
+                getBottomPadding(contentContainerStyle) +
+                keyboardHeight +
+                keyboardBottomOffset,
+            },
+          ]
+        : contentContainerStyle;
+
+    return (
+      <FlatList<T>
+        ref={ref}
+        contentContainerStyle={adjustedContentContainerStyle}
+        keyboardShouldPersistTaps={keyboardShouldPersistTaps}
+        {...props}
+      />
+    );
+  },
+) as <T>(
+  props: KeyboardAwareFlatListProps<T> & { ref?: React.Ref<FlatList<T>> },
+) => React.ReactElement;

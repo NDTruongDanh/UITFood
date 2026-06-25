@@ -87,6 +87,7 @@ export interface OrderItem {
   orderItemId: string;
   menuItemId: string;
   itemName: string;
+  imageUrl?: string | null;
   unitPrice: number;
   modifiersPrice: number;
   quantity: number;

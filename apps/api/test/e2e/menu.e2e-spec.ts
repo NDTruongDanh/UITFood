@@ -282,54 +282,42 @@ describe('Menu Item & Category CRUD (E2E)', () => {
     });
 
     it('returns 400 for missing name', async () => {
-      const res = await http
-        .post('/api/menu-items')
-        .set(ownerHeaders())
-        .send({
-          restaurantId: TEST_RESTAURANT_ID,
-          price: 10,
-          itemKind: 'food',
-        });
+      const res = await http.post('/api/menu-items').set(ownerHeaders()).send({
+        restaurantId: TEST_RESTAURANT_ID,
+        price: 10,
+        itemKind: 'food',
+      });
 
       expect(res.status).toBe(400);
     });
 
     it('returns 400 for missing item type', async () => {
-      const res = await http
-        .post('/api/menu-items')
-        .set(ownerHeaders())
-        .send({
-          restaurantId: TEST_RESTAURANT_ID,
-          name: 'Unclassified Item',
-          price: 10000,
-        });
+      const res = await http.post('/api/menu-items').set(ownerHeaders()).send({
+        restaurantId: TEST_RESTAURANT_ID,
+        name: 'Unclassified Item',
+        price: 10000,
+      });
 
       expect(res.status).toBe(400);
     });
 
     it('returns 400 for name shorter than 2 characters', async () => {
-      const res = await http
-        .post('/api/menu-items')
-        .set(ownerHeaders())
-        .send({
-          restaurantId: TEST_RESTAURANT_ID,
-          name: 'A',
-          price: 10,
-          itemKind: 'food',
-        });
+      const res = await http.post('/api/menu-items').set(ownerHeaders()).send({
+        restaurantId: TEST_RESTAURANT_ID,
+        name: 'A',
+        price: 10,
+        itemKind: 'food',
+      });
 
       expect(res.status).toBe(400);
     });
 
     it('returns 400 for missing price', async () => {
-      const res = await http
-        .post('/api/menu-items')
-        .set(ownerHeaders())
-        .send({
-          restaurantId: TEST_RESTAURANT_ID,
-          name: 'No Price Item',
-          itemKind: 'food',
-        });
+      const res = await http.post('/api/menu-items').set(ownerHeaders()).send({
+        restaurantId: TEST_RESTAURANT_ID,
+        name: 'No Price Item',
+        itemKind: 'food',
+      });
 
       expect(res.status).toBe(400);
     });
