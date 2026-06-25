@@ -56,12 +56,14 @@ const schema = z.object({
   IDENTITY_TCP_PORT: z.coerce.number().int().positive().default(4011),
   IDENTITY_RPC_TIMEOUT_MS: z.coerce.number().int().positive().default(3000),
   IDENTITY_RPC_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(3).default(2),
+  IDENTITY_RPC_REQUIRED: stringToBoolean(false),
 
   // --- Media TCP RPC client (image metadata create + signatures) ---
   MEDIA_TCP_HOST: z.string().min(1).default('localhost'),
   MEDIA_TCP_PORT: z.coerce.number().int().positive().default(4001),
   MEDIA_RPC_TIMEOUT_MS: z.coerce.number().int().positive().default(2000),
   MEDIA_RPC_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(3).default(2),
+  MEDIA_RPC_REQUIRED: stringToBoolean(false),
 
   // NOTE: AI-search / Ollama / embedding variables are added together with the
   // search module in the domain-extraction step (Phase 6 step 3).
