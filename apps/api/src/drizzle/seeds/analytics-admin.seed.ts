@@ -76,8 +76,10 @@ async function seedAnalyticsOrdersAdmin() {
     }
 
     // Filter restaurants that have menu items
-    const validRestaurants = allRestaurants.filter((r) =>
-      menuItemsByRestaurant.has(r.id) && menuItemsByRestaurant.get(r.id)!.length > 0
+    const validRestaurants = allRestaurants.filter(
+      (r) =>
+        menuItemsByRestaurant.has(r.id) &&
+        menuItemsByRestaurant.get(r.id)!.length > 0,
     );
 
     if (validRestaurants.length === 0) {
@@ -95,7 +97,7 @@ async function seedAnalyticsOrdersAdmin() {
       const orderId = crypto.randomUUID();
       const cartId = crypto.randomUUID();
       const customerId = crypto.randomUUID();
-      
+
       const restaurant = randomItem(validRestaurants);
       const restaurantMenuItems = menuItemsByRestaurant.get(restaurant.id)!;
 
@@ -115,13 +117,13 @@ async function seedAnalyticsOrdersAdmin() {
       const numItems = randomInt(1, 3);
       let subtotal = 0;
       const itemsToInsert = [];
-      
+
       for (let j = 0; j < numItems; j++) {
         const currentItem = randomItem(restaurantMenuItems);
         const quantity = randomInt(1, 2);
         const itemSubtotal = currentItem.price * quantity;
         subtotal += itemSubtotal;
-        
+
         itemsToInsert.push({
           id: crypto.randomUUID(),
           orderId,
@@ -235,7 +237,9 @@ async function seedAnalyticsOrdersAdmin() {
       }
     }
 
-    console.log(`\n✅ ${count} analytics orders created successfully for Admin Dashboard!`);
+    console.log(
+      `\n✅ ${count} analytics orders created successfully for Admin Dashboard!`,
+    );
   } catch (err) {
     console.error('❌ Error:', err);
     process.exit(1);
