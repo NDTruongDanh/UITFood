@@ -241,6 +241,7 @@ describe('Gateway reverse proxy (E2E)', () => {
         status: 'ok',
         upstream: 'reachable',
         media: 'disabled',
+        identity: 'disabled',
       });
     });
   });

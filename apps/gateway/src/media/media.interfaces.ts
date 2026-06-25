@@ -1,4 +1,3 @@
-import type { Request } from 'express';
 import type {
   CreateImageRequest,
   CreateUploadSignatureRequest,
@@ -7,6 +6,7 @@ import type {
   ListImagesResponse,
   UploadSignatureResponse,
 } from '@uitfood/contracts';
+import type { SessionAuthenticator } from '@/identity/identity.interfaces';
 
 export interface MediaRpcGateway {
   listImages(input: ListImagesRequest): Promise<ListImagesResponse>;
@@ -14,10 +14,6 @@ export interface MediaRpcGateway {
   createUploadSignature(
     input: CreateUploadSignatureRequest,
   ): Promise<UploadSignatureResponse>;
-}
-
-export interface SessionAuthenticator {
-  isAuthenticated(request: Request): Promise<boolean>;
 }
 
 export interface MediaRouteOverrides {

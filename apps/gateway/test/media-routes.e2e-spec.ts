@@ -103,6 +103,7 @@ describe('Gateway Media route cutover', () => {
 
     expect(authorized.status).toBe(201);
     expect(mediaClient.createImage).toHaveBeenCalledWith({
+      internalAuth: expect.any(String),
       idempotencyKey: `image:${createHash('sha256')
         .update(image.publicId)
         .digest('hex')}`,
@@ -120,6 +121,7 @@ describe('Gateway Media route cutover', () => {
       expect.objectContaining({ folder: 'menu-items', signature: 'signed' }),
     );
     expect(mediaClient.createUploadSignature).toHaveBeenCalledWith({
+      internalAuth: expect.any(String),
       folder: 'menu-items',
     });
   });

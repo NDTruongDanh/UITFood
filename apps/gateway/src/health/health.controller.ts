@@ -27,23 +27,32 @@ export class HealthController {
     status: 'ok';
     upstream: 'reachable';
     media: 'reachable' | 'disabled';
+    identity: 'reachable' | 'disabled';
   }> {
     const target = this.config.get('MONOLITH_UPSTREAM_URL', { infer: true });
     const mediaEnabled = this.config.get('MEDIA_ROUTES_ENABLED', {
       infer: true,
     });
+    const identityEnabled = this.config.get('IDENTITY_ROUTES_ENABLED', {
+      infer: true,
+    });
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 2_000);
     try {
-      const [upstreamResult, mediaResult] = await Promise.allSettled([
+      const [upstreamResult, mediaResult, identityResult] =
+        await Promise.allSettled([
         fetch(target, { method: 'HEAD', signal: controller.signal }),
         mediaEnabled
           ? this.checkMediaReadiness(controller.signal)
           : Promise.resolve(),
+        identityEnabled
+          ? this.checkIdentityReadiness(controller.signal)
+          : Promise.resolve(),
       ]);
       if (
         upstreamResult.status === 'rejected' ||
-        mediaResult.status === 'rejected'
+        mediaResult.status === 'rejected' ||
+        identityResult.status === 'rejected'
       ) {
         throw new ServiceUnavailableException({
           status: 'degraded',
@@ -54,12 +63,18 @@ export class HealthController {
             : mediaResult.status === 'fulfilled'
               ? 'reachable'
               : 'unreachable',
+          identity: !identityEnabled
+            ? 'disabled'
+            : identityResult.status === 'fulfilled'
+              ? 'reachable'
+              : 'unreachable',
         });
       }
       return {
         status: 'ok',
         upstream: 'reachable',
         media: mediaEnabled ? 'reachable' : 'disabled',
+        identity: identityEnabled ? 'reachable' : 'disabled',
       };
     } catch (error) {
       if (error instanceof ServiceUnavailableException) throw error;
@@ -77,5 +92,15 @@ export class HealthController {
       signal,
     });
     if (!response.ok) throw new Error('Media is not ready');
+  }
+
+  private async checkIdentityReadiness(signal: AbortSignal): Promise<void> {
+    const host = this.config.get('IDENTITY_TCP_HOST', { infer: true });
+    const port = this.config.get('IDENTITY_MANAGEMENT_PORT', { infer: true });
+    const response = await fetch(`http://${host}:${port}/ready`, {
+      method: 'GET',
+      signal,
+    });
+    if (!response.ok) throw new Error('Identity is not ready');
   }
 }

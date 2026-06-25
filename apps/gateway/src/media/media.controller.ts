@@ -7,6 +7,7 @@ import {
   Inject,
   Post,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -21,6 +22,8 @@ import { createHash } from 'node:crypto';
 import type { MediaRpcGateway } from './media.interfaces';
 import { MEDIA_RPC_GATEWAY } from './media.tokens';
 import { GatewaySessionGuard } from './gateway-session.guard';
+import { InternalJwtService } from '@/identity/internal-jwt.service';
+import type { GatewayRequestWithSession } from '@/identity/identity.interfaces';
 import {
   CreateImageDto,
   ImageListResponseDto,
@@ -34,6 +37,7 @@ import {
 export class MediaController {
   constructor(
     @Inject(MEDIA_RPC_GATEWAY) private readonly media: MediaRpcGateway,
+    private readonly internalJwt: InternalJwtService,
   ) {}
 
   @Get()
@@ -49,6 +53,7 @@ export class MediaController {
   @ApiCreatedResponse({ type: ImageResponseDto })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid session' })
   create(
+    @Req() request: GatewayRequestWithSession,
     @Body() dto: CreateImageDto,
     @Headers('idempotency-key') idempotencyKey: string | undefined,
   ) {
@@ -60,6 +65,10 @@ export class MediaController {
         'Idempotency-Key must not exceed 200 characters.',
       );
     }
-    return this.media.createImage({ idempotencyKey: key, image: dto });
+    return this.media.createImage({
+      internalAuth: this.internalJwt.issueForRequest(request, 'media'),
+      idempotencyKey: key,
+      image: dto,
+    });
   }
 }

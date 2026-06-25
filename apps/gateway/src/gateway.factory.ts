@@ -8,8 +8,13 @@ import { createApiProxy } from './proxy/api-proxy.factory';
 import { requestContext } from './common/request-context.middleware';
 import { json } from 'express';
 import type { MediaRouteOverrides } from './media/media.interfaces';
-import { isMediaPublicRoute } from './proxy/api-proxy.factory';
+import {
+  isIdentityPublicRoute,
+  isMediaPublicRoute,
+} from './proxy/api-proxy.factory';
 import { createMediaCors } from './media/media-cors.middleware';
+import type { IdentityRouteOverrides } from './identity/identity.interfaces';
+import { IdentityHttpProxyService } from './identity/identity-http-proxy.service';
 
 /**
  * Builds the fully-wired gateway application WITHOUT listening.
@@ -21,13 +26,17 @@ import { createMediaCors } from './media/media-cors.middleware';
  * `bodyParser: false` is the load-bearing setting: the gateway never consumes
  * the request body so the proxy streams it upstream untouched.
  */
-export interface GatewayOverrides extends MediaRouteOverrides {
+export interface GatewayOverrides
+  extends MediaRouteOverrides,
+    IdentityRouteOverrides {
   /** Override the upstream target (used by tests to point at a stub). */
   target?: string;
   /** Override the proxy timeout in ms. */
   proxyTimeoutMs?: number;
   /** Override the Media route cutover flag. */
   mediaRoutesEnabled?: boolean;
+  /** Override the Identity route cutover flag. */
+  identityRoutesEnabled?: boolean;
 }
 
 export async function createGatewayApp(
@@ -57,9 +66,22 @@ export async function createGatewayApp(
     overrides.mediaRoutesEnabled ??
     config.get('MEDIA_ROUTES_ENABLED', { infer: true }) ??
     false;
+  const identityRoutesEnabled =
+    overrides.identityRoutesEnabled ??
+    config.get('IDENTITY_ROUTES_ENABLED', { infer: true }) ??
+    false;
 
   // 1. Strip internal/trust headers + ensure x-request-id (before proxying).
   app.use(requestContext);
+
+  if (identityRoutesEnabled) {
+    const identityProxy = app.get(IdentityHttpProxyService);
+    app.use((req, res, next) =>
+      isIdentityPublicRoute(req.path)
+        ? void identityProxy.handle(req, res, next)
+        : next(),
+    );
+  }
 
   if (mediaRoutesEnabled) {
     const allowedOrigins = new Set(
@@ -82,6 +104,7 @@ export async function createGatewayApp(
     target,
     proxyTimeoutMs,
     mediaRoutesEnabled,
+    identityRoutesEnabled,
   });
   app.use(proxy);
 

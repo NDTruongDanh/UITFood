@@ -37,10 +37,30 @@ const schema = z.object({
   MEDIA_TCP_PORT: z.coerce.number().int().positive().default(4001),
   MEDIA_MANAGEMENT_PORT: z.coerce.number().int().positive().default(4002),
   MEDIA_RPC_TIMEOUT_MS: z.coerce.number().int().positive().default(2000),
+  /** Phase 4 cutover switch. False keeps Better Auth routes on the monolith. */
+  IDENTITY_ROUTES_ENABLED: z
+    .string()
+    .default('false')
+    .transform((value) => ['1', 'true', 'yes'].includes(value.toLowerCase())),
+  IDENTITY_TCP_HOST: z.string().min(1).default('localhost'),
+  IDENTITY_TCP_PORT: z.coerce.number().int().positive().default(4011),
+  IDENTITY_MANAGEMENT_PORT: z.coerce.number().int().positive().default(4012),
+  IDENTITY_RPC_TIMEOUT_MS: z.coerce.number().int().positive().default(3000),
   GATEWAY_AUTH_TIMEOUT_MS: z.coerce.number().int().positive().default(3000),
   GATEWAY_CORS_ORIGINS: z
     .string()
     .default('http://localhost:5173,http://localhost:5174'),
+  INTERNAL_AUTH_JWT_SECRET: z
+    .string()
+    .min(32)
+    .default('internal_auth_secret_for_local_dev_only_32_chars'),
+  INTERNAL_AUTH_JWT_ISSUER: z.string().min(1).default('uitfood-gateway'),
+  INTERNAL_AUTH_JWT_TTL_SECONDS: z.coerce
+    .number()
+    .int()
+    .min(15)
+    .max(300)
+    .default(60),
 });
 
 export type Env = z.infer<typeof schema>;

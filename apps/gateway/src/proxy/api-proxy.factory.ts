@@ -16,6 +16,8 @@ export interface ApiProxyOptions {
   proxyTimeoutMs: number;
   /** When true, Media-owned public routes are handled locally over TCP. */
   mediaRoutesEnabled: boolean;
+  /** When true, Better Auth routes are handled locally over Identity TCP. */
+  identityRoutesEnabled: boolean;
 }
 
 export function isMediaPublicRoute(pathname: string): boolean {
@@ -25,6 +27,10 @@ export function isMediaPublicRoute(pathname: string): boolean {
     pathname === '/api/cloudinary/signature' ||
     pathname === '/api/cloudinary/signature/'
   );
+}
+
+export function isIdentityPublicRoute(pathname: string): boolean {
+  return pathname === '/api/auth' || pathname.startsWith('/api/auth/');
 }
 
 /**
@@ -55,6 +61,7 @@ export function createApiProxy({
   target,
   proxyTimeoutMs,
   mediaRoutesEnabled,
+  identityRoutesEnabled,
 }: ApiProxyOptions): RequestHandler {
   return createProxyMiddleware({
     target,
@@ -68,6 +75,7 @@ export function createApiProxy({
     // (HealthController) serve /live and /ready.
     pathFilter: (pathname: string) =>
       !(mediaRoutesEnabled && isMediaPublicRoute(pathname)) &&
+      !(identityRoutesEnabled && isIdentityPublicRoute(pathname)) &&
       !GATEWAY_MANAGEMENT_PATHS.some(
         (p) => pathname === p || pathname.startsWith(`${p}/`),
       ),

@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ClientProxyFactory, Transport } from '@nestjs/microservices';
 import type { Env } from '@/config/env.schema';
 import { CloudinaryController } from './cloudinary.controller';
+import { IdentitySessionAuthenticator } from '@/identity/identity-session.authenticator';
 import { GatewaySessionGuard } from './gateway-session.guard';
 import { MediaController } from './media.controller';
 import type { MediaRouteOverrides } from './media.interfaces';
@@ -36,6 +37,7 @@ export class MediaRoutesModule {
         },
         NestMediaRpcClient,
         MonolithSessionAuthenticator,
+        IdentitySessionAuthenticator,
         GatewaySessionGuard,
         overrides.mediaClient
           ? { provide: MEDIA_RPC_GATEWAY, useValue: overrides.mediaClient }
@@ -47,7 +49,19 @@ export class MediaRoutesModule {
             }
           : {
               provide: SESSION_AUTHENTICATOR,
-              useExisting: MonolithSessionAuthenticator,
+              inject: [
+                ConfigService,
+                IdentitySessionAuthenticator,
+                MonolithSessionAuthenticator,
+              ],
+              useFactory: (
+                config: ConfigService<Env, true>,
+                identity: IdentitySessionAuthenticator,
+                monolith: MonolithSessionAuthenticator,
+              ) =>
+                config.get('IDENTITY_ROUTES_ENABLED', { infer: true })
+                  ? identity
+                  : monolith,
             },
       ],
     };
