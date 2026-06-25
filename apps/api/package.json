@@ -35,7 +35,8 @@
     "db:seed:dietary-tags": "tsx src/drizzle/seeds/dietary-tags.seed.ts",
     "db:seed:restaurants": "pnpm run db:seed:dietary-tags && tsx src/drizzle/seeds/vegan-nutrition.seed.ts && tsx src/drizzle/seeds/beverage-restaurants.seed.ts && tsx src/drizzle/seeds/food-and-beverage-restaurants.seed.ts && tsx src/drizzle/seeds/nearby-vnu-nutrition.seed.ts && tsx src/drizzle/seeds/reviews.seed.ts",
     "db:seed:reviews": "tsx src/drizzle/seeds/reviews.seed.ts",
-    "db:seed:analytics:fresh-bowl": "tsx src/drizzle/seeds/analytics-orders-fresh-bowl-vnu.seed.ts"
+    "db:seed:analytics:fresh-bowl": "tsx src/drizzle/seeds/analytics-orders-fresh-bowl-vnu.seed.ts",
+    "db:seed:analytics:admin": "tsx src/drizzle/seeds/analytics-admin.seed.ts"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "^1.6.11",

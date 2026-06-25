@@ -136,6 +136,10 @@ function getStepState(step: StepConfig, currentRank: number): StepState {
   return 'pending';
 }
 
+function firstRouteParam(value: string | string[] | undefined): string {
+  return Array.isArray(value) ? (value[0] ?? '') : (value ?? '');
+}
+
 // ─── Pulse ring for active step ───────────────────────────────────────────────
 
 function PulseRing() {
@@ -593,11 +597,12 @@ function OrderTrackingItemCard({
 }
 
 export function OrderTrackingScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id } = useLocalSearchParams<{ id?: string | string[] }>();
+  const orderId = firstRouteParam(id);
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
-  const { data: order, isLoading, isError } = useMyOrderDetail(id ?? '');
+  const { data: order, isLoading, isError } = useMyOrderDetail(orderId);
 
   const shortId = order?.orderId.slice(0, 8).toUpperCase() ?? '';
   const isPendingVNPayOrder =

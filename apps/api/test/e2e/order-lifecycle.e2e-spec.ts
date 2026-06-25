@@ -1310,10 +1310,23 @@ describe('Order Lifecycle E2E (Phase 5)', () => {
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty('order');
       expect(res.body).toHaveProperty('items');
+      expect(res.body).toHaveProperty('customer');
       expect(res.body.order.id).toBe(orderId);
       expect(res.body.order.status).toBe('confirmed');
       expect(Array.isArray(res.body.items)).toBe(true);
       expect(res.body.items).toHaveLength(1);
+      expect(res.body.customer).toEqual({
+        customerId: testAuth.ownerUserId,
+        name: 'E2E Owner',
+        phone: null,
+      });
+    });
+
+    it('L-57b GET /orders/:id returns 403 for a non-owner restaurant user', async () => {
+      const res = await http
+        .get(`/api/orders/${orderId}`)
+        .set(authHeader(testAuth.otherToken));
+      expect(res.status).toBe(403);
     });
 
     it('L-58 GET /orders/:id returns 404 for unknown order', async () => {

@@ -40,9 +40,16 @@ type RawOrderItem = {
   modifiers?: OrderModifier[] | null;
 };
 
+type RawCustomer = {
+  customerId: string;
+  name: string;
+  phone?: string | null;
+};
+
 type RawOrderDetailResponse = {
   order: RawOrder;
   items: RawOrderItem[];
+  customer?: RawCustomer | null;
 };
 
 type MenuItemImageResponse = {
@@ -110,7 +117,7 @@ export const ordersApi = {
     apiClient
       .get<RawOrderDetailResponse>(`/api/orders/${id}`)
       .then(async (r): Promise<Omit<OrderDetail, 'timeline'>> => {
-        const { order, items } = r.data;
+        const { order, items, customer } = r.data;
         const imageUrlByMenuItemId = await loadMissingMenuItemImages(items);
 
         return {
@@ -125,6 +132,13 @@ export const ordersApi = {
           note: order.note ?? null,
           paymentUrl: order.paymentUrl ?? null,
           deliveryAddress: order.deliveryAddress,
+          customer: customer
+            ? {
+                customerId: customer.customerId,
+                name: customer.name,
+                phone: customer.phone ?? null,
+              }
+            : null,
           shipperId: order.shipperId ?? null,
           createdAt: order.createdAt,
           updatedAt: order.updatedAt,

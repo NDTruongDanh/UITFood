@@ -52,17 +52,119 @@ const normalizeImageUrl = (url?: string | null) => {
 };
 
 const getRestaurantImageUrl = (
-  restaurant?: Pick<Restaurant, 'coverImageUrl' | 'logoUrl'> | null,
+  restaurant?: { coverImageUrl?: string | null; logoUrl?: string | null } | null,
 ) =>
   normalizeImageUrl(restaurant?.coverImageUrl) ??
   normalizeImageUrl(restaurant?.logoUrl);
 
-const getMenuItemImageUrl = (
-  item?:
-    | Pick<MenuItem, 'imageUrl'>
-    | Pick<UnifiedSearchResponse['items'][number], 'imageUrl'>
-    | null,
-) => normalizeImageUrl(item?.imageUrl);
+const getMenuItemImageUrl = (item?: { imageUrl?: string | null } | null) =>
+  normalizeImageUrl(item?.imageUrl);
+
+type RestaurantImageCandidate = {
+  id?: unknown;
+  coverImageUrl?: string | null;
+  logoUrl?: string | null;
+};
+
+type MenuItemImageCandidate = {
+  id?: unknown;
+  imageUrl?: string | null;
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
+const getArrayProperty = <T>(value: unknown, key: string): T[] => {
+  if (!isRecord(value)) return [];
+
+  const candidate = value[key];
+  return Array.isArray(candidate) ? (candidate as T[]) : [];
+};
+
+const getPages = (value: unknown) => getArrayProperty<unknown>(value, 'pages');
+
+const findByStringId = <T extends { id?: unknown }>(
+  items: readonly T[],
+  id: string,
+) => items.find((item) => isRecord(item) && item.id === id);
+
+const findRestaurantInListCache = (
+  queryData: unknown,
+  restaurantId: string,
+) => {
+  const directMatch = findByStringId(
+    getArrayProperty<RestaurantImageCandidate>(queryData, 'data'),
+    restaurantId,
+  );
+  if (directMatch) return directMatch;
+
+  for (const page of getPages(queryData)) {
+    const pageMatch = findByStringId(
+      getArrayProperty<RestaurantImageCandidate>(page, 'data'),
+      restaurantId,
+    );
+    if (pageMatch) return pageMatch;
+  }
+
+  return undefined;
+};
+
+const findRestaurantInSearchCache = (
+  queryData: unknown,
+  restaurantId: string,
+) => {
+  const directMatch = findByStringId(
+    getArrayProperty<RestaurantImageCandidate>(queryData, 'restaurants'),
+    restaurantId,
+  );
+  if (directMatch) return directMatch;
+
+  for (const page of getPages(queryData)) {
+    const pageMatch = findByStringId(
+      getArrayProperty<RestaurantImageCandidate>(page, 'restaurants'),
+      restaurantId,
+    );
+    if (pageMatch) return pageMatch;
+  }
+
+  return undefined;
+};
+
+const findMenuItemInListCache = (queryData: unknown, menuItemId: string) => {
+  const directMatch = findByStringId(
+    getArrayProperty<MenuItemImageCandidate>(queryData, 'data'),
+    menuItemId,
+  );
+  if (directMatch) return directMatch;
+
+  for (const page of getPages(queryData)) {
+    const pageMatch = findByStringId(
+      getArrayProperty<MenuItemImageCandidate>(page, 'data'),
+      menuItemId,
+    );
+    if (pageMatch) return pageMatch;
+  }
+
+  return undefined;
+};
+
+const findMenuItemInSearchCache = (queryData: unknown, menuItemId: string) => {
+  const directMatch = findByStringId(
+    getArrayProperty<MenuItemImageCandidate>(queryData, 'items'),
+    menuItemId,
+  );
+  if (directMatch) return directMatch;
+
+  for (const page of getPages(queryData)) {
+    const pageMatch = findByStringId(
+      getArrayProperty<MenuItemImageCandidate>(page, 'items'),
+      menuItemId,
+    );
+    if (pageMatch) return pageMatch;
+  }
+
+  return undefined;
+};
 
 const buildSearchQuery = (
   params: Record<string, string | number | undefined>,
@@ -127,22 +229,20 @@ function getCachedRestaurantImage(
   );
   if (cachedDetail) return getRestaurantImageUrl(cachedDetail);
 
-  const listQueries = queryClient.getQueriesData<RestaurantListResponse>({
+  const listQueries = queryClient.getQueriesData<unknown>({
     queryKey: restaurantKeys.lists(),
   });
   for (const [, list] of listQueries) {
-    const restaurant = list?.data.find((item) => item.id === restaurantId);
+    const restaurant = findRestaurantInListCache(list, restaurantId);
     const imageUrl = getRestaurantImageUrl(restaurant);
     if (imageUrl) return imageUrl;
   }
 
-  const searchQueries = queryClient.getQueriesData<UnifiedSearchResponse>({
+  const searchQueries = queryClient.getQueriesData<unknown>({
     queryKey: [...restaurantKeys.all, 'search'],
   });
   for (const [, result] of searchQueries) {
-    const restaurant = result?.restaurants.find(
-      (item) => item.id === restaurantId,
-    );
+    const restaurant = findRestaurantInSearchCache(result, restaurantId);
     const imageUrl = getRestaurantImageUrl(restaurant);
     if (imageUrl) return imageUrl;
   }
@@ -164,20 +264,20 @@ function getCachedMenuItemImage(
   );
   if (cachedDetail) return getMenuItemImageUrl(cachedDetail);
 
-  const listQueries = queryClient.getQueriesData<MenuItemListResponse>({
+  const listQueries = queryClient.getQueriesData<unknown>({
     queryKey: menuKeys.lists(),
   });
   for (const [, list] of listQueries) {
-    const item = list?.data.find((candidate) => candidate.id === menuItemId);
+    const item = findMenuItemInListCache(list, menuItemId);
     const imageUrl = getMenuItemImageUrl(item);
     if (imageUrl) return imageUrl;
   }
 
-  const searchQueries = queryClient.getQueriesData<UnifiedSearchResponse>({
+  const searchQueries = queryClient.getQueriesData<unknown>({
     queryKey: [...restaurantKeys.all, 'search'],
   });
   for (const [, result] of searchQueries) {
-    const item = result?.items.find((candidate) => candidate.id === menuItemId);
+    const item = findMenuItemInSearchCache(result, menuItemId);
     const imageUrl = getMenuItemImageUrl(item);
     if (imageUrl) return imageUrl;
   }
