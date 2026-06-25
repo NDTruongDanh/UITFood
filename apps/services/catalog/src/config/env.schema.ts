@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+const emptyStringToUndefined = (value: unknown) =>
+  value === '' ? undefined : value;
 const stringToBoolean = (defaultValue: boolean) =>
   z
     .string()
@@ -65,9 +67,42 @@ const schema = z.object({
   MEDIA_RPC_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(3).default(2),
   MEDIA_RPC_REQUIRED: stringToBoolean(false),
 
-  // NOTE: AI-search / Ollama / embedding variables are added together with the
-  // search module in the domain-extraction step (Phase 6 step 3).
+  // --- AI (Ollama) + embedding indexing (the search write path) ---
+  OLLAMA_BASE_URL: z.string().trim().url().default('https://ollama.com'),
+  OLLAMA_MODEL: z.string().trim().min(1).default('gpt-oss:20b'),
+  OLLAMA_API_KEY: z.preprocess(
+    emptyStringToUndefined,
+    z.string().trim().default(''),
+  ),
   AI_SEARCH_ENABLED: stringToBoolean(false),
+  AI_SEARCH_EMBEDDING_BASE_URL: z
+    .string()
+    .trim()
+    .url()
+    .default('http://localhost:11434'),
+  AI_SEARCH_EMBEDDING_MODEL: z.string().trim().min(1).default('embeddinggemma'),
+  AI_SEARCH_EMBEDDING_VERSION: z.string().trim().min(1).default('1'),
+  AI_SEARCH_EMBEDDING_DIMENSIONS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(768),
+  AI_SEARCH_EMBEDDING_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(8000),
+  AI_SEARCH_EMBEDDING_WORKER_ENABLED: stringToBoolean(false),
+  AI_SEARCH_EMBEDDING_BATCH_SIZE: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(20),
+  AI_SEARCH_EMBEDDING_RATE_LIMIT_PER_MINUTE: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(60),
 });
 
 export type Env = z.infer<typeof schema>;
