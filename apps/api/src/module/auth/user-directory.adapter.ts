@@ -2,7 +2,10 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { and, eq } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { DB_CONNECTION } from '@/drizzle/drizzle.constants';
-import { type IUserDirectoryPort } from '@/shared/ports/user-directory.port';
+import {
+  type IUserDirectoryPort,
+  type UserContact,
+} from '@/shared/ports/user-directory.port';
 import { user } from './auth.schema';
 
 @Injectable()
@@ -22,6 +25,26 @@ export class UserDirectoryAdapter implements IUserDirectoryPort {
     } catch (error) {
       this.logger.warn(
         `Failed to look up email for userId=${userId}: ${(error as Error).message}`,
+      );
+      return null;
+    }
+  }
+
+  async findContact(userId: string): Promise<UserContact | null> {
+    try {
+      const rows = await this.db
+        .select({
+          id: user.id,
+          name: user.name,
+          phoneNumber: user.phoneNumber,
+        })
+        .from(user)
+        .where(eq(user.id, userId))
+        .limit(1);
+      return rows[0] ?? null;
+    } catch (error) {
+      this.logger.warn(
+        `Failed to look up contact for userId=${userId}: ${(error as Error).message}`,
       );
       return null;
     }

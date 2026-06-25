@@ -29,8 +29,9 @@ import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 import { hasRole } from '@/shared/security/role.util';
 import { TransitionOrderCommand } from '../commands/transition-order.command';
 import { OrderRepository } from '../repositories/order.repository';
+import { OrderLifecycleService } from '../services/order-lifecycle.service';
 import { CancelOrderDto, RefundOrderDto } from '../dto/cancel-order.dto';
-import type { TriggeredByRole } from '../../order/order.schema';
+import type { Order, TriggeredByRole } from '../../order/order.schema';
 
 // ---------------------------------------------------------------------------
 // Example responses (for Swagger documentation)
@@ -91,6 +92,12 @@ const ORDER_ITEMS_EXAMPLE = [
   },
 ];
 
+const ORDER_CUSTOMER_EXAMPLE = {
+  customerId: 'c3f5e0a4-7d9f-4a1c-ae3b-4f5a6b7c8d9e',
+  name: 'Nguyen Van A',
+  phone: '+84901234567',
+};
+
 const ORDER_TIMELINE_EXAMPLE = [
   {
     id: '4d5e6f7a-8b9c-4d0e-bf1a-2b3c4d5e6f7a',
@@ -146,6 +153,7 @@ export class OrderLifecycleController {
   constructor(
     private readonly commandBus: CommandBus,
     private readonly orderRepo: OrderRepository,
+    private readonly lifecycleService: OrderLifecycleService,
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -444,19 +452,26 @@ export class OrderLifecycleController {
   @ApiOperation({ summary: 'Get order details (state + items)' })
   @ApiOkResponse({
     description: 'Order details',
-    schema: { example: { order: ORDER_EXAMPLE, items: ORDER_ITEMS_EXAMPLE } },
+    schema: {
+      example: {
+        order: ORDER_EXAMPLE,
+        items: ORDER_ITEMS_EXAMPLE,
+        customer: ORDER_CUSTOMER_EXAMPLE,
+      },
+    },
   })
   @ApiNotFoundResponse({ description: 'Order not found' })
   @ApiUnauthorizedResponse({ description: 'Not authenticated' })
   @ApiParam({ name: 'id', format: 'uuid' })
   async getOrder(
     @Param('id', ParseUUIDPipe) id: string,
-    @Session() _session: UserSession,
+    @Session() session: UserSession,
   ) {
-    const result = await this.orderRepo.findWithItems(id);
+    const result = await this.orderRepo.findWithItemsAndCustomer(id);
     if (!result) {
       throw new NotFoundException(`Order ${id} not found.`);
     }
+    await this.assertReadAccess(result.order, session);
     return result;
   }
 
@@ -497,5 +512,25 @@ export class OrderLifecycleController {
     if (hasRole(userRole, 'restaurant')) return 'restaurant';
     if (hasRole(userRole, 'shipper')) return 'shipper';
     return 'customer';
+  }
+
+  private async assertReadAccess(
+    order: Order,
+    session: UserSession,
+  ): Promise<void> {
+    const actorRole = this.resolveRole(session.user.role);
+    const actorId = session.user.id;
+
+    if (actorRole === 'shipper') {
+      if (
+        order.status === 'ready_for_pickup' ||
+        order.shipperId === actorId
+      ) {
+        return;
+      }
+      throw new ForbiddenException('You do not have access to this order.');
+    }
+
+    await this.lifecycleService.assertOwnership(order, actorId, actorRole);
   }
 }

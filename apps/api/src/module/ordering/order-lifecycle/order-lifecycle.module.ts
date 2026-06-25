@@ -26,6 +26,7 @@ import { OrderLifecycleService } from './services/order-lifecycle.service';
 import { OrderRepository } from './repositories/order.repository';
 import { PaymentModule } from '@/module/payment/payment.module';
 import { PromotionModule } from '@/module/promotion/promotion.module';
+import { IdentityModule } from '@/module/auth/identity.module';
 
 /**
  * OrderLifecycleModule — Phase 5 implementation.
@@ -43,7 +44,13 @@ import { PromotionModule } from '@/module/promotion/promotion.module';
  * Phase: 5
  */
 @Module({
-  imports: [CqrsModule, DatabaseModule, PaymentModule, PromotionModule],
+  imports: [
+    CqrsModule,
+    DatabaseModule,
+    PaymentModule,
+    PromotionModule,
+    IdentityModule,
+  ],
   controllers: [OrderLifecycleController, PaymentCancellationController],
   providers: [
     // Command handler — core state machine logic

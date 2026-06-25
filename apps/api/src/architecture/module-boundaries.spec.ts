@@ -10,6 +10,7 @@ const ALLOWED_CROSS_CONTEXT_IMPORTS: Record<string, ReadonlySet<string>> = {
     '@/module/image/image.module',
   ]),
   ordering: new Set([
+    '@/module/auth/identity.module',
     '@/module/payment/payment.module',
     '@/module/promotion/promotion.module',
   ]),
