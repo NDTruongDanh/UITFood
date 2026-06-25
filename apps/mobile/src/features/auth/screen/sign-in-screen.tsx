@@ -7,7 +7,6 @@ import {
   StatusBar,
   ActivityIndicator,
   KeyboardAvoidingView,
-  Platform,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -19,6 +18,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { SignInField } from "@/src/features/auth/components";
 import type { SignInScreenProps, SignInFormData } from "@/src/features/auth/types";
 import { signInSchema } from "@/src/features/auth/types";
+import { keyboardAvoidingBehavior } from "@/src/lib/keyboard";
 
 // ─── Google Icon ──────────────────────────────────────────────────────────────
 const GoogleIcon = () => (
@@ -75,7 +75,7 @@ export function SignInScreen({
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      behavior={keyboardAvoidingBehavior}
       className="flex-1 bg-surface"
     >
       <StatusBar

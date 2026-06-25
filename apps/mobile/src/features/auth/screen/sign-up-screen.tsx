@@ -6,7 +6,6 @@ import {
   StatusBar,
   ActivityIndicator,
   KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -26,6 +25,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { SignUpField } from '@/src/features/auth/components';
 import type { SignUpScreenProps, SignUpFormData } from '@/src/features/auth/types';
 import { signUpSchema } from '@/src/features/auth/types';
+import { keyboardAvoidingBehavior } from '@/src/lib/keyboard';
 import { useState } from 'react';
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -64,7 +64,7 @@ export function SignUpScreen({
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={keyboardAvoidingBehavior}
       className="flex-1 bg-surface"
     >
       <StatusBar

@@ -7,13 +7,13 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
 import { Tag } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { useCheckout } from '../hooks';
 import { useCheckoutStore } from '../store/checkout-store';
 import { useValidateCoupon } from '@/src/features/promotions';
+import { keyboardAvoidingBehavior } from '@/src/lib/keyboard';
 import {
   CheckoutHeader,
   CheckoutDeliverySection,
@@ -127,7 +127,7 @@ export function SingleScreenCheckout() {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={keyboardAvoidingBehavior}
       className="flex-1 bg-surface"
     >
       <StatusBar barStyle="dark-content" />
@@ -143,6 +143,7 @@ export function SingleScreenCheckout() {
           gap: 32,
         }}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         <CheckoutDeliverySection
           estimatedMinutes={estimate?.estimatedMinutes}

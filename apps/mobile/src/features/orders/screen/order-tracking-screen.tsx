@@ -8,6 +8,7 @@ import {
   TextInput,
   Alert,
   Animated,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -37,6 +38,7 @@ import {
   buildVNPayStatusRouteParams,
   VNPAY_STATUS_ROUTE,
 } from '@/src/features/payment';
+import { keyboardAvoidingBehavior } from '@/src/lib/keyboard';
 
 // ─── Status rank map ─────────────────────────────────────────────────────────
 
@@ -616,7 +618,11 @@ export function OrderTrackingScreen() {
   }, [isPendingVNPayOrder, order, router]);
 
   return (
-    <View className="flex-1 bg-background" style={{ paddingTop: insets.top }}>
+    <KeyboardAvoidingView
+      behavior={keyboardAvoidingBehavior}
+      className="flex-1 bg-background"
+      style={{ paddingTop: insets.top }}
+    >
       {/* Header */}
       <View className="flex-row items-center px-4 h-16 w-full bg-surface/80 z-50">
         <TouchableOpacity
@@ -653,7 +659,7 @@ export function OrderTrackingScreen() {
       ) : (
         <OrderTrackingContent order={order} insets={insets} />
       )}
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -674,10 +680,11 @@ function OrderTrackingContent({
     <ScrollView
       className="flex-1"
       contentContainerStyle={{
-        paddingBottom: insets.bottom + 24,
+        paddingBottom: insets.bottom + 96,
         paddingTop: 24,
       }}
       showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
     >
       <View className="px-4 gap-6">
         {/* ── Order Items ── */}

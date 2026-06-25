@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   View,
   KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -29,6 +28,7 @@ import {
 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { keyboardAvoidingBehavior } from '@/src/lib/keyboard';
 import { useAddressSearch, useCurrentLocation } from '../hooks';
 import type { SavedAddress } from '../store/address-store';
 import { useAddressStore } from '../store/address-store';
@@ -251,7 +251,7 @@ export function AddressSelectionScreen() {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={keyboardAvoidingBehavior}
       className="flex-1 bg-surface"
     >
       <View
@@ -337,6 +337,7 @@ export function AddressSelectionScreen() {
         }}
         contentInsetAdjustmentBehavior="automatic"
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         <LocationRow
           title={isLocating ? 'Fetching your location' : 'Current location'}
