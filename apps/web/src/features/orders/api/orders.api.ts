@@ -58,6 +58,7 @@ export const ordersApi = {
             orderItemId: item.id,
             menuItemId: item.menuItemId,
             itemName: item.itemName,
+            imageUrl: item.imageUrl ?? null,
             unitPrice: Number(item.unitPrice),
             modifiersPrice: Number(item.modifiersPrice),
             quantity: item.quantity,

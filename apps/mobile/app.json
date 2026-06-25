@@ -45,7 +45,6 @@
         }
       ],
       "expo-router",
-      "@sentry/react-native/expo",
       [
         "expo-notifications",
         {

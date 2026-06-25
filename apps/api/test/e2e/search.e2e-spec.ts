@@ -1413,73 +1413,77 @@ describe('Search API (E2E)', () => {
       const beverageId = 'aa000030-0000-4000-8000-000000000003';
       const noNutritionId = 'aa000030-0000-4000-8000-000000000004';
 
-      await getTestDb().insert(menuItems).values([
-        {
-          id: lowFoodId,
-          restaurantId: S.R1,
-          categoryId: S.catR1Noodles,
-          itemKind: 'food',
-          name: 'Light Chicken Bowl',
-          price: 45000,
-          status: 'available',
-        },
-        {
-          id: highFoodId,
-          restaurantId: S.R1,
-          categoryId: S.catR1Noodles,
-          itemKind: 'food',
-          name: 'Large Chicken Bowl',
-          price: 65000,
-          status: 'available',
-        },
-        {
-          id: beverageId,
-          restaurantId: S.R1,
-          categoryId: S.catR1Drinks,
-          itemKind: 'beverage',
-          name: 'Light Iced Tea',
-          price: 25000,
-          status: 'available',
-        },
-        {
-          id: noNutritionId,
-          restaurantId: S.R1,
-          categoryId: S.catR1Noodles,
-          itemKind: 'food',
-          name: 'Unknown Nutrition Bowl',
-          price: 40000,
-          status: 'available',
-        },
-      ]);
-      await getTestDb().insert(menuItemNutrition).values([
-        {
-          menuItemId: lowFoodId,
-          servings: 1,
-          calories: 280,
-          protein: 25,
-          carbs: 35,
-          fat: 7,
-          verifiedByRestaurant: true,
-        },
-        {
-          menuItemId: highFoodId,
-          servings: 1,
-          calories: 490,
-          protein: 35,
-          carbs: 60,
-          fat: 15,
-          verifiedByRestaurant: true,
-        },
-        {
-          menuItemId: beverageId,
-          servings: 1,
-          calories: 50,
-          protein: 0,
-          carbs: 12,
-          fat: 0,
-          verifiedByRestaurant: true,
-        },
-      ]);
+      await getTestDb()
+        .insert(menuItems)
+        .values([
+          {
+            id: lowFoodId,
+            restaurantId: S.R1,
+            categoryId: S.catR1Noodles,
+            itemKind: 'food',
+            name: 'Light Chicken Bowl',
+            price: 45000,
+            status: 'available',
+          },
+          {
+            id: highFoodId,
+            restaurantId: S.R1,
+            categoryId: S.catR1Noodles,
+            itemKind: 'food',
+            name: 'Large Chicken Bowl',
+            price: 65000,
+            status: 'available',
+          },
+          {
+            id: beverageId,
+            restaurantId: S.R1,
+            categoryId: S.catR1Drinks,
+            itemKind: 'beverage',
+            name: 'Light Iced Tea',
+            price: 25000,
+            status: 'available',
+          },
+          {
+            id: noNutritionId,
+            restaurantId: S.R1,
+            categoryId: S.catR1Noodles,
+            itemKind: 'food',
+            name: 'Unknown Nutrition Bowl',
+            price: 40000,
+            status: 'available',
+          },
+        ]);
+      await getTestDb()
+        .insert(menuItemNutrition)
+        .values([
+          {
+            menuItemId: lowFoodId,
+            servings: 1,
+            calories: 280,
+            protein: 25,
+            carbs: 35,
+            fat: 7,
+            verifiedByRestaurant: true,
+          },
+          {
+            menuItemId: highFoodId,
+            servings: 1,
+            calories: 490,
+            protein: 35,
+            carbs: 60,
+            fat: 15,
+            verifiedByRestaurant: true,
+          },
+          {
+            menuItemId: beverageId,
+            servings: 1,
+            calories: 50,
+            protein: 0,
+            carbs: 12,
+            fat: 0,
+            verifiedByRestaurant: true,
+          },
+        ]);
 
       const res = await http
         .post('/api/search/ai')

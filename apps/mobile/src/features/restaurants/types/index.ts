@@ -250,6 +250,20 @@ export interface DeliveryEstimateResponse {
   breakdown: DeliveryFeeBreakdown;
 }
 
+// ─── Dietary Tags ──────────────────────────────────────────────────────────────
+
+export interface DietaryTag {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  category: 'dietary' | 'lifestyle';
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+
 // ─── Screen Props ──────────────────────────────────────────────────────────────
 
 export interface ProductDetailScreenProps {

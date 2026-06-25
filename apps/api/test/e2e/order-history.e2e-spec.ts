@@ -490,10 +490,9 @@ describe('Order History E2E (Phase 7)', () => {
         timeline: expect.any(Array),
       });
       // subtotal must equal the sum of all item subtotals
-      const itemsSubtotal = (res.body.items as Array<{ subtotal: number }>).reduce(
-        (sum, item) => sum + item.subtotal,
-        0,
-      );
+      const itemsSubtotal = (
+        res.body.items as Array<{ subtotal: number }>
+      ).reduce((sum, item) => sum + item.subtotal, 0);
       expect(res.body.subtotal).toBe(itemsSubtotal);
     });
 

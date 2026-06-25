@@ -161,11 +161,7 @@ async function getPaymentTransaction(id: string) {
 
 async function getOrder(id: string) {
   const db = getTestDb();
-  const rows = await db
-    .select()
-    .from(orders)
-    .where(eq(orders.id, id))
-    .limit(1);
+  const rows = await db.select().from(orders).where(eq(orders.id, id)).limit(1);
   return rows[0] ?? null;
 }
 

@@ -2,6 +2,7 @@ import {
   useMutation,
   useQueries,
   useQuery,
+  useInfiniteQuery,
   useQueryClient,
   type QueryClient,
 } from '@tanstack/react-query';
@@ -16,6 +17,7 @@ import {
   UnifiedSearchResponse,
   AiSearchResponse,
   DeliveryEstimateResponse,
+  DietaryTag,
 } from '../types';
 
 export const restaurantKeys = {
@@ -34,6 +36,12 @@ export const restaurantKeys = {
     [...restaurantKeys.estimates(id), { lat, lon }] as const,
   images: () => [...restaurantKeys.all, 'image'] as const,
   image: (id: string) => [...restaurantKeys.images(), id] as const,
+};
+
+export const dietaryKeys = {
+  all: ['dietary-tags'] as const,
+  list: (category?: string) =>
+    [...dietaryKeys.all, 'list', { category }] as const,
 };
 
 const DETAIL_STALE_TIME = 1000 * 60 * 5;
@@ -193,10 +201,11 @@ interface NearbyRestaurantsParams {
   radiusKm?: number;
   offset?: number;
   limit?: number;
+  tag?: string;
 }
 
 export function useNearbyRestaurants(params: NearbyRestaurantsParams = {}) {
-  const { latitude, longitude, radiusKm = 5, offset = 0, limit = 20 } = params;
+  const { latitude, longitude, radiusKm = 5, offset = 0, limit = 20, tag } = params;
   const hasCoords = latitude != null && longitude != null;
   const queryString = buildSearchQuery({
     lat: hasCoords ? (latitude ?? undefined) : undefined,
@@ -204,6 +213,7 @@ export function useNearbyRestaurants(params: NearbyRestaurantsParams = {}) {
     radiusKm: hasCoords ? radiusKm : undefined,
     offset,
     limit,
+    tag,
   });
   const endpoint = queryString ? `/api/search?${queryString}` : '/api/search';
 
@@ -211,6 +221,33 @@ export function useNearbyRestaurants(params: NearbyRestaurantsParams = {}) {
     queryKey: restaurantKeys.search(queryString),
     queryFn: () => apiFetch<UnifiedSearchResponse>(endpoint),
     enabled: hasCoords,
+  });
+}
+
+export function useInfiniteNearbyRestaurants(params: Omit<NearbyRestaurantsParams, 'offset'> = {}) {
+  const { latitude, longitude, radiusKm = 5, limit = 20, tag } = params;
+  const hasCoords = latitude != null && longitude != null;
+
+  return useInfiniteQuery({
+    queryKey: [...restaurantKeys.search(''), 'infinite', { latitude, longitude, radiusKm, limit, tag }],
+    queryFn: ({ pageParam = 0 }) => {
+      const queryString = buildSearchQuery({
+        lat: hasCoords ? (latitude ?? undefined) : undefined,
+        lon: hasCoords ? (longitude ?? undefined) : undefined,
+        radiusKm: hasCoords ? radiusKm : undefined,
+        offset: pageParam,
+        limit,
+        tag,
+      });
+      const endpoint = queryString ? `/api/search?${queryString}` : '/api/search';
+      return apiFetch<UnifiedSearchResponse>(endpoint);
+    },
+    getNextPageParam: (lastPage, allPages) => {
+      const currentCount = allPages.reduce((acc, page) => acc + page.restaurants.length, 0);
+      return currentCount < (lastPage.total?.restaurants ?? 0) ? currentCount : undefined;
+    },
+    enabled: hasCoords,
+    initialPageParam: 0,
   });
 }
 
@@ -222,6 +259,7 @@ interface UnifiedSearchParams {
   offset?: number;
   limit?: number;
   enabled?: boolean;
+  tag?: string;
 }
 
 export function useUnifiedSearch(params: UnifiedSearchParams) {
@@ -233,6 +271,7 @@ export function useUnifiedSearch(params: UnifiedSearchParams) {
     offset = 0,
     limit = 20,
     enabled = true,
+    tag,
   } = params;
   const trimmedQ = q.trim();
   const hasCoords = latitude != null && longitude != null;
@@ -243,6 +282,7 @@ export function useUnifiedSearch(params: UnifiedSearchParams) {
     radiusKm: hasCoords ? radiusKm : undefined,
     offset,
     limit,
+    tag,
   });
   const endpoint = `/api/search?${queryString}`;
 
@@ -250,6 +290,43 @@ export function useUnifiedSearch(params: UnifiedSearchParams) {
     queryKey: restaurantKeys.search(queryString),
     queryFn: () => apiFetch<UnifiedSearchResponse>(endpoint),
     enabled: trimmedQ.length > 0 && enabled,
+  });
+}
+
+export function useInfiniteUnifiedSearch(params: Omit<UnifiedSearchParams, 'offset'>) {
+  const {
+    q,
+    latitude,
+    longitude,
+    radiusKm = 5,
+    limit = 20,
+    enabled = true,
+    tag,
+  } = params;
+  const trimmedQ = q.trim();
+  const hasCoords = latitude != null && longitude != null;
+
+  return useInfiniteQuery({
+    queryKey: [...restaurantKeys.search(trimmedQ), 'infinite', { latitude, longitude, radiusKm, limit, tag }],
+    queryFn: ({ pageParam = 0 }) => {
+      const queryString = buildSearchQuery({
+        q: trimmedQ || undefined,
+        lat: hasCoords ? (latitude ?? undefined) : undefined,
+        lon: hasCoords ? (longitude ?? undefined) : undefined,
+        radiusKm: hasCoords ? radiusKm : undefined,
+        offset: pageParam,
+        limit,
+        tag,
+      });
+      const endpoint = queryString ? `/api/search?${queryString}` : '/api/search';
+      return apiFetch<UnifiedSearchResponse>(endpoint);
+    },
+    getNextPageParam: (lastPage, allPages) => {
+      const currentCount = allPages.reduce((acc, page) => acc + page.restaurants.length, 0);
+      return currentCount < (lastPage.total?.restaurants ?? 0) ? currentCount : undefined;
+    },
+    enabled: enabled && (trimmedQ.length > 0 || hasCoords),
+    initialPageParam: 0,
   });
 }
 
@@ -436,4 +513,17 @@ export function useDeliveryEstimates(
 
     return estimateMap;
   }, [restaurantIds, results]);
+}
+
+export function useDietaryTags(category?: 'dietary' | 'lifestyle') {
+  return useQuery({
+    queryKey: dietaryKeys.list(category),
+    queryFn: () => {
+      const endpoint = category
+        ? `/api/dietary-tags?category=${category}`
+        : `/api/dietary-tags`;
+      return apiFetch<DietaryTag[]>(endpoint);
+    },
+    staleTime: 1000 * 60 * 60, // 1 hour, relatively static data
+  });
 }

@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
-  ScrollView,
   ActivityIndicator,
   TouchableOpacity,
   TextInput,
@@ -38,6 +37,7 @@ import {
   buildVNPayStatusRouteParams,
   VNPAY_STATUS_ROUTE,
 } from '@/src/features/payment';
+import { KeyboardAwareScrollView } from '@/src/components/keyboard-aware-scroll-view';
 import { keyboardAvoidingBehavior } from '@/src/lib/keyboard';
 
 // ─── Status rank map ─────────────────────────────────────────────────────────
@@ -677,14 +677,13 @@ function OrderTrackingContent({
   const discount = Math.max(0, subtotal + order.shippingFee - order.totalAmount);
 
   return (
-    <ScrollView
+    <KeyboardAwareScrollView
       className="flex-1"
       contentContainerStyle={{
         paddingBottom: insets.bottom + 96,
         paddingTop: 24,
       }}
       showsVerticalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled"
     >
       <View className="px-4 gap-6">
         {/* ── Order Items ── */}
@@ -846,6 +845,6 @@ function OrderTrackingContent({
           <RateSection orderId={order.orderId} />
         )}
       </View>
-    </ScrollView>
+    </KeyboardAwareScrollView>
   );
 }

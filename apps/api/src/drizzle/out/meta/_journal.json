@@ -43,6 +43,13 @@
       "when": 1782195509850,
       "tag": "0005_pink_morbius",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1782377815900,
+      "tag": "0006_awesome_mentallo",
+      "breakpoints": true
     }
   ]
 }

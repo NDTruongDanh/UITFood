@@ -173,6 +173,7 @@ async function restoreCheckoutCartFromOrder(
         restaurantId: order.restaurantId,
         restaurantName: order.restaurantName,
         itemName: item.itemName,
+        imageUrl: item.imageUrl,
         unitPrice: item.unitPrice,
         quantity: item.quantity,
         selectedModifiers: item.modifiers.map((modifier) => ({

@@ -4,7 +4,6 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  ScrollView,
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
@@ -22,6 +21,7 @@ import {
   useMyReview,
   useSubmitReview,
 } from '@/src/features/review/hooks/use-review';
+import { KeyboardAwareScrollView } from '@/src/components/keyboard-aware-scroll-view';
 import { keyboardAvoidingBehavior } from '@/src/lib/keyboard';
 import { useMyOrderDetail } from '@/src/features/orders/hooks/use-order-history';
 
@@ -133,9 +133,9 @@ export function RateOrderScreen() {
           <ActivityIndicator size="large" color="#0d631b" />
         </View>
       ) : (
-        <ScrollView
+        <KeyboardAwareScrollView
           className="flex-1 px-4 py-6"
-          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}
         >
           {reviewLoadError && (
             <View className="bg-error/10 p-4 rounded-2xl mb-4">
@@ -295,7 +295,7 @@ export function RateOrderScreen() {
               )}
             </TouchableOpacity>
           )}
-        </ScrollView>
+        </KeyboardAwareScrollView>
       )}
     </KeyboardAvoidingView>
   );
