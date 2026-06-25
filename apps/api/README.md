@@ -106,7 +106,7 @@ $ pnpm run test:cov
 ```
 
 For local development, `test:e2e` prepares and uses a dedicated E2E database
-(`food_order_test` by default) so test resets do not touch the normal dev
+(`uitfoodms_test` by default) so test resets do not touch the normal dev
 database.
 
 ## Deployment

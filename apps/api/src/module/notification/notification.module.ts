@@ -54,6 +54,24 @@ import { PaymentConfirmedNotificationHandler } from './events/payment-confirmed.
 import { PaymentFailedNotificationHandler } from './events/payment-failed.handler';
 import { OrderCancelledAfterPaymentNotificationHandler } from './events/order-cancelled-after-payment.handler';
 import { ReviewSubmittedNotificationHandler } from './events/review-submitted.handler';
+import {
+  legacyNotificationRuntimeEnabled,
+  LegacyNotificationRouteGuard,
+} from './legacy-notification-runtime';
+
+const legacyRuntimeProviders = legacyNotificationRuntimeEnabled()
+  ? [
+      NotificationRestaurantSnapshotProjector,
+      DeviceTokenCleanupTask,
+      NotificationGateway,
+      OrderPlacedNotificationHandler,
+      OrderStatusChangedNotificationHandler,
+      PaymentConfirmedNotificationHandler,
+      PaymentFailedNotificationHandler,
+      OrderCancelledAfterPaymentNotificationHandler,
+      ReviewSubmittedNotificationHandler,
+    ]
+  : [];
 
 /**
  * NotificationModule — Phase N-4 Multi-Channel Delivery
@@ -113,7 +131,7 @@ import { ReviewSubmittedNotificationHandler } from './events/review-submitted.ha
   providers: [
     // --- ACL ---
     NotificationRestaurantAclRepository,
-    NotificationRestaurantSnapshotProjector,
+    LegacyNotificationRouteGuard,
 
     // --- Repositories ---
     NotificationRepository,
@@ -173,19 +191,8 @@ import { ReviewSubmittedNotificationHandler } from './events/review-submitted.ha
     TestPushService,
     TestEmailService,
 
-    // --- Scheduled tasks (Phase N-5) ---
-    DeviceTokenCleanupTask,
-
-    // --- Gateway (Phase N-2) ---
-    NotificationGateway,
-
-    // --- Event Handlers ---
-    OrderPlacedNotificationHandler,
-    OrderStatusChangedNotificationHandler,
-    PaymentConfirmedNotificationHandler,
-    PaymentFailedNotificationHandler,
-    OrderCancelledAfterPaymentNotificationHandler,
-    ReviewSubmittedNotificationHandler,
+    // --- Legacy runtime providers disabled after Phase 5 cutover ---
+    ...legacyRuntimeProviders,
   ],
   exports: [],
 })

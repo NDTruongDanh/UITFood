@@ -4,7 +4,7 @@ import * as dotenv from 'dotenv';
 
 export const API_ROOT = findApiRoot(process.cwd());
 export const DEFAULT_LOCAL_DATABASE_URL =
-  'postgresql://food_order:foodordersecret@localhost:5432/food_order_db';
+  'postgresql://uitfoodms:uitfoodmssecret@localhost:5432/uitfoodms';
 
 const LOCAL_HOSTS = new Set([
   'localhost',
@@ -170,7 +170,6 @@ function assertLocalTestDatabaseUrl(
 
 function toLocalTestDatabaseName(databaseName: string): string {
   if (isTestDatabaseName(databaseName)) return databaseName;
-  if (databaseName === 'food_order_db') return 'food_order_test';
   if (databaseName.endsWith('_db')) {
     return `${databaseName.slice(0, -3)}_test`;
   }

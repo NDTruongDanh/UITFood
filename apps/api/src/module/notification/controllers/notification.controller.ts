@@ -52,6 +52,7 @@ import {
 import { TestPushDto, TestPushResponseDto } from '../dto/test-push.dto';
 import { TestEmailDto, TestEmailResponseDto } from '../dto/test-email.dto';
 import { TestEmailService } from '../services/test-email.service';
+import { LegacyNotificationRouteGuard } from '../legacy-notification-runtime';
 
 /**
  * NotificationController
@@ -83,6 +84,7 @@ import { TestEmailService } from '../services/test-email.service';
 @ApiTags('Notifications')
 @ApiBearerAuth()
 @Controller('notifications')
+@UseGuards(LegacyNotificationRouteGuard)
 export class NotificationController {
   constructor(
     private readonly notificationService: NotificationService,

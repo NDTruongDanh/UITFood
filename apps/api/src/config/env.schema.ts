@@ -151,6 +151,12 @@ const baseEnvSchema = z.object({
   IDENTITY_RPC_REQUIRED: stringToBoolean(false),
 
   // ---------------------------------------------------------------------------
+  // Notification service rollback controls (Phase 5)
+  // ---------------------------------------------------------------------------
+  LEGACY_NOTIFICATION_ROUTES_ENABLED: stringToBoolean(true),
+  LEGACY_NOTIFICATION_RUNTIME_ENABLED: stringToBoolean(true),
+
+  // ---------------------------------------------------------------------------
   // VNPay — all four are required; no defaults (production payment credentials)
   // ---------------------------------------------------------------------------
   VNPAY_TMN_CODE: z
