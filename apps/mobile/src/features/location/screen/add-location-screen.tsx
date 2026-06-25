@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
-  Platform,
   ScrollView,
   Text,
   TextInput,
@@ -16,6 +15,7 @@ import { useRouter } from 'expo-router';
 import { ArrowLeft, MapPin, Search, X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { keyboardAvoidingBehavior } from '@/src/lib/keyboard';
 import { useAddressSearch } from '../hooks';
 import { useAddressStore } from '../store/address-store';
 
@@ -123,7 +123,7 @@ export function AddLocationScreen() {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={keyboardAvoidingBehavior}
       className="flex-1 bg-surface-container-lowest"
     >
       <View

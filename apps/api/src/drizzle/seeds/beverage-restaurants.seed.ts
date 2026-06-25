@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { randomUUID } from 'node:crypto';
+import path from 'node:path';
 import { hashPassword } from 'better-auth/crypto';
 import { inArray, or, sql } from 'drizzle-orm';
 import { db } from '../db';
@@ -13,12 +14,13 @@ import type {
 } from '../../module/restaurant-catalog/nutrition/types/nutrition.types';
 import { dietaryTagSlugs, type DietaryTagSlug } from './dietary-tags.data';
 
-type SeedImage = {
-  publicId: string;
-  secureUrl: string;
-  width: number;
-  height: number;
-};
+import {
+  uploadSeedImages,
+  type SeedImage,
+  type SeedImageDef,
+} from './cloudinary-uploader';
+
+type SeedImageWithPlaceholder = SeedImageDef & { secureUrl: string };
 
 type NutritionFoodSeed = {
   key: string;
@@ -100,9 +102,15 @@ const image = (
   remoteImageId: string,
   width = 1200,
   height = 800,
-): SeedImage => ({
+): SeedImageWithPlaceholder => ({
   publicId,
-  secureUrl: `https://res.cloudinary.com/demo/image/fetch/c_fill,w_${width},h_${height},q_auto,f_auto/https://images.unsplash.com/${remoteImageId}`,
+  sourceUrl:
+    remoteImageId.endsWith('.jpg') ||
+    remoteImageId.endsWith('.png') ||
+    remoteImageId.startsWith('http')
+      ? remoteImageId
+      : `https://images.unsplash.com/${remoteImageId}`,
+  secureUrl: `__UPLOAD_PENDING__:${publicId}`,
   width,
   height,
 });
@@ -130,25 +138,25 @@ const seedImages = {
   ),
   blackCoffee: image(
     'beverage-restaurants/menu/black-coffee',
-    'photo-1610889556528-9a770e32642f',
+    path.join(__dirname, 'images', 'black_coffee_1782359904893.jpg'),
   ),
   milkCoffee: image(
     'beverage-restaurants/menu/milk-coffee',
-    'photo-1550339591-6252bc02e4d7',
+    path.join(__dirname, 'images', 'milk_coffee_1782359915415.jpg'),
   ),
   classicMilkTea: image(
     'beverage-restaurants/menu/classic-milk-tea',
-    'photo-1558160074-4d7d4bdef064',
+    path.join(__dirname, 'images', 'classic_milk_tea_1782359925188.jpg'),
   ),
   bobaMilkTea: image(
     'beverage-restaurants/menu/boba-milk-tea',
-    'photo-1558160074-4d7d4bdef064',
+    path.join(__dirname, 'images', 'boba_milk_tea_1782359935009.jpg'),
   ),
   orangeJuice: image(
     'beverage-restaurants/menu/orange-juice',
-    'photo-1613478223719-2ab802602423',
+    path.join(__dirname, 'images', 'orange_juice_1782359946447.jpg'),
   ),
-} satisfies Record<string, SeedImage>;
+} satisfies Record<string, SeedImageWithPlaceholder>;
 
 const beverageImages = Object.values(seedImages);
 
@@ -520,7 +528,25 @@ async function main() {
 
   await cleanupExistingSeedData();
   await seedOwnerAccounts();
-  await seedImageRecords();
+
+  const uploadedImagesMap = await uploadSeedImages(Object.values(seedImages));
+  await seedImageRecords(uploadedImagesMap);
+
+  for (const restaurant of restaurantsData) {
+    restaurant.logoUrl =
+      uploadedImagesMap.get(
+        restaurant.logoUrl.replace('__UPLOAD_PENDING__:', ''),
+      )?.secureUrl || restaurant.logoUrl;
+    restaurant.coverImageUrl =
+      uploadedImagesMap.get(
+        restaurant.coverImageUrl.replace('__UPLOAD_PENDING__:', ''),
+      )?.secureUrl || restaurant.coverImageUrl;
+    for (const item of restaurant.items) {
+      item.imageUrl =
+        uploadedImagesMap.get(item.imageUrl.replace('__UPLOAD_PENDING__:', ''))
+          ?.secureUrl || item.imageUrl;
+    }
+  }
 
   const foodIdsByKey = await seedNutritionFoodDatabase();
 
@@ -625,9 +651,12 @@ async function seedOwnerAccounts() {
   }
 }
 
-async function seedImageRecords() {
-  await db.insert(schema.images).values(beverageImages);
-  console.log(`Seeded ${beverageImages.length} image records.`);
+async function seedImageRecords(uploadedImagesMap: Map<string, SeedImage>) {
+  const imagesToInsert = Array.from(uploadedImagesMap.values());
+  if (imagesToInsert.length > 0) {
+    await db.insert(schema.images).values(imagesToInsert);
+  }
+  console.log(`Seeded ${imagesToInsert.length} image records.`);
 }
 
 async function seedNutritionFoodDatabase(): Promise<Map<string, string>> {

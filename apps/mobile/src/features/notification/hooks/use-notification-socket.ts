@@ -71,13 +71,6 @@ export function useNotificationSocket() {
       console.log('[NotifSocket] Connected');
     });
 
-    socket.on(
-      'connection:established',
-      (data: { userId: string; room: string }) => {
-        console.log('[NotifSocket] Authenticated as', data.userId);
-      },
-    );
-
     socket.on('notification.created', (payload: NotificationPayload) => {
       addNotification(payload);
 

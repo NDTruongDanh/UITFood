@@ -1,5 +1,10 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, RefreshControl, ScrollView, View } from 'react-native';
+import {
+  Alert,
+  KeyboardAvoidingView,
+  RefreshControl,
+  ScrollView,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FloatingCartButton } from '@/src/features/cart';
@@ -21,6 +26,7 @@ import {
 } from '../api';
 import { useDebouncedValue } from '../hooks';
 import { useSearchModeStore } from '../store';
+import { keyboardAvoidingBehavior } from '@/src/lib/keyboard';
 
 export function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -163,7 +169,10 @@ export function HomeScreen() {
   const refreshing = isRefetchingNearby || isRefetchingSearch;
 
   return (
-    <View className="flex-1 bg-background font-inter text-on-surface">
+    <KeyboardAvoidingView
+      behavior={keyboardAvoidingBehavior}
+      className="flex-1 bg-background font-inter text-on-surface"
+    >
       <HomeTopBar insetsTop={insets.top} />
 
       <ScrollView
@@ -183,6 +192,7 @@ export function HomeScreen() {
             />
           )
         }
+        keyboardShouldPersistTaps="handled"
       >
         <HomeSearchBar
           query={searchQuery}
@@ -239,7 +249,7 @@ export function HomeScreen() {
       </ScrollView>
 
       <FloatingCartButton />
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 

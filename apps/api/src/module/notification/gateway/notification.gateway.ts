@@ -10,11 +10,7 @@ import { Interval } from '@nestjs/schedule';
 import type { Namespace, Socket } from 'socket.io';
 import { auth } from '@/lib/auth';
 import { UserPresenceService } from '../services/user-presence.service';
-import {
-  WS_CONNECTION_ESTABLISHED,
-  WS_NOTIFICATION_CREATED,
-  WS_NOTIFICATION_PING,
-} from './notification-payload.dto';
+import { WS_NOTIFICATION_PING } from './notification-payload.dto';
 import { runObserved } from '@/observability/trace';
 
 // ---------------------------------------------------------------------------
@@ -194,30 +190,6 @@ export class NotificationGateway
 
         this.logger.log(
           `[Gateway] Socket connected: userId=${userId} socketId=${client.id}`,
-        );
-
-        // Diagnostic emit #1: 'connection:established' — confirms room join + emit path.
-        // Client receives this immediately after connect to confirm the full pipeline works.
-        this.server.to(room).emit(WS_CONNECTION_ESTABLISHED, {
-          userId,
-          room,
-          connectedAt: new Date().toISOString(),
-        });
-
-        // Diagnostic emit #2: 'notification.created' — fires immediately after connect.
-        // This allows the client to verify it receives realtime notifications WITHOUT
-        // needing to trigger a full payment flow. Remove in production if not desired.
-        this.server.to(room).emit(WS_NOTIFICATION_CREATED, {
-          id: 'diagnostic',
-          type: 'system_announcement',
-          title: 'Kết nối realtime thành công',
-          body: `WebSocket kết nối đến room ${room} thành công. Thông báo realtime đã sẵn sàng.`,
-          data: { diagnostic: 'true', room, socketId: client.id },
-          createdAt: new Date().toISOString(),
-          isRead: false,
-        });
-        this.logger.log(
-          `[Gateway] Diagnostic notification.created emitted to ${room} (socketId=${client.id})`,
         );
       },
     );

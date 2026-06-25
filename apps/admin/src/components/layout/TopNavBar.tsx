@@ -124,7 +124,7 @@ export function TopNavBar({ isSidebarOpen, onToggleSidebar }: TopNavBarProps) {
               aria-label="Notifications"
             >
               <Bell className="h-5 w-5" />
-              <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-card" />
+              {/* TODO: Add unread notifications state to show indicator */}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-80">

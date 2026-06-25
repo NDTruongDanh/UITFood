@@ -8,7 +8,6 @@ import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowLeft, Star } from 'lucide-react-native';
@@ -23,6 +22,7 @@ import {
   useMyReview,
   useSubmitReview,
 } from '@/src/features/review/hooks/use-review';
+import { keyboardAvoidingBehavior } from '@/src/lib/keyboard';
 import { useMyOrderDetail } from '@/src/features/orders/hooks/use-order-history';
 
 export function RateOrderScreen() {
@@ -109,7 +109,7 @@ export function RateOrderScreen() {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={keyboardAvoidingBehavior}
       className="flex-1 bg-background"
       style={{ paddingTop: insets.top }}
     >
@@ -133,7 +133,10 @@ export function RateOrderScreen() {
           <ActivityIndicator size="large" color="#0d631b" />
         </View>
       ) : (
-        <ScrollView className="flex-1 px-4 py-6">
+        <ScrollView
+          className="flex-1 px-4 py-6"
+          keyboardShouldPersistTaps="handled"
+        >
           {reviewLoadError && (
             <View className="bg-error/10 p-4 rounded-2xl mb-4">
               <Text

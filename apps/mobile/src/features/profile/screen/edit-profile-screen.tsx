@@ -8,7 +8,6 @@ import {
   Alert,
   TextInputProps,
   KeyboardAvoidingView,
-  Platform,
   ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -26,6 +25,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSession, authClient } from '@/src/lib/auth-client';
+import { keyboardAvoidingBehavior } from '@/src/lib/keyboard';
 import Toast from 'react-native-toast-message';
 
 // ─── Schema ───────────────────────────────────────────────────────────────────
@@ -179,7 +179,7 @@ export function EditProfileScreen() {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={keyboardAvoidingBehavior}
       className="flex-1 bg-surface"
       style={{ paddingTop: insets.top }}
     >

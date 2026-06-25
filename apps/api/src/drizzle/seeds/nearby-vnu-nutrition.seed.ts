@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { randomUUID } from 'node:crypto';
+import path from 'node:path';
 import { hashPassword } from 'better-auth/crypto';
 import { inArray, or, sql } from 'drizzle-orm';
 import { db } from '../db';
@@ -27,12 +28,13 @@ import { dietaryTagSlugs, type DietaryTagSlug } from './dietary-tags.data';
  *   - calculated, restaurant-verified menu_item_nutrition values
  */
 
-type SeedImage = {
-  publicId: string;
-  secureUrl: string;
-  width: number;
-  height: number;
-};
+import {
+  uploadSeedImages,
+  type SeedImage,
+  type SeedImageDef,
+} from './cloudinary-uploader';
+
+type SeedImageWithPlaceholder = SeedImageDef & { secureUrl: string };
 
 type NutritionFoodSeed = {
   key: string;
@@ -114,9 +116,15 @@ const image = (
   remoteImageId: string,
   width = 1200,
   height = 800,
-): SeedImage => ({
+): SeedImageWithPlaceholder => ({
   publicId,
-  secureUrl: `https://res.cloudinary.com/demo/image/fetch/c_fill,w_${width},h_${height},q_auto,f_auto/https://images.unsplash.com/${remoteImageId}`,
+  sourceUrl:
+    remoteImageId.endsWith('.jpg') ||
+    remoteImageId.endsWith('.png') ||
+    remoteImageId.startsWith('http')
+      ? remoteImageId
+      : `https://images.unsplash.com/${remoteImageId}`,
+  secureUrl: `__UPLOAD_PENDING__:${publicId}`,
   width,
   height,
 });
@@ -124,41 +132,41 @@ const image = (
 const seedImages = {
   freshBowlLogo: image(
     'nearby-vnu-nutrition/restaurants/fresh-bowl-logo',
-    'photo-1512621776951-a57141f2eefd',
+    path.join(__dirname, 'images', 'fresh_bowl_logo_1782360337391.jpg'),
     512,
     512,
   ),
   freshBowlCover: image(
     'nearby-vnu-nutrition/restaurants/fresh-bowl-cover',
-    'photo-1546069901-ba9599a7e63c',
+    path.join(__dirname, 'images', 'fresh_bowl_cover_1782360348749.jpg'),
   ),
   grillLabLogo: image(
     'nearby-vnu-nutrition/restaurants/grill-lab-logo',
-    'photo-1529193591184-b1d58069ecdd',
+    path.join(__dirname, 'images', 'grill_lab_logo_1782360359308.jpg'),
     512,
     512,
   ),
   grillLabCover: image(
     'nearby-vnu-nutrition/restaurants/grill-lab-cover',
-    'photo-1544025162-d76694265947',
+    path.join(__dirname, 'images', 'grill_lab_cover_1782360371526.jpg'),
   ),
   morningMarketLogo: image(
     'nearby-vnu-nutrition/restaurants/morning-market-logo',
-    'photo-1495474472287-4d71bcdd2085',
+    path.join(__dirname, 'images', 'morning_market_logo_1782360382088.jpg'),
     512,
     512,
   ),
   morningMarketCover: image(
     'nearby-vnu-nutrition/restaurants/morning-market-cover',
-    'photo-1498837167922-ddd27525d352',
+    path.join(__dirname, 'images', 'morning_market_cover_1782360397697.jpg'),
   ),
   chickenRiceBowl: image(
     'nearby-vnu-nutrition/menu/chicken-rice-bowl',
-    'photo-1562967916-eb82221dfb92',
+    path.join(__dirname, 'images', 'chicken_rice_bowl_1782360412327.jpg'),
   ),
   tofuBrownRiceBowl: image(
     'nearby-vnu-nutrition/menu/tofu-brown-rice-bowl',
-    'photo-1512621776951-a57141f2eefd',
+    path.join(__dirname, 'images', 'tofu_brown_rice_bowl_1782360422899.jpg'),
   ),
   shrimpVermicelliSalad: image(
     'nearby-vnu-nutrition/menu/shrimp-vermicelli-salad',
@@ -200,7 +208,7 @@ const seedImages = {
     'nearby-vnu-nutrition/menu/chicken-porridge-bowl',
     'photo-1547592180-85f173990554',
   ),
-} satisfies Record<string, SeedImage>;
+} satisfies Record<string, SeedImageWithPlaceholder>;
 
 const nearbyVnuNutritionImages = Object.values(seedImages);
 
@@ -1437,7 +1445,25 @@ async function main() {
 
   await cleanupExistingSeedData();
   await seedOwnerAccounts();
-  await seedImageRecords();
+
+  const uploadedImagesMap = await uploadSeedImages(Object.values(seedImages));
+  await seedImageRecords(uploadedImagesMap);
+
+  for (const restaurant of restaurantsData) {
+    restaurant.logoUrl =
+      uploadedImagesMap.get(
+        restaurant.logoUrl.replace('__UPLOAD_PENDING__:', ''),
+      )?.secureUrl || restaurant.logoUrl;
+    restaurant.coverImageUrl =
+      uploadedImagesMap.get(
+        restaurant.coverImageUrl.replace('__UPLOAD_PENDING__:', ''),
+      )?.secureUrl || restaurant.coverImageUrl;
+    for (const item of restaurant.items) {
+      item.imageUrl =
+        uploadedImagesMap.get(item.imageUrl.replace('__UPLOAD_PENDING__:', ''))
+          ?.secureUrl || item.imageUrl;
+    }
+  }
 
   const foodIdsByKey = await seedNutritionFoodDatabase();
 
@@ -1549,9 +1575,12 @@ async function seedOwnerAccounts() {
   }
 }
 
-async function seedImageRecords() {
-  await db.insert(schema.images).values(nearbyVnuNutritionImages);
-  console.log(`Seeded ${nearbyVnuNutritionImages.length} image records.`);
+async function seedImageRecords(uploadedImagesMap: Map<string, SeedImage>) {
+  const imagesToInsert = Array.from(uploadedImagesMap.values());
+  if (imagesToInsert.length > 0) {
+    await db.insert(schema.images).values(imagesToInsert);
+  }
+  console.log(`Seeded ${imagesToInsert.length} image records.`);
 }
 
 async function seedNutritionFoodDatabase(): Promise<Map<string, string>> {

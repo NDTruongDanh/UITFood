@@ -6,7 +6,6 @@ import {
   StatusBar,
   ActivityIndicator,
   KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -24,8 +23,12 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 
 import { SignUpField } from '@/src/features/auth/components';
-import type { SignUpScreenProps, SignUpFormData } from '@/src/features/auth/types';
+import type {
+  SignUpScreenProps,
+  SignUpFormData,
+} from '@/src/features/auth/types';
 import { signUpSchema } from '@/src/features/auth/types';
+import { keyboardAvoidingBehavior } from '@/src/lib/keyboard';
 import { useState } from 'react';
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -64,7 +67,7 @@ export function SignUpScreen({
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={keyboardAvoidingBehavior}
       className="flex-1 bg-surface"
     >
       <StatusBar
@@ -90,7 +93,7 @@ export function SignUpScreen({
           }}
           pointerEvents="none"
         >
-          Harvest Market
+          UIT Food
         </Text>
 
         {/* Symmetry spacer */}
@@ -280,13 +283,13 @@ export function SignUpScreen({
                     >
                       Privacy Policy
                     </Text>{' '}
-                    of Harvest Market.
+                    of UIT Food.
                   </Text>
                 </View>
                 {!!errors.termsAccepted && (
                   <Text
                     className="text-[#ff4d4d] text-xs ml-9"
-                    style={{ fontFamily: "Inter_500Medium" }}
+                    style={{ fontFamily: 'Inter_500Medium' }}
                   >
                     {errors.termsAccepted.message}
                   </Text>
