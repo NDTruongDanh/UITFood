@@ -11,7 +11,10 @@ import {
 } from '../../module/ordering/order/order.schema';
 import { restaurants } from '../../module/restaurant-catalog/restaurant/restaurant.schema';
 import { menuItems } from '../../module/restaurant-catalog/menu/menu.schema';
-import type { CancellationReason } from '../../module/ordering/order/order.schema';
+import type {
+  CancellationReason,
+  NewOrderItem,
+} from '../../module/ordering/order/order.schema';
 
 const databaseUrl = requireDatabaseUrl();
 const db = drizzle({
@@ -116,7 +119,7 @@ async function seedAnalyticsOrdersAdmin() {
       // Add 1-3 items
       const numItems = randomInt(1, 3);
       let subtotal = 0;
-      const itemsToInsert = [];
+      const itemsToInsert: NewOrderItem[] = [];
 
       for (let j = 0; j < numItems; j++) {
         const currentItem = randomItem(restaurantMenuItems);
