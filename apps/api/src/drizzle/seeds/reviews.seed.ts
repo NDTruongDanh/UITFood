@@ -5,7 +5,10 @@ import {
   requireDatabaseUrl,
 } from '../postgres-connection';
 import { restaurants } from '../../module/restaurant-catalog/restaurant/restaurant.schema';
-import { reviews } from '../../module/review/domain/review.schema';
+import {
+  reviews,
+  type NewReview,
+} from '../../module/review/domain/review.schema';
 import { eq } from 'drizzle-orm';
 
 const databaseUrl = requireDatabaseUrl();
@@ -46,8 +49,15 @@ function randomItem<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-function generateReviewsForRestaurant(restaurantId: string, count: number) {
-  const generatedReviews: any[] = [];
+function generateReviewsForRestaurant(
+  restaurantId: string,
+  count: number,
+): {
+  generatedReviews: NewReview[];
+  ratingSum: number;
+  reviewCount: number;
+} {
+  const generatedReviews: NewReview[] = [];
   let ratingSum = 0;
 
   for (let i = 0; i < count; i++) {

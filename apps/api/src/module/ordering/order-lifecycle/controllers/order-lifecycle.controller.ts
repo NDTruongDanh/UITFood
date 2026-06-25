@@ -522,10 +522,7 @@ export class OrderLifecycleController {
     const actorId = session.user.id;
 
     if (actorRole === 'shipper') {
-      if (
-        order.status === 'ready_for_pickup' ||
-        order.shipperId === actorId
-      ) {
+      if (order.status === 'ready_for_pickup' || order.shipperId === actorId) {
         return;
       }
       throw new ForbiddenException('You do not have access to this order.');
