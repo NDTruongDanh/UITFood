@@ -1,0 +1,2 @@
+export const CATALOG_DATABASE = Symbol('CATALOG_DATABASE');
+export const CATALOG_DATABASE_POOL = Symbol('CATALOG_DATABASE_POOL');
