@@ -3,7 +3,6 @@ import {
   View,
   Text,
   TextInput,
-  ScrollView,
   TouchableOpacity,
   Alert,
   TextInputProps,
@@ -25,6 +24,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSession, authClient } from '@/src/lib/auth-client';
+import { KeyboardAwareScrollView } from '@/src/components/keyboard-aware-scroll-view';
 import { keyboardAvoidingBehavior } from '@/src/lib/keyboard';
 import Toast from 'react-native-toast-message';
 
@@ -203,14 +203,13 @@ export function EditProfileScreen() {
           <ActivityIndicator size="large" color="#0d631b" />
         </View>
       ) : (
-        <ScrollView
+        <KeyboardAwareScrollView
           contentContainerStyle={{
             paddingBottom: insets.bottom + 32,
             paddingTop: 32,
             paddingHorizontal: 16,
           }}
           showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
         >
           {/* Avatar */}
           <View className="mb-10 items-center">
@@ -368,7 +367,7 @@ export function EditProfileScreen() {
               </Text>
             </TouchableOpacity>
           </View>
-        </ScrollView>
+        </KeyboardAwareScrollView>
       )}
     </KeyboardAvoidingView>
   );

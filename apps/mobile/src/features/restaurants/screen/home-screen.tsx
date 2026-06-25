@@ -3,10 +3,10 @@ import {
   Alert,
   KeyboardAvoidingView,
   RefreshControl,
-  ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { KeyboardAwareScrollView } from '@/src/components/keyboard-aware-scroll-view';
 import { FloatingCartButton } from '@/src/features/cart';
 import { useAddressStore } from '@/src/features/location';
 import {
@@ -175,7 +175,7 @@ export function HomeScreen() {
     >
       <HomeTopBar insetsTop={insets.top} />
 
-      <ScrollView
+      <KeyboardAwareScrollView
         className="flex-1"
         contentContainerStyle={{
           paddingTop: insets.top + 80,
@@ -192,7 +192,6 @@ export function HomeScreen() {
             />
           )
         }
-        keyboardShouldPersistTaps="handled"
       >
         <HomeSearchBar
           query={searchQuery}
@@ -246,7 +245,7 @@ export function HomeScreen() {
             />
           </>
         )}
-      </ScrollView>
+      </KeyboardAwareScrollView>
 
       <FloatingCartButton />
     </KeyboardAvoidingView>

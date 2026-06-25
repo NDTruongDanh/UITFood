@@ -2,7 +2,6 @@ import React from 'react';
 import {
   View,
   Text,
-  ScrollView,
   StatusBar,
   TouchableOpacity,
   ActivityIndicator,
@@ -14,6 +13,7 @@ import { useCheckout } from '../hooks';
 import { useCheckoutStore } from '../store/checkout-store';
 import { useValidateCoupon } from '@/src/features/promotions';
 import { keyboardAvoidingBehavior } from '@/src/lib/keyboard';
+import { KeyboardAwareScrollView } from '@/src/components/keyboard-aware-scroll-view';
 import {
   CheckoutHeader,
   CheckoutDeliverySection,
@@ -134,7 +134,7 @@ export function SingleScreenCheckout() {
 
       <CheckoutHeader title="Checkout" onBack={handleBack} />
 
-      <ScrollView
+      <KeyboardAwareScrollView
         className="flex-1"
         contentContainerStyle={{
           paddingTop: insets.top + 80,
@@ -143,7 +143,6 @@ export function SingleScreenCheckout() {
           gap: 32,
         }}
         showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
       >
         <CheckoutDeliverySection
           estimatedMinutes={estimate?.estimatedMinutes}
@@ -192,7 +191,7 @@ export function SingleScreenCheckout() {
         <CheckoutPaymentSection
           paymentMethod={selectedPaymentMethod ?? undefined}
         />
-      </ScrollView>
+      </KeyboardAwareScrollView>
 
       <CheckoutBottomBar
         total={summary.total}

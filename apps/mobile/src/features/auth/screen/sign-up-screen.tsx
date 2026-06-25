@@ -2,7 +2,6 @@ import {
   View,
   Text,
   TouchableOpacity,
-  ScrollView,
   StatusBar,
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -29,6 +28,7 @@ import type {
 } from '@/src/features/auth/types';
 import { signUpSchema } from '@/src/features/auth/types';
 import { keyboardAvoidingBehavior } from '@/src/lib/keyboard';
+import { KeyboardAwareScrollView } from '@/src/components/keyboard-aware-scroll-view';
 import { useState } from 'react';
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -101,14 +101,13 @@ export function SignUpScreen({
       </View>
 
       {/* ── Scrollable Body ──────────────────────────────────────────── */}
-      <ScrollView
+      <KeyboardAwareScrollView
         className="flex-1"
         contentContainerStyle={{
           paddingHorizontal: 24,
           paddingBottom: insets.bottom + 32,
         }}
         showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
       >
         {/* Hero / Branding */}
         <View className="items-center mb-10 mt-6">
@@ -357,7 +356,7 @@ export function SignUpScreen({
             </Text>
           </Text>
         </View>
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </KeyboardAvoidingView>
   );
 }
