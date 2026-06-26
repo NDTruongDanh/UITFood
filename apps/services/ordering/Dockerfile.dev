@@ -1,0 +1,11 @@
+FROM node:22-alpine
+RUN apk add --no-cache libc6-compat
+RUN npm install -g pnpm@11.1.2
+WORKDIR /app
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json turbo.json ./
+COPY apps/services/ordering/package.json apps/services/ordering/package.json
+COPY packages/contracts/package.json packages/contracts/package.json
+RUN pnpm install --frozen-lockfile
+COPY . .
+WORKDIR /app/apps/services/ordering
+CMD ["pnpm", "run", "dev"]
