@@ -1,0 +1,2 @@
+export const PAYMENT_DATABASE = Symbol('PAYMENT_DATABASE');
+export const PAYMENT_DATABASE_POOL = Symbol('PAYMENT_DATABASE_POOL');
