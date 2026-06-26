@@ -141,6 +141,18 @@ const baseEnvSchema = z.object({
     .default(60),
 
   // ---------------------------------------------------------------------------
+  // Promotion service TCP RPC controls (Phase 7 — Promotion wave)
+  //
+  // Ordering reaches the extracted Promotion service over TCP for the discount
+  // lifecycle. RPC_REQUIRED=false keeps checkout resilient: preview/reserve
+  // degrade to no-discount and confirm/rollback are fire-and-forget.
+  // ---------------------------------------------------------------------------
+  PROMOTION_TCP_HOST: z.string().min(1).default('localhost'),
+  PROMOTION_TCP_PORT: z.coerce.number().int().positive().default(4041),
+  PROMOTION_RPC_TIMEOUT_MS: z.coerce.number().int().positive().default(4000),
+  PROMOTION_RPC_REQUIRED: stringToBoolean(false),
+
+  // ---------------------------------------------------------------------------
   // Identity service TCP RPC and cutover controls (Phase 4)
   // ---------------------------------------------------------------------------
   IDENTITY_RPC_ENABLED: stringToBoolean(false),

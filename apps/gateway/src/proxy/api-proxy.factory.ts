@@ -24,6 +24,8 @@ export interface ApiProxyOptions {
   notificationSocketTarget: string;
   /** When true, Catalog-owned public routes are handled locally over TCP. */
   catalogRoutesEnabled: boolean;
+  /** When true, Promotion-owned public routes are handled locally over TCP. */
+  promotionRoutesEnabled: boolean;
 }
 
 /**
@@ -42,6 +44,16 @@ export function isCatalogPublicRoute(pathname: string): boolean {
     pathname.startsWith('/api/search/') ||
     pathname === '/api/dietary-tags' ||
     pathname.startsWith('/api/dietary-tags/')
+  );
+}
+
+/**
+ * Promotion-owned public routes: active-promotion discovery, discount preview,
+ * and coupon validation.
+ */
+export function isPromotionPublicRoute(pathname: string): boolean {
+  return (
+    pathname === '/api/promotions' || pathname.startsWith('/api/promotions/')
   );
 }
 
@@ -101,6 +113,7 @@ export function createApiProxy({
   notificationRoutesEnabled,
   notificationSocketTarget,
   catalogRoutesEnabled,
+  promotionRoutesEnabled,
 }: ApiProxyOptions): RequestHandler {
   return createProxyMiddleware({
     target,
@@ -123,6 +136,7 @@ export function createApiProxy({
         notificationRoutesEnabled && isNotificationPublicRoute(pathname)
       ) &&
       !(catalogRoutesEnabled && isCatalogPublicRoute(pathname)) &&
+      !(promotionRoutesEnabled && isPromotionPublicRoute(pathname)) &&
       !GATEWAY_MANAGEMENT_PATHS.some(
         (p) => pathname === p || pathname.startsWith(`${p}/`),
       ),

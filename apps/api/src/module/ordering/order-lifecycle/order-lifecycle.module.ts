@@ -26,7 +26,7 @@ import { OrderLifecycleService } from './services/order-lifecycle.service';
 // Repositories
 import { OrderRepository } from './repositories/order.repository';
 import { PaymentModule } from '@/module/payment/payment.module';
-import { PromotionModule } from '@/module/promotion/promotion.module';
+import { PromotionClientModule } from '@/integration/promotion/promotion-client.module';
 
 /**
  * OrderLifecycleModule — Phase 5 implementation.
@@ -49,7 +49,7 @@ import { PromotionModule } from '@/module/promotion/promotion.module';
     DatabaseModule,
     OutboxModule,
     PaymentModule,
-    PromotionModule,
+    PromotionClientModule,
   ],
   controllers: [OrderLifecycleController, PaymentCancellationController],
   providers: [
@@ -63,7 +63,7 @@ import { PromotionModule } from '@/module/promotion/promotion.module';
     // Event handlers — Promotion BC (PR-3)
     // Rolls back reserved/confirmed promotion usages when an order is
     // cancelled or refunded. Uses PROMOTION_APPLICATION_PORT (DIP).
-    // PromotionModule is imported explicitly above for this port.
+    // PromotionClientModule (remote TCP adapter) is imported above for this port.
     PromotionRollbackOnCancellationHandler,
 
     // Cron task — auto-cancel expired orders

@@ -9,7 +9,7 @@ import { RestaurantSnapshotRepository } from '../acl/repositories/restaurant-sna
 import { DeliveryZoneSnapshotRepository } from '../acl/repositories/delivery-zone-snapshot.repository';
 import { CartRedisRepository } from '../cart/cart.redis-repository';
 import { PaymentModule } from '@/module/payment/payment.module';
-import { PromotionModule } from '@/module/promotion/promotion.module';
+import { PromotionClientModule } from '@/integration/promotion/promotion-client.module';
 import { RedisModule } from '@/lib/redis/redis.module';
 import { GeoModule } from '@/lib/geo/geo.module';
 
@@ -35,7 +35,7 @@ import { GeoModule } from '@/lib/geo/geo.module';
     DatabaseModule,
     OutboxModule,
     PaymentModule,
-    PromotionModule,
+    PromotionClientModule,
     RedisModule,
     GeoModule,
   ],
