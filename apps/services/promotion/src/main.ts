@@ -1,19 +1,27 @@
 import 'reflect-metadata';
-import { Logger } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { AppModule } from './app.module';
 import type { Env } from './config/env.schema';
 
+/**
+ * Promotion hybrid bootstrap:
+ *  - TCP listener for synchronous RPC (`@MessagePattern` controllers).
+ *  - Private management HTTP listener (`/live`, `/ready`).
+ */
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
   const config = app.get<ConfigService<Env, true>>(ConfigService);
   const tcpPort =
     config.get('PORT', { infer: true }) ??
-    config.get('MEDIA_TCP_PORT', { infer: true });
-  const managementPort = config.get('MEDIA_MANAGEMENT_PORT', { infer: true });
+    config.get('PROMOTION_TCP_PORT', { infer: true });
+  const managementPort = config.get('PROMOTION_MANAGEMENT_PORT', {
+    infer: true,
+  });
 
+  app.useGlobalPipes(new ValidationPipe({ transform: true }));
   app.connectMicroservice<MicroserviceOptions>({
     transport: Transport.TCP,
     options: { host: '0.0.0.0', port: tcpPort },
@@ -23,8 +31,8 @@ async function bootstrap(): Promise<void> {
   await app.startAllMicroservices();
   await app.listen(managementPort, '0.0.0.0');
 
-  new Logger('MediaBootstrap').log(
-    `Media TCP listening on :${tcpPort}; management HTTP on :${managementPort}`,
+  new Logger('PromotionBootstrap').log(
+    `Promotion TCP listening on :${tcpPort}; management HTTP on :${managementPort}`,
   );
 }
 

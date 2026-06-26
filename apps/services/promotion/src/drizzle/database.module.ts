@@ -8,21 +8,25 @@ import { ConfigService } from '@nestjs/config';
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import type { Env } from '@/config/env.schema';
-import { images } from '@/image/image.schema';
-import { MEDIA_DATABASE, MEDIA_DATABASE_POOL } from './database.constants';
+import * as schema from './schema';
+import {
+  PROMOTION_DATABASE,
+  PROMOTION_DATABASE_POOL,
+} from './database.constants';
 
-export type MediaDatabase = NodePgDatabase<{ images: typeof images }>;
+export type PromotionDatabase = NodePgDatabase<typeof schema>;
 
 function sslFor(databaseUrl: string): false | { rejectUnauthorized: false } {
   const url = new URL(databaseUrl);
-  if (['localhost', '127.0.0.1', 'postgres'].includes(url.hostname))
+  if (['localhost', '127.0.0.1', 'postgres'].includes(url.hostname)) {
     return false;
+  }
   return { rejectUnauthorized: false };
 }
 
 @Injectable()
 class DatabaseLifecycle implements OnApplicationShutdown {
-  constructor(@Inject(MEDIA_DATABASE_POOL) private readonly pool: Pool) {}
+  constructor(@Inject(PROMOTION_DATABASE_POOL) private readonly pool: Pool) {}
 
   async onApplicationShutdown(): Promise<void> {
     await this.pool.end();
@@ -32,7 +36,7 @@ class DatabaseLifecycle implements OnApplicationShutdown {
 @Module({
   providers: [
     {
-      provide: MEDIA_DATABASE_POOL,
+      provide: PROMOTION_DATABASE_POOL,
       inject: [ConfigService],
       useFactory: (config: ConfigService<Env, true>) => {
         const connectionString = config.get('DATABASE_URL', { infer: true });
@@ -40,13 +44,12 @@ class DatabaseLifecycle implements OnApplicationShutdown {
       },
     },
     {
-      provide: MEDIA_DATABASE,
-      inject: [MEDIA_DATABASE_POOL],
-      useFactory: (pool: Pool): MediaDatabase =>
-        drizzle(pool, { schema: { images } }),
+      provide: PROMOTION_DATABASE,
+      inject: [PROMOTION_DATABASE_POOL],
+      useFactory: (pool: Pool): PromotionDatabase => drizzle(pool, { schema }),
     },
     DatabaseLifecycle,
   ],
-  exports: [MEDIA_DATABASE],
+  exports: [PROMOTION_DATABASE],
 })
 export class DatabaseModule {}
