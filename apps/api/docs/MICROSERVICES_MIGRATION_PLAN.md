@@ -1,11 +1,32 @@
 # API Modular Monolith to Microservices Migration Plan
 
-**Status:** Proposed
+**Status:** In progress — Phases 0–6 code-complete and verified; cutover/decommission pending
 
 **Scope:** `apps/api` and the infrastructure, CI/CD, and clients that depend on it
 
 **Prepared:** 2026-06-21
 **Recommended delivery model:** Incremental strangler migration; no big-bang rewrite
+
+### Implementation status
+
+Each completed phase has a dedicated implementation report. "Code-complete"
+means boundaries, service/Gateway ownership, durable events, infra (Compose,
+CI/CD, Render Terraform), and cutover flags are implemented and verified at the
+typecheck/unit/build level; live data backfill, staging drills, production
+cutover, and legacy decommission remain owner actions.
+
+| Phase | Scope | Status | Report |
+| --- | --- | --- | --- |
+| 0 | Baseline, security, architecture decisions | Code-complete | [PHASE_0_REPORT.md](./PHASE_0_REPORT.md) |
+| 1 | Platform foundation and edge gateway | Code-complete | [PHASE_1_REPORT.md](./PHASE_1_REPORT.md) |
+| 2 | Durable integration and monolith decoupling | Code-complete | [PHASE_2_REPORT.md](./PHASE_2_REPORT.md) |
+| 3 | Extract Media pilot | Code-complete | [PHASE_3_REPORT.md](./PHASE_3_REPORT.md) |
+| 4 | Extract Identity and internal auth | Code-complete | [PHASE_4_REPORT.md](./PHASE_4_REPORT.md) |
+| 5 | Extract Notifications | Code-complete | [PHASE_5_REPORT.md](./PHASE_5_REPORT.md) |
+| 6 | Extract Restaurant Catalog | Code-complete | [PHASE_6_REPORT.md](./PHASE_6_REPORT.md) |
+| 7 | Extract Promotions and Payments | Not started | — |
+| 8 | Extract Reviews | Not started | — |
+| 9 | Extract Ordering + retire monolith | Not started | — |
 
 ## 1. Executive recommendation
 
@@ -538,6 +559,8 @@ Exit criteria:
 - Notification downtime does not affect checkout or payment processing; backlog drains after recovery.
 
 ### Phase 6 — Extract Restaurant Catalog (3–4 weeks)
+
+**Status:** Code-complete and verified — see [PHASE_6_REPORT.md](./PHASE_6_REPORT.md). Catalog data backfill, the `CATALOG_ROUTES_ENABLED` cutover, and deletion of the monolith `restaurant-catalog` module remain owner actions.
 
 **Objective:** Move the largest read-heavy boundary while keeping Ordering independent through snapshots.
 
