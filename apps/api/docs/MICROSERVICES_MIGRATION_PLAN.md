@@ -24,7 +24,7 @@ cutover, and legacy decommission remain owner actions.
 | 4 | Extract Identity and internal auth | Code-complete | [PHASE_4_REPORT.md](./PHASE_4_REPORT.md) |
 | 5 | Extract Notifications | Code-complete | [PHASE_5_REPORT.md](./PHASE_5_REPORT.md) |
 | 6 | Extract Restaurant Catalog | Code-complete | [PHASE_6_REPORT.md](./PHASE_6_REPORT.md) |
-| 7 | Extract Promotions and Payments | Not started | — |
+| 7 | Extract Promotions and Payments | Wave 1 (Promotion) code-complete; Wave 2 (Payment) not started | [PHASE_7_REPORT.md](./PHASE_7_REPORT.md) |
 | 8 | Extract Reviews | Not started | — |
 | 9 | Extract Ordering + retire monolith | Not started | — |
 
@@ -582,6 +582,8 @@ Exit criteria:
 - Snapshot rebuild from an empty database is documented, tested, and meets the recovery target.
 
 ### Phase 7 — Extract Promotions and Payments (3–4 weeks total, sequential cutovers)
+
+**Status:** Wave 1 (Promotion) is code-complete and verified — see [PHASE_7_REPORT.md](./PHASE_7_REPORT.md). Wave 2 (Payment) is not started. Promotion data backfill, the `PROMOTION_ROUTES_ENABLED` cutover, Promotion infra wiring (Compose/CI/Render), and migrating the admin/restaurant promotion management surfaces remain owner actions.
 
 **Objective:** Separate financial workflows with explicit idempotency and compensation.
 
