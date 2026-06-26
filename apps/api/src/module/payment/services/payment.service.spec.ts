@@ -51,7 +51,7 @@ function buildService(timeoutSec = 1800) {
     findById: jest.fn().mockResolvedValue(makeTxn()),
     updateStatus: jest.fn().mockResolvedValue(makeTxn({ status: 'failed' })),
     findByCustomerId: jest.fn().mockResolvedValue([]),
-    findByOrderId: jest.fn().mockResolvedValue(makeTxn()),
+    findByOrderId: jest.fn().mockResolvedValue(null),
   } as unknown as PaymentTransactionRepository;
 
   const config: ConfigType<typeof vnpayConfig> = {
@@ -87,6 +87,49 @@ describe('PaymentService', () => {
 
       expect(typeof result.txnId).toBe('string');
       expect(result.paymentUrl).toBe('https://pay.vnpay.vn/?token=abc');
+    });
+
+    it('returns an existing active VNPay attempt for repeated order requests', async () => {
+      const { service, txnRepo, vnpayService } = buildService();
+      const existing = makeTxn({
+        id: 'txn-existing',
+        status: 'awaiting_ipn',
+        paymentUrl: 'https://pay.vnpay.vn/?token=existing',
+      });
+      (txnRepo.findByOrderId as jest.Mock).mockResolvedValue(existing);
+
+      const result = await service.initiateVNPayPayment(
+        'order-1',
+        'cust-1',
+        120000,
+        '127.0.0.1',
+      );
+
+      expect(result).toEqual({
+        txnId: 'txn-existing',
+        paymentUrl: 'https://pay.vnpay.vn/?token=existing',
+      });
+      expect(txnRepo.create).not.toHaveBeenCalled();
+      expect(vnpayService.buildPaymentUrl).not.toHaveBeenCalled();
+    });
+
+    it('rejects a repeated order request when payment details differ', async () => {
+      const { service, txnRepo, vnpayService } = buildService();
+      (txnRepo.findByOrderId as jest.Mock).mockResolvedValue(
+        makeTxn({ amount: 99000 }),
+      );
+
+      await expect(
+        service.initiateVNPayPayment(
+          'order-1',
+          'cust-1',
+          120000,
+          '127.0.0.1',
+        ),
+      ).rejects.toThrow('different payment details');
+
+      expect(txnRepo.create).not.toHaveBeenCalled();
+      expect(vnpayService.buildPaymentUrl).not.toHaveBeenCalled();
     });
 
     it('creates a PaymentTransaction before building the VNPay URL', async () => {

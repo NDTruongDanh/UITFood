@@ -6,10 +6,7 @@ const MODULE_ROOT = join(SRC_ROOT, 'module');
 
 const ALLOWED_CROSS_CONTEXT_IMPORTS: Record<string, ReadonlySet<string>> = {
   'restaurant-catalog': new Set(['@/module/auth/identity.module']),
-  ordering: new Set([
-    '@/module/payment/payment.module',
-    '@/module/promotion/promotion.module',
-  ]),
+  ordering: new Set([]),
   review: new Set([
     '@/module/ordering/ordering-contracts.module',
     '@/module/restaurant-catalog/catalog-contracts.module',

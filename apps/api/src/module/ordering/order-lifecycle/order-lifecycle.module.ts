@@ -25,7 +25,7 @@ import { OrderLifecycleService } from './services/order-lifecycle.service';
 
 // Repositories
 import { OrderRepository } from './repositories/order.repository';
-import { PaymentModule } from '@/module/payment/payment.module';
+import { PaymentIntegrationModule } from '@/integration/payment/payment-integration.module';
 import { PromotionClientModule } from '@/integration/promotion/promotion-client.module';
 
 /**
@@ -48,7 +48,7 @@ import { PromotionClientModule } from '@/integration/promotion/promotion-client.
     CqrsModule,
     DatabaseModule,
     OutboxModule,
-    PaymentModule,
+    PaymentIntegrationModule,
     PromotionClientModule,
   ],
   controllers: [OrderLifecycleController, PaymentCancellationController],

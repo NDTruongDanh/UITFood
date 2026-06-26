@@ -7,6 +7,7 @@ import {
   Logger,
   Query,
   Res,
+  UseGuards,
 } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
 import type { Response } from 'express';
@@ -31,6 +32,7 @@ import { PaymentService } from '../services/payment.service';
 import type { IpnResponse } from '../commands/process-ipn.handler';
 import type { PaymentStatus } from '../domain/payment-transaction.schema';
 import { vnpayConfig } from '@/config/vnpay.config';
+import { LegacyPaymentRouteGuard } from '../legacy-payment-runtime';
 
 /**
  * PaymentController
@@ -53,6 +55,7 @@ import { vnpayConfig } from '@/config/vnpay.config';
  */
 @ApiTags('payments')
 @Controller('payments')
+@UseGuards(LegacyPaymentRouteGuard)
 export class PaymentController {
   private readonly logger = new Logger(PaymentController.name);
 

@@ -86,6 +86,32 @@ export class PaymentService implements IPaymentInitiationPort {
     amount: number,
     ipAddr: string,
   ): Promise<{ txnId: string; paymentUrl: string }> {
+    const existing = await this.txnRepo.findByOrderId(orderId);
+    if (existing) {
+      const samePaymentRequest =
+        existing.customerId === customerId && existing.amount === amount;
+
+      if (!samePaymentRequest) {
+        throw new ConflictException(
+          'A VNPay payment attempt already exists for this order with different payment details.',
+        );
+      }
+
+      if (
+        existing.paymentUrl &&
+        (existing.status === 'pending' || existing.status === 'awaiting_ipn')
+      ) {
+        this.logger.log(
+          `Returning existing PaymentTransaction ${existing.id} for order=${orderId}`,
+        );
+        return { txnId: existing.id, paymentUrl: existing.paymentUrl };
+      }
+
+      throw new ConflictException(
+        'A VNPay payment attempt already exists for this order and cannot be recreated.',
+      );
+    }
+
     const txnId = randomUUID();
     const expiresAt = new Date(Date.now() + this.sessionTimeoutMs);
 

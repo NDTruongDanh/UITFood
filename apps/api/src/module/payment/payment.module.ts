@@ -12,6 +12,14 @@ import { PaymentController } from './controllers/payment.controller';
 import { ProcessIpnHandler } from './commands/process-ipn.handler';
 import { PaymentTimeoutTask } from './tasks/payment-timeout.task';
 import { OrderCancelledAfterPaymentHandler } from './events/order-cancelled-after-payment.handler';
+import {
+  legacyPaymentRuntimeEnabled,
+  LegacyPaymentRouteGuard,
+} from './legacy-payment-runtime';
+
+const legacyRuntimeProviders = legacyPaymentRuntimeEnabled()
+  ? [PaymentTimeoutTask, OrderCancelledAfterPaymentHandler]
+  : [];
 
 /**
  * Payment bounded context. Consumers import this module explicitly and can
@@ -30,8 +38,8 @@ import { OrderCancelledAfterPaymentHandler } from './events/order-cancelled-afte
     PaymentService,
     PaymentTransactionRepository,
     ProcessIpnHandler,
-    PaymentTimeoutTask,
-    OrderCancelledAfterPaymentHandler,
+    LegacyPaymentRouteGuard,
+    ...legacyRuntimeProviders,
     {
       provide: PAYMENT_INITIATION_PORT,
       useExisting: PaymentService,

@@ -153,6 +153,22 @@ const baseEnvSchema = z.object({
   PROMOTION_RPC_REQUIRED: stringToBoolean(false),
 
   // ---------------------------------------------------------------------------
+  // Payment service TCP RPC and legacy cutover controls (Phase 7 - Payment wave)
+  //
+  // PAYMENT_RPC_ENABLED=false keeps Ordering bound to the local monolith
+  // PaymentModule. Set it true when the extracted Payment service is live.
+  // Disable legacy runtime at the same cutover to prevent duplicate timeout
+  // processing/refunds while keeping legacy HTTP routes available for rollback.
+  // ---------------------------------------------------------------------------
+  PAYMENT_RPC_ENABLED: stringToBoolean(false),
+  PAYMENT_TCP_HOST: z.string().min(1).default('localhost'),
+  PAYMENT_TCP_PORT: z.coerce.number().int().positive().default(4051),
+  PAYMENT_RPC_TIMEOUT_MS: z.coerce.number().int().positive().default(5000),
+  PAYMENT_RPC_REQUIRED: stringToBoolean(false),
+  LEGACY_PAYMENT_ROUTES_ENABLED: stringToBoolean(true),
+  LEGACY_PAYMENT_RUNTIME_ENABLED: stringToBoolean(true),
+
+  // ---------------------------------------------------------------------------
   // Identity service TCP RPC and cutover controls (Phase 4)
   // ---------------------------------------------------------------------------
   IDENTITY_RPC_ENABLED: stringToBoolean(false),
