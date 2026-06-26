@@ -2,7 +2,6 @@ import { Module } from '@nestjs/common';
 import { CqrsModule } from '@nestjs/cqrs';
 import { DatabaseModule } from '@/drizzle/drizzle.module';
 import { OrderingContractsModule } from '@/module/ordering/ordering-contracts.module';
-import { CatalogContractsModule } from '@/module/restaurant-catalog/catalog-contracts.module';
 import { OutboxModule } from '@/messaging/outbox/outbox.module';
 import { SubmitReviewHandler } from './commands/submit-review.handler';
 import { ReviewController } from './controllers/review.controller';
@@ -18,13 +17,7 @@ import { ReviewService } from './services/review.service';
  * Phase: RV-2
  */
 @Module({
-  imports: [
-    DatabaseModule,
-    CqrsModule,
-    OrderingContractsModule,
-    CatalogContractsModule,
-    OutboxModule,
-  ],
+  imports: [DatabaseModule, CqrsModule, OrderingContractsModule, OutboxModule],
   controllers: [ReviewController],
   providers: [ReviewService, ReviewRepository, SubmitReviewHandler],
   exports: [],

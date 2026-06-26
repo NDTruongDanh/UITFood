@@ -1,9 +1,12 @@
 import { shutdownTelemetry } from './telemetry';
 import { recordException } from './observability/errors';
 import { NestFactory } from '@nestjs/core';
+import { ConfigService } from '@nestjs/config';
+import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { SwaggerModule, DocumentBuilder, OpenAPIObject } from '@nestjs/swagger';
 import { auth } from './lib/auth';
 import { AppModule } from './app.module';
+import type { Env } from './config/env.schema';
 import { apiReference } from '@scalar/nestjs-api-reference';
 import type { Request, Response } from 'express';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
@@ -81,6 +84,7 @@ async function bootstrap() {
     bodyParser: false,
     bufferLogs: true,
   });
+  const configService = app.get<ConfigService<Env, true>>(ConfigService);
   app.useLogger(logger);
   app.use(requestContextMiddleware);
   app.useGlobalPipes(new ValidationPipe({ transform: true }));
@@ -154,6 +158,14 @@ async function bootstrap() {
 
   installShutdownHandler(app);
 
+  app.connectMicroservice<MicroserviceOptions>({
+    transport: Transport.TCP,
+    options: {
+      host: '0.0.0.0',
+      port: configService.get('ORDERING_TCP_PORT', { infer: true }),
+    },
+  });
+  await app.startAllMicroservices();
   await app.listen(process.env.PORT ?? 3000);
 }
 

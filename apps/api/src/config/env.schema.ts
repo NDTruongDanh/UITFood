@@ -133,6 +133,9 @@ const baseEnvSchema = z.object({
     .min(32)
     .default('internal_auth_secret_for_local_dev_only_32_chars'),
   INTERNAL_AUTH_JWT_ISSUER: z.string().min(1).default('uitfood-api'),
+  INTERNAL_AUTH_TRUSTED_ISSUERS: z
+    .string()
+    .default('uitfood-gateway,uitfood-api,uitfood-review'),
   INTERNAL_AUTH_JWT_TTL_SECONDS: z.coerce
     .number()
     .int()
@@ -167,6 +170,14 @@ const baseEnvSchema = z.object({
   PAYMENT_RPC_REQUIRED: stringToBoolean(false),
   LEGACY_PAYMENT_ROUTES_ENABLED: stringToBoolean(true),
   LEGACY_PAYMENT_RUNTIME_ENABLED: stringToBoolean(true),
+
+  // ---------------------------------------------------------------------------
+  // Transitional Ordering TCP listener (Phase 8)
+  //
+  // The extracted Review service calls this read-only eligibility pattern until
+  // Ordering itself is extracted in Phase 9.
+  // ---------------------------------------------------------------------------
+  ORDERING_TCP_PORT: z.coerce.number().int().positive().default(4071),
 
   // ---------------------------------------------------------------------------
   // Identity service TCP RPC and cutover controls (Phase 4)

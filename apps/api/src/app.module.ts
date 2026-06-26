@@ -23,6 +23,7 @@ import { validate } from './config/env.schema';
 import { vnpayConfig } from './config/vnpay.config';
 import { ObservabilityInterceptor } from './observability/observability.interceptor';
 import { MessagingModule } from './messaging/messaging.module';
+import { OrderingRpcModule } from './module/ordering/rpc/ordering-rpc.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { MessagingModule } from './messaging/messaging.module';
     NotificationModule,
     ImageModule,
     ReviewModule,
+    OrderingRpcModule,
 
     AuthModule.forRoot({
       auth,
