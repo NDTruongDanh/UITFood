@@ -1,14 +1,14 @@
 # Phase 7 - Extract Promotions and Payments (Implementation Report)
 
 **Status:** Phase 7 runs as two sequential waves. **Wave 1 (Promotion) is
-code-complete and verified** at the typecheck/unit/build level — service
-ownership, TCP contracts, Gateway route ownership, and the Ordering remote TCP
-adapter are implemented. **Wave 2 (Payment) is not started** (surveyed only).
-Remaining owner actions for Wave 1 are Promotion data backfill, the
-`PROMOTION_ROUTES_ENABLED` / `PROMOTION_RPC_REQUIRED` cutover, and later
-migration of the admin/restaurant promotion management surfaces.
-**Scope:** `apps/services/promotion`, `apps/gateway`, `packages/contracts`,
-`apps/api` Ordering integration, and the (pending) Payment extraction.
+code-complete and verified** at the typecheck/unit/build level. **Wave 2
+(Payment) is code-complete and verified** at the typecheck/unit level: service
+ownership, TCP contracts, Gateway route ownership, VNPay callback routing,
+outbox publishing, timeout ownership, and the Ordering remote TCP adapter are
+implemented. Remaining owner actions are service infrastructure, Payment data
+backfill/reconciliation, provider callback cutover, and staged flag rollout.
+**Scope:** `apps/services/promotion`, `apps/services/payment`, `apps/gateway`,
+`packages/contracts`, and `apps/api` Ordering integration.
 **Date:** 2026-06-26
 **Relates to:** [MICROSERVICES_MIGRATION_PLAN.md](./MICROSERVICES_MIGRATION_PLAN.md)
 Phase 7.
@@ -148,36 +148,137 @@ Resilience parity is preserved:
 The `module-boundaries` spec passing confirms Ordering no longer imports the
 Promotion BC directly — it depends only on the integration adapter.
 
-## 3. Wave 2 — Payment Extraction (not started)
+## 3. Wave 2 - Payment Extraction (code-complete)
 
-Surveyed only; no files created and the monolith is unchanged. The intended
-shape, from the migration plan:
+### 3.1 Resulting Topology
 
-- Define idempotent TCP patterns: create-attempt, mark-failed, refund, query.
-- Route VNPay IPN / return / mobile-return HTTP through the Gateway and translate
-  callbacks to Payment TCP patterns without altering provider-visible URLs,
-  raw/query data, or signature verification.
-- Persist provider callback deduplication before acknowledging an IPN.
-- Publish payment result events from the Payment outbox; Ordering must no longer
-  receive an in-process event.
-- Migrate `payment_transactions`, reconcile against orders and provider
-  identifiers, then switch route and adapter ownership.
+```text
+Browser / Mobile / VNPay
+          |
+          v
+      Edge Gateway
+       |       |
+       |       +-- unrelated routes and payment cancellation --> legacy API
+       |
+       +-- /api/payments/my --------------------> Payment TCP RPC (auth)
+       +-- /api/payments/vnpay/ipn -------------> Payment TCP RPC (anonymous)
+       +-- /api/payments/vnpay/return ----------> Payment TCP RPC (anonymous)
+       +-- /api/payments/vnpay/mobile-return ---> Payment TCP RPC (anonymous)
 
-Coupling surfaces identified in the monolith that the wave must address:
+monolith Ordering BC
+   PlaceOrderHandler / payment cancellation
+        |  PAYMENT_INITIATION_PORT (remote TCP adapter when enabled)
+        v
+   Payment service ----> Payment PostgreSQL
+        |
+        +-- outbox_events ---> RabbitMQ ---> Ordering event bridge
+        ^
+        |  ordering.order-cancelled-after-payment.v1
+```
 
-| Surface | Current state |
+Default flags preserve rollback:
+
+- `PAYMENT_RPC_ENABLED=false`: Ordering imports the local monolith Payment
+  module through `PaymentIntegrationModule`.
+- `PAYMENT_ROUTES_ENABLED=false`: Gateway proxies Payment HTTP routes to the
+  monolith.
+- `LEGACY_PAYMENT_RUNTIME_ENABLED=true`: the monolith keeps the timeout task and
+  refund handler until service cutover.
+
+The VNPay cancellation route stays owned by Ordering because it mutates the order
+and then calls the Payment port to mark the pending attempt failed.
+
+### 3.2 Shared Contracts
+
+`packages/contracts/src/payment-rpc.ts` adds `PAYMENT_RPC_PATTERNS` plus zod
+request/response schemas and a stable error envelope.
+
+| Pattern | Purpose |
 | --- | --- |
-| Synchronous port | Ordering uses `IPaymentInitiationPort` (`initiateVNPayPayment`, `markPaymentAttemptFailed`) in `PlaceOrderHandler` + `PaymentCancellationController` → becomes a remote TCP adapter |
-| Event path | Ordering consumes `payment.confirmed.v1` / `payment.failed.v1`; must come from the Payment outbox over RabbitMQ, not an in-process event |
-| VNPay callbacks | `PaymentController` IPN/return/mobile-return + `ProcessIpnHandler` need raw-query signature verification preserved and callback dedup before IPN ack |
-| Scheduled work | `PaymentTimeoutTask` (single-owner cron) moves to the service |
+| `payment.attempt.create.v1` | Create or return an existing active VNPay payment attempt for an order |
+| `payment.attempt.fail.v1` | Mark a pending attempt failed after checkout rollback |
+| `payment.attempt.cancel-pending.v1` | Customer-driven VNPay cancellation by order |
+| `payment.ipn.process.v1` | Process VNPay IPN with raw query/signature preservation |
+| `payment.return.resolve.v1` | Resolve browser return redirect |
+| `payment.mobile-return.resolve.v1` | Resolve mobile deep-link return |
+| `payment.transactions.my.v1` | Customer payment history |
 
-Contracts already define the result events (`payment.confirmed.v1`,
-`payment.failed.v1`, `ordering.order-cancelled-after-payment.v1`).
+Lifecycle calls carry an `aud=payment` internal JWT. VNPay IPN/return callbacks
+remain anonymous because the provider signs the raw query; the service performs
+the existing signature checks.
 
-## 4. Cutover And Rollback (Wave 1)
+### 3.3 Private Payment Service
 
-### Forward Cutover
+New app: `apps/services/payment`.
+
+It includes:
+
+- a Nest TCP listener for business RPC on `PAYMENT_TCP_PORT` (4051);
+- management HTTP `/live` and `/ready` on `PAYMENT_MANAGEMENT_PORT` (4052);
+- the owned Drizzle schema + generated migration for `payment_transactions`,
+  `outbox_events`, and `inbox_messages`;
+- the extracted Payment application services, VNPay service, transaction
+  repository, IPN handler, timeout task, and refund handler;
+- `PaymentRpcController` mapping the Payment TCP contracts to the application
+  service and preserving deterministic HTTP-like error envelopes;
+- local outbox relay publishing `payment.confirmed.v1` and `payment.failed.v1`
+  with `producer='payment'`;
+- inbox-deduped RabbitMQ consumer for
+  `ordering.order-cancelled-after-payment.v1`.
+
+Payment attempt creation is idempotent by `orderId`: a repeated request with the
+same customer and amount returns the existing active attempt URL, while a
+different customer/amount fails with a deterministic conflict instead of
+creating a second charge.
+
+Provider callback deduplication is preserved by the transaction state machine and
+the unique VNPay provider transaction number before the IPN handler returns an
+acknowledgement.
+
+### 3.4 Gateway Route Ownership
+
+Gateway gains `PaymentRoutesModule` behind `PAYMENT_ROUTES_ENABLED`, exposing:
+
+- `GET /api/payments/my`;
+- `GET /api/payments/vnpay/ipn`;
+- `GET /api/payments/vnpay/return`;
+- `GET /api/payments/vnpay/mobile-return`.
+
+The proxy excludes only these Payment-owned routes when the flag is enabled.
+`/api/payments/vnpay/orders/:orderId/cancel` continues to proxy to the monolith
+Ordering controller.
+
+### 3.5 Ordering Remote TCP Adapter
+
+`apps/api/src/integration/payment/` adds `PaymentInitiationAdapter`
+implementing `IPaymentInitiationPort` over TCP. `PaymentIntegrationModule`
+selects the local `PaymentModule` or remote `PaymentClientModule` at startup via
+`PAYMENT_RPC_ENABLED`, so `PlaceOrderHandler` and the cancellation controller
+continue depending on the same port token.
+
+Resilience parity is preserved:
+
+- deterministic 4xx RPC envelopes are re-thrown as HTTP;
+- create-attempt outages fail checkout predictably with `503`;
+- mark-failed remains best-effort unless `PAYMENT_RPC_REQUIRED=true`.
+
+### 3.6 Verification Performed (Wave 2)
+
+| Check | Result |
+| --- | --- |
+| Contracts typecheck + build | Pass |
+| API typecheck | Pass |
+| Gateway typecheck | Pass |
+| Payment service typecheck | Pass |
+| Payment service migration generation | Pass |
+| API focused Payment/Ordering tests | 4 suites, 54 tests pass |
+| Payment service unit tests | 5 suites, 68 tests pass |
+
+## 4. Cutover And Rollback
+
+### Wave 1 - Promotion
+
+#### Forward Cutover
 
 1. Provision the Promotion Postgres + private service (flag off).
 2. Run Promotion migrations.
@@ -189,7 +290,7 @@ Contracts already define the result events (`payment.confirmed.v1`,
 6. Smoke active-promotion list, preview, coupon validation, and a full
    checkout + cancellation discount lifecycle.
 
-### Rollback
+#### Rollback
 
 1. `PROMOTION_ROUTES_ENABLED=false` (Gateway resumes proxying to the monolith).
 2. Point Ordering back at the local `PromotionModule` (revert the integration
@@ -199,23 +300,55 @@ Until cutover, promotion *management* writes still land in the monolith database
 while the checkout lifecycle uses the service database — a deliberate strangler
 split resolved by the backfill step.
 
+### Wave 2 - Payment
+
+#### Forward Cutover
+
+1. Provision Payment Postgres, RabbitMQ bindings, and the private service (flags
+   off).
+2. Run the Payment service migration and backfill `payment_transactions`.
+3. Reconcile successful VNPay provider transactions against orders and provider
+   identifiers.
+4. Point VNPay callback URLs at the Gateway path already exposed to clients.
+5. Set `PAYMENT_RPC_ENABLED=true` and verify Ordering create-attempt /
+   mark-failed / cancel-pending calls against the service.
+6. Set `PAYMENT_ROUTES_ENABLED=true` so Gateway-owned VNPay callback and history
+   routes call the Payment service directly.
+7. After the service owns runtime work, set `LEGACY_PAYMENT_RUNTIME_ENABLED=false`
+   in the monolith. Later set `LEGACY_PAYMENT_ROUTES_ENABLED=false` once route
+   rollback is no longer needed.
+
+#### Rollback
+
+1. `PAYMENT_ROUTES_ENABLED=false` (Gateway resumes proxying Payment routes to the
+   monolith).
+2. `PAYMENT_RPC_ENABLED=false` (Ordering resumes using the local Payment module).
+3. `LEGACY_PAYMENT_RUNTIME_ENABLED=true` if timeout/refund handling must return
+   to the monolith during rollback.
+
 ## 5. Exit Criteria Status
 
 | Phase 7 criterion | Status |
 | --- | --- |
-| A repeated checkout/payment request returns the original attempt rather than a second charge or reservation | Promotion: reservation is idempotent per `orderId` with atomic counters; **Payment idempotency pending Wave 2** |
+| A repeated checkout/payment request returns the original attempt rather than a second charge or reservation | Implemented — Promotion reservation is idempotent per `orderId`; Payment create-attempt returns the existing active VNPay attempt for the same order/customer/amount |
 | An unavailable Promotion service fails checkout predictably or follows the approved no-discount policy | Implemented — adapter degrades to no-discount; checkout proceeds |
-| A Payment outage leaves a recoverable saga checkpoint; no order silently marked paid/cancelled | **Pending Wave 2** |
-| Finance reconciliation reports no unmatched successful provider transactions | **Pending Wave 2** |
+| A Payment outage leaves a recoverable saga checkpoint; no order silently marked paid/cancelled | Implemented in code — create-attempt fails checkout with `503`; mark-failed is best-effort unless `PAYMENT_RPC_REQUIRED=true`; timeout/IPN ownership moves to the service after cutover |
+| Finance reconciliation reports no unmatched successful provider transactions | Owner action — requires production backfill and provider reconciliation during cutover |
 
 ## 6. Owner Actions
 
 - Provision Promotion Postgres + private service; add the Compose/CI/Render infra
   for `apps/services/promotion` (not yet created — Promotion infra wiring is a
   follow-up, mirroring the catalog Step-7 work).
+- Provision Payment Postgres + private service; add the Compose/CI/Render infra
+  for `apps/services/payment`, including RabbitMQ bindings for outbox/inbox
+  processing.
 - Run the Promotion data backfill during a controlled window; reconcile counts.
 - Flip `PROMOTION_RPC_REQUIRED` then `PROMOTION_ROUTES_ENABLED`; monitor RPC
   latency and reservation/confirm/rollback rates.
-- Execute the Payment wave (Wave 2) and its cutover.
+- Run the Payment data backfill and VNPay/provider reconciliation before
+  enabling `PAYMENT_RPC_ENABLED` and `PAYMENT_ROUTES_ENABLED`.
+- After Payment cutover, disable duplicate monolith runtime work with
+  `LEGACY_PAYMENT_RUNTIME_ENABLED=false`.
 - Later: migrate admin/restaurant promotion management out of the monolith once
   Catalog's restaurant-access RPC is available to the Promotion service.
