@@ -26,6 +26,8 @@ export interface ApiProxyOptions {
   catalogRoutesEnabled: boolean;
   /** When true, Promotion-owned public routes are handled locally over TCP. */
   promotionRoutesEnabled: boolean;
+  /** When true, Payment-owned public routes are handled locally over TCP. */
+  paymentRoutesEnabled: boolean;
 }
 
 /**
@@ -54,6 +56,20 @@ export function isCatalogPublicRoute(pathname: string): boolean {
 export function isPromotionPublicRoute(pathname: string): boolean {
   return (
     pathname === '/api/promotions' || pathname.startsWith('/api/promotions/')
+  );
+}
+
+/**
+ * Payment-owned public routes. The customer cancellation route
+ * `/api/payments/vnpay/orders/:orderId/cancel` intentionally stays proxied to
+ * Ordering because it transitions the order after cancelling the payment.
+ */
+export function isPaymentPublicRoute(pathname: string): boolean {
+  return (
+    pathname === '/api/payments/my' ||
+    pathname === '/api/payments/vnpay/ipn' ||
+    pathname === '/api/payments/vnpay/return' ||
+    pathname === '/api/payments/vnpay/mobile-return'
   );
 }
 
@@ -114,6 +130,7 @@ export function createApiProxy({
   notificationSocketTarget,
   catalogRoutesEnabled,
   promotionRoutesEnabled,
+  paymentRoutesEnabled,
 }: ApiProxyOptions): RequestHandler {
   return createProxyMiddleware({
     target,
@@ -137,6 +154,7 @@ export function createApiProxy({
       ) &&
       !(catalogRoutesEnabled && isCatalogPublicRoute(pathname)) &&
       !(promotionRoutesEnabled && isPromotionPublicRoute(pathname)) &&
+      !(paymentRoutesEnabled && isPaymentPublicRoute(pathname)) &&
       !GATEWAY_MANAGEMENT_PATHS.some(
         (p) => pathname === p || pathname.startsWith(`${p}/`),
       ),

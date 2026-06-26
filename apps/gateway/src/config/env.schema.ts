@@ -82,6 +82,15 @@ const schema = z.object({
   PROMOTION_TCP_PORT: z.coerce.number().int().positive().default(4041),
   PROMOTION_MANAGEMENT_PORT: z.coerce.number().int().positive().default(4042),
   PROMOTION_RPC_TIMEOUT_MS: z.coerce.number().int().positive().default(4000),
+  /** Phase 7 cutover switch. False keeps Payment-owned routes on the monolith. */
+  PAYMENT_ROUTES_ENABLED: z
+    .string()
+    .default('false')
+    .transform((value) => ['1', 'true', 'yes'].includes(value.toLowerCase())),
+  PAYMENT_TCP_HOST: z.string().min(1).default('localhost'),
+  PAYMENT_TCP_PORT: z.coerce.number().int().positive().default(4051),
+  PAYMENT_MANAGEMENT_PORT: z.coerce.number().int().positive().default(4052),
+  PAYMENT_RPC_TIMEOUT_MS: z.coerce.number().int().positive().default(5000),
   GATEWAY_CORS_ORIGINS: z
     .string()
     .default('http://localhost:5173,http://localhost:5174'),

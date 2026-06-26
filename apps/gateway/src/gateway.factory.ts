@@ -14,6 +14,7 @@ import {
   isNotificationPublicRoute,
   isCatalogPublicRoute,
   isPromotionPublicRoute,
+  isPaymentPublicRoute,
 } from './proxy/api-proxy.factory';
 import { createMediaCors } from './media/media-cors.middleware';
 import { createCatalogCors } from './catalog/catalog-cors.middleware';
@@ -24,6 +25,7 @@ import type { IdentityRouteOverrides } from './identity/identity.interfaces';
 import { IdentityHttpProxyService } from './identity/identity-http-proxy.service';
 import type { NotificationRouteOverrides } from './notification/notification.interfaces';
 import { createNotificationCors } from './notification/notification-cors.middleware';
+import type { PaymentRouteOverrides } from './payment/payment.interfaces';
 
 /**
  * Builds the fully-wired gateway application WITHOUT listening.
@@ -40,7 +42,8 @@ export interface GatewayOverrides
     IdentityRouteOverrides,
     NotificationRouteOverrides,
     CatalogRouteOverrides,
-    PromotionRouteOverrides {
+    PromotionRouteOverrides,
+    PaymentRouteOverrides {
   /** Override the upstream target (used by tests to point at a stub). */
   target?: string;
   /** Override the proxy timeout in ms. */
@@ -55,6 +58,8 @@ export interface GatewayOverrides
   catalogRoutesEnabled?: boolean;
   /** Override the Promotion route cutover flag. */
   promotionRoutesEnabled?: boolean;
+  /** Override the Payment route cutover flag. */
+  paymentRoutesEnabled?: boolean;
 }
 
 export async function createGatewayApp(
@@ -99,6 +104,10 @@ export async function createGatewayApp(
   const promotionRoutesEnabled =
     overrides.promotionRoutesEnabled ??
     config.get('PROMOTION_ROUTES_ENABLED', { infer: true }) ??
+    false;
+  const paymentRoutesEnabled =
+    overrides.paymentRoutesEnabled ??
+    config.get('PAYMENT_ROUTES_ENABLED', { infer: true }) ??
     false;
 
   // 1. Strip internal/trust headers + ensure x-request-id (before proxying).
@@ -177,6 +186,14 @@ export async function createGatewayApp(
     app.useGlobalPipes(new ValidationPipe({ transform: true }));
   }
 
+  if (paymentRoutesEnabled) {
+    const jsonParser = json({ limit: '1mb' });
+    app.use((req, res, next) =>
+      isPaymentPublicRoute(req.path) ? jsonParser(req, res, next) : next(),
+    );
+    app.useGlobalPipes(new ValidationPipe({ transform: true }));
+  }
+
   // 2. Proxy everything except the gateway's own management paths.
   const proxy = createApiProxy({
     target,
@@ -187,6 +204,7 @@ export async function createGatewayApp(
     notificationSocketTarget: `http://${config.get('NOTIFICATION_TCP_HOST', { infer: true })}:${config.get('NOTIFICATION_MANAGEMENT_PORT', { infer: true })}`,
     catalogRoutesEnabled,
     promotionRoutesEnabled,
+    paymentRoutesEnabled,
   });
   app.use(proxy);
 
