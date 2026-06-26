@@ -105,6 +105,15 @@ const schema = z.object({
   ORDERING_TCP_PORT: z.coerce.number().int().positive().default(4071),
   ORDERING_MANAGEMENT_PORT: z.coerce.number().int().positive().default(4072),
   ORDERING_RPC_TIMEOUT_MS: z.coerce.number().int().positive().default(6000),
+  /** Phase 10 cutover switch. False keeps Reporting routes on the monolith. */
+  REPORTING_ROUTES_ENABLED: z
+    .string()
+    .default('false')
+    .transform((value) => ['1', 'true', 'yes'].includes(value.toLowerCase())),
+  REPORTING_TCP_HOST: z.string().min(1).default('localhost'),
+  REPORTING_TCP_PORT: z.coerce.number().int().positive().default(4081),
+  REPORTING_MANAGEMENT_PORT: z.coerce.number().int().positive().default(4082),
+  REPORTING_RPC_TIMEOUT_MS: z.coerce.number().int().positive().default(4000),
   GATEWAY_CORS_ORIGINS: z
     .string()
     .default('http://localhost:5173,http://localhost:5174'),

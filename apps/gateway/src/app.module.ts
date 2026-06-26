@@ -18,6 +18,8 @@ import { ReviewRoutesModule } from './review/review-routes.module';
 import type { ReviewRouteOverrides } from './review/review.interfaces';
 import { OrderingRoutesModule } from './ordering/ordering-routes.module';
 import type { OrderingRouteOverrides } from './ordering/ordering.interfaces';
+import { ReportingRoutesModule } from './reporting/reporting-routes.module';
+import type { ReportingRouteOverrides } from './reporting/reporting.interfaces';
 
 /**
  * Gateway root module.
@@ -38,7 +40,8 @@ export class AppModule {
       PromotionRouteOverrides &
       PaymentRouteOverrides &
       ReviewRouteOverrides &
-      OrderingRouteOverrides = {},
+      OrderingRouteOverrides &
+      ReportingRouteOverrides = {},
   ): DynamicModule {
     return {
       module: AppModule,
@@ -51,6 +54,7 @@ export class AppModule {
         PaymentRoutesModule.register(overrides),
         ReviewRoutesModule.register(overrides),
         OrderingRoutesModule.register(overrides),
+        ReportingRoutesModule.register(overrides),
       ],
     };
   }

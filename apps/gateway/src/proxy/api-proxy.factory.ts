@@ -102,6 +102,14 @@ export function isReviewPublicRoute(pathname: string): boolean {
   return pathname === '/api/reviews' || pathname.startsWith('/api/reviews/');
 }
 
+/** Reporting-owned public routes: the admin analytics dashboard bundle. */
+export function isReportingPublicRoute(pathname: string): boolean {
+  return (
+    pathname === '/api/admin/analytics' ||
+    pathname.startsWith('/api/admin/analytics/')
+  );
+}
+
 export function isMediaPublicRoute(pathname: string): boolean {
   return (
     pathname === '/api/images' ||

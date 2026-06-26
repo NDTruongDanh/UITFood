@@ -17,6 +17,7 @@ import {
   isPaymentPublicRoute,
   isReviewPublicRoute,
   isOrderingPublicRoute,
+  isReportingPublicRoute,
 } from './proxy/api-proxy.factory';
 import { createMediaCors } from './media/media-cors.middleware';
 import { createCatalogCors } from './catalog/catalog-cors.middleware';
@@ -32,6 +33,8 @@ import { createReviewCors } from './review/review-cors.middleware';
 import type { ReviewRouteOverrides } from './review/review.interfaces';
 import { createOrderingCors } from './ordering/ordering-cors.middleware';
 import type { OrderingRouteOverrides } from './ordering/ordering.interfaces';
+import { createReportingCors } from './reporting/reporting-cors.middleware';
+import type { ReportingRouteOverrides } from './reporting/reporting.interfaces';
 
 /**
  * Builds the fully-wired gateway application WITHOUT listening.
@@ -52,7 +55,8 @@ export interface GatewayOverrides
     PromotionRouteOverrides,
     PaymentRouteOverrides,
     ReviewRouteOverrides,
-    OrderingRouteOverrides {
+    OrderingRouteOverrides,
+    ReportingRouteOverrides {
   /** Override the upstream target (used by tests to point at a stub). */
   target?: string;
   /** Override the proxy timeout in ms. */
@@ -73,6 +77,8 @@ export interface GatewayOverrides
   reviewRoutesEnabled?: boolean;
   /** Override the Ordering route cutover flag. */
   orderingRoutesEnabled?: boolean;
+  /** Override the Reporting route cutover flag. */
+  reportingRoutesEnabled?: boolean;
 }
 
 export async function createGatewayApp(
@@ -129,6 +135,10 @@ export async function createGatewayApp(
   const orderingRoutesEnabled =
     overrides.orderingRoutesEnabled ??
     config.get('ORDERING_ROUTES_ENABLED', { infer: true }) ??
+    false;
+  const reportingRoutesEnabled =
+    overrides.reportingRoutesEnabled ??
+    config.get('REPORTING_ROUTES_ENABLED', { infer: true }) ??
     false;
 
   // 1. Strip internal/trust headers + ensure x-request-id (before proxying).
@@ -243,6 +253,22 @@ export async function createGatewayApp(
     const jsonParser = json({ limit: '1mb' });
     app.use((req, res, next) =>
       isOrderingPublicRoute(req.path) ? jsonParser(req, res, next) : next(),
+    );
+    app.useGlobalPipes(new ValidationPipe({ transform: true }));
+  }
+
+  if (reportingRoutesEnabled) {
+    const allowedOrigins = new Set(
+      config
+        .get('GATEWAY_CORS_ORIGINS', { infer: true })
+        .split(',')
+        .map((origin) => origin.trim())
+        .filter(Boolean),
+    );
+    app.use(createReportingCors(allowedOrigins));
+    const jsonParser = json({ limit: '1mb' });
+    app.use((req, res, next) =>
+      isReportingPublicRoute(req.path) ? jsonParser(req, res, next) : next(),
     );
     app.useGlobalPipes(new ValidationPipe({ transform: true }));
   }

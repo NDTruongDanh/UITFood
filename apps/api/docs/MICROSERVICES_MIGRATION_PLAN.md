@@ -1,6 +1,6 @@
 # API Modular Monolith to Microservices Migration Plan
 
-**Status:** In progress — Phases 0–9 code-complete and verified; cutover/decommission pending (all business contexts extracted; monolith retirement is the remaining deploy-time work)
+**Status:** Code-complete — Phases 0–10 implemented and verified. All nine business contexts are extracted into services and the migration codebase is complete. The only remaining work is the deploy-time strangler cutover: per-service production backfill + flag flips, then deletion of the monolith modules and the Gateway fallback proxy (post-deployment owner actions, performed after all eight services are cut over and observed stable for 14 days).
 
 **Scope:** `apps/api` and the infrastructure, CI/CD, and clients that depend on it
 
@@ -26,7 +26,8 @@ cutover, and legacy decommission remain owner actions.
 | 6     | Extract Restaurant Catalog                  | Code-complete | [PHASE_6_REPORT.md](./PHASE_6_REPORT.md) |
 | 7     | Extract Promotions and Payments             | Code-complete | [PHASE_7_REPORT.md](./PHASE_7_REPORT.md) |
 | 8     | Extract Reviews                             | Code-complete | [PHASE_8_REPORT.md](./PHASE_8_REPORT.md) |
-| 9     | Extract Ordering + retire monolith          | Ordering extraction code-complete; monolith retirement pending | [PHASE_9_REPORT.md](./PHASE_9_REPORT.md) |
+| 9     | Extract Ordering                            | Code-complete | [PHASE_9_REPORT.md](./PHASE_9_REPORT.md) |
+| 10    | Reporting migration + monolith retirement   | Reporting extraction code-complete; monolith deletion + fallback removal are post-deployment owner actions | [PHASE_10_REPORT.md](./PHASE_10_REPORT.md) |
 
 ## 1. Executive recommendation
 
@@ -655,6 +656,8 @@ Exit criteria:
 - Ordering meets the latency/error SLO at expected peak load with at least 30% tested headroom.
 
 ### Phase 10 — Reporting migration and monolith retirement (2–3 weeks)
+
+**Status:** Reporting extraction is code-complete and verified — see [PHASE_10_REPORT.md](./PHASE_10_REPORT.md). The `admin-analytics` cross-context joins are replaced by an event-fed Reporting service (projection tables + idempotent consumers, no cross-service joins) behind `REPORTING_ROUTES_ENABLED`. Deleting the `apps/api` monolith modules and removing the Gateway fallback proxy are deliberately **deferred to post-deployment owner actions** — performed per service after all eight services are cut over in production and observed stable for 14 days — to preserve the strangler/flag model rather than force a big-bang release.
 
 **Objective:** Eliminate the final shared-database reader and retire the unified API deployment.
 
