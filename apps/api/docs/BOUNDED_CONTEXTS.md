@@ -41,8 +41,10 @@ relationship is intentional and documented here.
 ## Current integration flow
 
 - Ordering calls Payments and Promotions through their public ports.
-- Review calls Ordering for eligibility/review marking and Catalog for rating
-  projection updates through public ports.
+- Review calls Ordering for eligibility through a public port in the monolith
+  and through the `ordering.review-eligibility.get.v1` TCP contract after
+  extraction. Ordering reviewed markers and Catalog rating totals update from
+  `review.submitted.v1`.
 - Catalog calls Identity for role promotion and Image for image persistence
   through public ports.
 - Notifications calls Identity for contact lookup and consumes shared events.

@@ -1,6 +1,6 @@
 # API Modular Monolith to Microservices Migration Plan
 
-**Status:** In progress — Phases 0–6 code-complete and verified; cutover/decommission pending
+**Status:** In progress — Phases 0–8 code-complete and verified; cutover/decommission pending
 
 **Scope:** `apps/api` and the infrastructure, CI/CD, and clients that depend on it
 
@@ -15,18 +15,18 @@ CI/CD, Render Terraform), and cutover flags are implemented and verified at the
 typecheck/unit/build level; live data backfill, staging drills, production
 cutover, and legacy decommission remain owner actions.
 
-| Phase | Scope | Status | Report |
-| --- | --- | --- | --- |
-| 0 | Baseline, security, architecture decisions | Code-complete | [PHASE_0_REPORT.md](./PHASE_0_REPORT.md) |
-| 1 | Platform foundation and edge gateway | Code-complete | [PHASE_1_REPORT.md](./PHASE_1_REPORT.md) |
-| 2 | Durable integration and monolith decoupling | Code-complete | [PHASE_2_REPORT.md](./PHASE_2_REPORT.md) |
-| 3 | Extract Media pilot | Code-complete | [PHASE_3_REPORT.md](./PHASE_3_REPORT.md) |
-| 4 | Extract Identity and internal auth | Code-complete | [PHASE_4_REPORT.md](./PHASE_4_REPORT.md) |
-| 5 | Extract Notifications | Code-complete | [PHASE_5_REPORT.md](./PHASE_5_REPORT.md) |
-| 6 | Extract Restaurant Catalog | Code-complete | [PHASE_6_REPORT.md](./PHASE_6_REPORT.md) |
-| 7 | Extract Promotions and Payments | Wave 1 (Promotion) code-complete; Wave 2 (Payment) not started | [PHASE_7_REPORT.md](./PHASE_7_REPORT.md) |
-| 8 | Extract Reviews | Not started | — |
-| 9 | Extract Ordering + retire monolith | Not started | — |
+| Phase | Scope                                       | Status        | Report                                   |
+| ----- | ------------------------------------------- | ------------- | ---------------------------------------- |
+| 0     | Baseline, security, architecture decisions  | Code-complete | [PHASE_0_REPORT.md](./PHASE_0_REPORT.md) |
+| 1     | Platform foundation and edge gateway        | Code-complete | [PHASE_1_REPORT.md](./PHASE_1_REPORT.md) |
+| 2     | Durable integration and monolith decoupling | Code-complete | [PHASE_2_REPORT.md](./PHASE_2_REPORT.md) |
+| 3     | Extract Media pilot                         | Code-complete | [PHASE_3_REPORT.md](./PHASE_3_REPORT.md) |
+| 4     | Extract Identity and internal auth          | Code-complete | [PHASE_4_REPORT.md](./PHASE_4_REPORT.md) |
+| 5     | Extract Notifications                       | Code-complete | [PHASE_5_REPORT.md](./PHASE_5_REPORT.md) |
+| 6     | Extract Restaurant Catalog                  | Code-complete | [PHASE_6_REPORT.md](./PHASE_6_REPORT.md) |
+| 7     | Extract Promotions and Payments             | Code-complete | [PHASE_7_REPORT.md](./PHASE_7_REPORT.md) |
+| 8     | Extract Reviews                             | Code-complete | [PHASE_8_REPORT.md](./PHASE_8_REPORT.md) |
+| 9     | Extract Ordering + retire monolith          | Not started   | —                                        |
 
 ## 1. Executive recommendation
 
