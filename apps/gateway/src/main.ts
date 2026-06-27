@@ -11,7 +11,6 @@ async function bootstrap(): Promise<void> {
   const { app, proxy } = await createGatewayApp();
 
   const config = app.get<ConfigService<Env, true>>(ConfigService);
-  const target = config.get('MONOLITH_UPSTREAM_URL', { infer: true });
   const port = config.get('PORT', { infer: true });
 
   const server = (await app.listen(port)) as Server;
@@ -19,7 +18,7 @@ async function bootstrap(): Promise<void> {
   // WebSocket / Socket.IO upgrade passthrough (notifications gateway).
   server.on('upgrade', proxy.upgrade);
 
-  logger.log(`Gateway listening on :${port} → proxying to ${target}`);
+  logger.log(`Gateway listening on :${port}`);
 }
 
 void bootstrap();
