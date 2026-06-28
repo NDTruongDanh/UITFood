@@ -79,6 +79,19 @@ export interface GatewayOverrides
   reportingRoutesEnabled?: boolean;
 }
 
+function getAllowedOrigins(config: ConfigService<Env, true>): ReadonlySet<string> {
+  const corsOrigins = config.get('GATEWAY_CORS_ORIGINS', {
+    infer: true,
+  }) as string;
+
+  return new Set<string>(
+    corsOrigins
+      .split(',')
+      .map((origin) => origin.trim())
+      .filter(Boolean),
+  );
+}
+
 export async function createGatewayApp(
   overrides: GatewayOverrides = {},
 ): Promise<{
@@ -154,13 +167,7 @@ export async function createGatewayApp(
   }
 
   if (mediaRoutesEnabled) {
-    const allowedOrigins = new Set(
-      config
-        .get('GATEWAY_CORS_ORIGINS', { infer: true })
-        .split(',')
-        .map((origin) => origin.trim())
-        .filter(Boolean),
-    );
+    const allowedOrigins = getAllowedOrigins(config);
     app.use(createMediaCors(allowedOrigins));
     const jsonParser = json({ limit: '1mb' });
     app.use((req, res, next) =>
@@ -170,13 +177,7 @@ export async function createGatewayApp(
   }
 
   if (notificationRoutesEnabled) {
-    const allowedOrigins = new Set(
-      config
-        .get('GATEWAY_CORS_ORIGINS', { infer: true })
-        .split(',')
-        .map((origin) => origin.trim())
-        .filter(Boolean),
-    );
+    const allowedOrigins = getAllowedOrigins(config);
     app.use(createNotificationCors(allowedOrigins));
     const jsonParser = json({ limit: '1mb' });
     app.use((req, res, next) =>
@@ -186,13 +187,7 @@ export async function createGatewayApp(
   }
 
   if (catalogRoutesEnabled) {
-    const allowedOrigins = new Set(
-      config
-        .get('GATEWAY_CORS_ORIGINS', { infer: true })
-        .split(',')
-        .map((origin) => origin.trim())
-        .filter(Boolean),
-    );
+    const allowedOrigins = getAllowedOrigins(config);
     app.use(createCatalogCors(allowedOrigins));
     const jsonParser = json({ limit: '1mb' });
     app.use((req, res, next) =>
@@ -202,13 +197,7 @@ export async function createGatewayApp(
   }
 
   if (promotionRoutesEnabled) {
-    const allowedOrigins = new Set(
-      config
-        .get('GATEWAY_CORS_ORIGINS', { infer: true })
-        .split(',')
-        .map((origin) => origin.trim())
-        .filter(Boolean),
-    );
+    const allowedOrigins = getAllowedOrigins(config);
     app.use(createPromotionCors(allowedOrigins));
     const jsonParser = json({ limit: '1mb' });
     app.use((req, res, next) =>
@@ -226,13 +215,7 @@ export async function createGatewayApp(
   }
 
   if (reviewRoutesEnabled) {
-    const allowedOrigins = new Set(
-      config
-        .get('GATEWAY_CORS_ORIGINS', { infer: true })
-        .split(',')
-        .map((origin) => origin.trim())
-        .filter(Boolean),
-    );
+    const allowedOrigins = getAllowedOrigins(config);
     app.use(createReviewCors(allowedOrigins));
     const jsonParser = json({ limit: '1mb' });
     app.use((req, res, next) =>
@@ -242,13 +225,7 @@ export async function createGatewayApp(
   }
 
   if (orderingRoutesEnabled) {
-    const allowedOrigins = new Set(
-      config
-        .get('GATEWAY_CORS_ORIGINS', { infer: true })
-        .split(',')
-        .map((origin) => origin.trim())
-        .filter(Boolean),
-    );
+    const allowedOrigins = getAllowedOrigins(config);
     app.use(createOrderingCors(allowedOrigins));
     const jsonParser = json({ limit: '1mb' });
     app.use((req, res, next) =>
@@ -258,13 +235,7 @@ export async function createGatewayApp(
   }
 
   if (reportingRoutesEnabled) {
-    const allowedOrigins = new Set(
-      config
-        .get('GATEWAY_CORS_ORIGINS', { infer: true })
-        .split(',')
-        .map((origin) => origin.trim())
-        .filter(Boolean),
-    );
+    const allowedOrigins = getAllowedOrigins(config);
     app.use(createReportingCors(allowedOrigins));
     const jsonParser = json({ limit: '1mb' });
     app.use((req, res, next) =>
