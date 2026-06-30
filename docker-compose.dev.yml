@@ -402,6 +402,9 @@ services:
       PAYMENT_TCP_HOST: payment
       PAYMENT_TCP_PORT: 4051
       PAYMENT_RPC_REQUIRED: 'true'
+      IDENTITY_TCP_HOST: identity
+      IDENTITY_TCP_PORT: 4011
+      IDENTITY_RPC_REQUIRED: 'true'
       INTERNAL_AUTH_JWT_SECRET: ${INTERNAL_AUTH_JWT_SECRET:-internal_auth_secret_for_local_dev_only_32_chars}
       INTERNAL_AUTH_TRUSTED_ISSUERS: uitfood-gateway,uitfood-review
       INTERNAL_AUTH_JWT_ISSUER: uitfood-ordering
@@ -419,6 +422,8 @@ services:
       promotion:
         condition: service_started
       payment:
+        condition: service_started
+      identity:
         condition: service_started
     develop:
       watch:
