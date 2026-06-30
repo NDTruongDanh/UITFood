@@ -39,9 +39,12 @@ Point clients at the gateway origin (`http://localhost:8080`).
 | --- | --- | --- |
 | `PORT` | `8080` | Gateway listen port |
 | `GATEWAY_PROXY_TIMEOUT_MS` | `30000` | Socket.IO proxy timeout |
-| `NOTIFICATION_SOCKET_TARGET` | `http://localhost:4022` | Notification WebSocket target |
+| `GATEWAY_AUTH_TIMEOUT_MS` | `3000` | Identity/auth RPC timeout |
+| `GATEWAY_CORS_ORIGINS` | `http://localhost:5173,http://localhost:5174` | Allowed browser origins |
+| `INTERNAL_AUTH_JWT_*` | local dev defaults | Gateway-issued internal service token settings |
 | `*_TCP_HOST` / `*_TCP_PORT` | service-specific | Private TCP service targets |
-| `*_MANAGEMENT_URL` | service-specific | Readiness target per service |
+| `*_MANAGEMENT_PORT` | service-specific | Readiness target per service; notification also uses this for Socket.IO proxying |
+| `*_RPC_TIMEOUT_MS` | service-specific | TCP RPC timeout per service |
 | `*_ROUTES_ENABLED` | `true` | Route ownership flags |
 | `NODE_ENV` | `development` | Runtime environment |
 
