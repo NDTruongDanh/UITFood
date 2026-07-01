@@ -20,15 +20,7 @@ import {
   useNotificationHandler,
 } from '@/src/features/notification';
 import Toast from 'react-native-toast-message';
-import { initMobileObservability, Sentry } from '@/src/lib/observability';
-import {
-  identifyMobileUser,
-  MobileAnalyticsProvider,
-  resetMobileAnalyticsIdentity,
-} from '@/src/lib/analytics';
 import { AppLoadingScreen } from '@/src/components/app-loading-screen';
-
-initMobileObservability();
 
 void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
@@ -47,13 +39,8 @@ function RootNavigation() {
     if (isPending) return;
 
     if (userId) {
-      identifyMobileUser(userId);
-      Sentry.setUser({ id: userId });
       return;
     }
-
-    resetMobileAnalyticsIdentity();
-    Sentry.setUser(null);
   }, [userId, isPending]);
 
   useEffect(() => {
@@ -129,12 +116,10 @@ function AppLayout() {
   return (
     <View style={{ flex: 1 }} onLayout={handleRootLayout}>
       <QueryClientProvider client={queryClient}>
-        <MobileAnalyticsProvider>
-          <RootNavigation />
-        </MobileAnalyticsProvider>
+        <RootNavigation />
       </QueryClientProvider>
     </View>
   );
 }
 
-export default Sentry.wrap(AppLayout);
+export default AppLayout;
